@@ -3,8 +3,10 @@ import { inngest } from "@/features/scraping/api/inngest-client";
 import { runScrapeJob } from "@/features/scraping/api/run-scrape";
 import { runGmbScrapeJob } from "@/features/leads/api/run-gmb-scrape";
 import { runLinkedInScrapeJob } from "@/features/leads/api/run-linkedin-scrape";
+import { runSourceScrapeJob } from "@/features/tenders/api/run-source-scrape";
+import { runWebsiteScrapeJob } from "@/features/tenders/api/run-website-scrape";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [runScrapeJob, runGmbScrapeJob, runLinkedInScrapeJob],
+  functions: [runScrapeJob, runGmbScrapeJob, runLinkedInScrapeJob, runSourceScrapeJob, runWebsiteScrapeJob],
 });
