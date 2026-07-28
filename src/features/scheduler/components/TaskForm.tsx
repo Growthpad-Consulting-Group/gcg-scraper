@@ -1,0 +1,387 @@
+"use client";
+
+import { Icon } from "@iconify/react";
+import { useState, useEffect } from "react";
+
+const ENGINES = [
+  { name: "Bing", icon: "mdi:microsoft-bing" },
+  { name: "Yahoo", icon: "mdi:yahoo" },
+  { name: "DuckDuckGo", icon: "simple-icons:duckduckgo" },
+  { name: "Ecosia", icon: "simple-icons:ecosia" },
+  { name: "Startpage", icon: "simple-icons:startpage" },
+];
+
+export default function TaskForm({
+  task,
+  setTask,
+  currentSearchTerm,
+  setCurrentSearchTerm,
+  tenderTypes,
+  mode,
+  handleAddSearchTerm,
+  handleRemoveSearchTerm,
+  isLoadingParent,
+}: {
+  task: any;
+  setTask: (updater: any) => void;
+  currentSearchTerm?: string;
+  setCurrentSearchTerm?: (v: string) => void;
+  tenderTypes: string[];
+  mode: "light" | "dark";
+  handleAddSearchTerm?: () => void;
+  handleRemoveSearchTerm: (term: string) => void;
+  isLoadingParent: boolean;
+}) {
+  const [searchTerms, setSearchTerms] = useState<{ id: number; term: string }[]>([]);
+  const [isLoadingSearchTerms, setIsLoadingSearchTerms] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(
+    task.emailNotificationsEnabled || task.smsNotificationsEnabled || task.slackNotificationsEnabled
+  );
+  const [currentEmail, setCurrentEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const handleAddEmail = () => {
+    if (!currentEmail) return setEmailError("Please enter an email address.");
+    if (!isValidEmail(currentEmail)) return setEmailError("Please enter a valid email address.");
+    const emails = Array.isArray(task.customEmails) ? [...task.customEmails] : [];
+    if (emails.includes(currentEmail)) return setEmailError("This email is already added.");
+    const updatedEmails = [...emails, currentEmail];
+    setTask((prev: any) => ({ ...prev, customEmails: updatedEmails, custom_emails: updatedEmails.join(",") }));
+    setCurrentEmail("");
+    setEmailError(null);
+  };
+
+  const handleRemoveEmail = (email: string) => {
+    const emails = Array.isArray(task.customEmails) ? [...task.customEmails] : [];
+    const updatedEmails = emails.filter((e) => e !== email);
+    setTask((prev: any) => ({ ...prev, customEmails: updatedEmails, custom_emails: updatedEmails.join(",") }));
+  };
+
+  useEffect(() => {
+    if (task.tenderType !== "Search Query Tenders") {
+      setSearchTerms([]);
+      setError(null);
+      setIsLoadingSearchTerms(false);
+      return;
+    }
+
+    const fetchSearchTerms = async () => {
+      setIsLoadingSearchTerms(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/search-terms");
+        const data = await res.json();
+        setSearchTerms(Array.isArray(data.search_terms) ? data.search_terms : []);
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch search terms.");
+      } finally {
+        setIsLoadingSearchTerms(false);
+      }
+    };
+
+    fetchSearchTerms();
+  }, [task.tenderType]);
+
+  useEffect(() => {
+    if (!task.customEmails && !task.custom_emails) {
+      setTask((prev: any) => ({ ...prev, customEmails: [], custom_emails: "" }));
+    } else if (task.custom_emails && !Array.isArray(task.customEmails)) {
+      const emailArray = (task.custom_emails || "").split(",").filter((email: string) => email.trim());
+      setTask((prev: any) => ({ ...prev, customEmails: emailArray }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.customEmails, task.custom_emails]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setTask((prev: any) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxChange = (term: string) => {
+    const updatedSearchTerms = task.searchTerms.includes(term) ? task.searchTerms.filter((t: string) => t !== term) : [...task.searchTerms, term];
+    setTask({ ...task, searchTerms: updatedSearchTerms, search_terms: updatedSearchTerms });
+  };
+
+  const handleEngineChange = (engine: string) => {
+    const updatedEngines = task.engines.includes(engine) ? task.engines.filter((e: string) => e !== engine) : [...task.engines, engine];
+    setTask({ ...task, engines: updatedEngines });
+  };
+
+  useEffect(() => {
+    setShowNotifications(task.emailNotificationsEnabled || task.smsNotificationsEnabled || task.slackNotificationsEnabled);
+  }, [task.emailNotificationsEnabled, task.smsNotificationsEnabled, task.slackNotificationsEnabled]);
+
+  return (
+    <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#f05d23] scrollbar-track-gray-200 p-6 space-y-6">
+      <div>
+        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Task Name</label>
+        <input
+          type="text"
+          name="name"
+          value={task.name}
+          onChange={handleInputChange}
+          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
+          placeholder="Enter task name"
+        />
+      </div>
+
+      <div>
+        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Tender Type</label>
+        <select
+          name="tenderType"
+          value={task.tenderType}
+          onChange={(e) => setTask((prev: any) => ({ ...prev, tenderType: e.target.value, tender_type: e.target.value }))}
+          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
+        >
+          {tenderTypes.length > 0 ? (
+            tenderTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))
+          ) : (
+            <option value="" disabled>
+              No tender types available
+            </option>
+          )}
+        </select>
+      </div>
+
+      <div>
+        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Frequency</label>
+        <select
+          name="frequency"
+          value={task.frequency}
+          onChange={handleInputChange}
+          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
+        >
+          <option value="Hourly">Hourly</option>
+          <option value="Every 3 Hours">Every 3 Hours</option>
+          <option value="Every 12 Hours">Every 12 Hours</option>
+          <option value="Daily">Daily</option>
+          <option value="Weekly">Weekly</option>
+          <option value="Monthly">Monthly</option>
+        </select>
+      </div>
+
+      <div>
+        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Priority</label>
+        <select
+          name="priority"
+          value={task.priority}
+          onChange={handleInputChange}
+          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
+        >
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
+
+      <div>
+        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>
+          Search Term / Keyword
+          {task.tenderType !== "Search Query Tenders" && " (Optional)"}
+        </label>
+        {task.tenderType === "Search Query Tenders" ? (
+          <>
+            {isLoadingSearchTerms ? (
+              <p className="text-sm">Loading search terms...</p>
+            ) : error ? (
+              <p className="text-sm text-red-500">Error: {error}</p>
+            ) : searchTerms.length > 0 ? (
+              <div className="grid grid-cols-2 gap-4 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-[#f05d23] scrollbar-track-gray-200">
+                {searchTerms.map((termObj) => (
+                  <label key={termObj.id} className={`flex items-center space-x-2 text-sm ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>
+                    <input type="checkbox" checked={task.searchTerms.includes(termObj.term)} onChange={() => handleCheckboxChange(termObj.term)} className="h-4 w-4 text-[#f05d23] border-gray-300 rounded focus:ring-[#f05d23]" />
+                    <span>{termObj.term}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-red-500">No search terms available. Please add search terms to proceed.</p>
+            )}
+            {task.searchTerms.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {task.searchTerms.map((term: string, index: number) => (
+                  <span key={index} className={`px-2 py-1 rounded-full text-sm flex items-center gap-1 ${mode === "dark" ? "bg-gray-600 text-white" : "bg-gray-200 text-[#231812]"}`}>
+                    {term}
+                    <button onClick={() => handleRemoveSearchTerm(term)} className="ml-1 focus:outline-none">
+                      <Icon icon="mdi:close" width={16} height={16} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={currentSearchTerm}
+                onChange={(e) => setCurrentSearchTerm?.(e.target.value)}
+                className={`flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
+                placeholder="Add a search term"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddSearchTerm?.();
+                }}
+              />
+              <button onClick={handleAddSearchTerm} className={`px-3 py-1 rounded-lg ${mode === "dark" ? "bg-gray-600 hover:bg-gray-500" : "bg-gray-200 hover:bg-gray-300"}`}>
+                Add
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {task.searchTerms.map((term: string, index: number) => (
+                <span key={index} className={`px-2 py-1 rounded-full text-sm flex items-center gap-1 ${mode === "dark" ? "bg-gray-600 text-white" : "bg-gray-200 text-[#231812]"}`}>
+                  {term}
+                  <button onClick={() => handleRemoveSearchTerm(term)} className="ml-1 focus:outline-none">
+                    <Icon icon="mdi:close" width={16} height={16} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div>
+        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Search Engines</label>
+        <div className="grid grid-cols-2 gap-4 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-[#f05d23] scrollbar-track-gray-200">
+          {ENGINES.map((engine) => (
+            <label key={engine.name} className={`flex items-center space-x-2 text-sm ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>
+              <input type="checkbox" checked={task.engines.includes(engine.name)} onChange={() => handleEngineChange(engine.name)} className="h-4 w-4 text-[#f05d23] border-gray-300 rounded focus:ring-[#f05d23]" />
+              <Icon icon={engine.icon} width={16} height={16} />
+              <span>{engine.name}</span>
+            </label>
+          ))}
+        </div>
+        {task.engines.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {task.engines.map((engineName: string, index: number) => {
+              const engine = ENGINES.find((e) => e.name === engineName);
+              if (!engine) return null;
+              return (
+                <span key={index} className={`px-2 py-1 rounded-full text-sm flex items-center gap-1 ${mode === "dark" ? "bg-gray-600 text-white" : "bg-gray-200 text-[#231812]"}`}>
+                  <Icon icon={engine.icon} width={16} height={16} />
+                  {engine.name}
+                  <button onClick={() => handleEngineChange(engine.name)} className="ml-1 focus:outline-none">
+                    <Icon icon="mdi:close" width={16} height={16} />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center space-x-3">
+        <label className={`text-lg font-medium ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Enable Notifications?</label>
+        <div
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showNotifications ? "bg-[#f05d23]" : mode === "dark" ? "bg-gray-700" : "bg-gray-300"} cursor-pointer`}
+          onClick={() => {
+            const newState = !showNotifications;
+            setShowNotifications(newState);
+            if (!newState) {
+              setTask((prev: any) => ({
+                ...prev,
+                emailNotificationsEnabled: false,
+                smsNotificationsEnabled: false,
+                slackNotificationsEnabled: false,
+                email_notifications_enabled: false,
+                sms_notifications_enabled: false,
+                slack_notifications_enabled: false,
+              }));
+            } else if (!task.emailNotificationsEnabled && !task.smsNotificationsEnabled && !task.slackNotificationsEnabled) {
+              setTask((prev: any) => ({ ...prev, emailNotificationsEnabled: true, email_notifications_enabled: true }));
+            }
+          }}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${showNotifications ? "translate-x-6" : "translate-x-1"}`} />
+        </div>
+      </div>
+
+      {showNotifications && (
+        <div className="mt-4 p-4 rounded-lg border animate-fade-in-down transition-all duration-300 ease-in-out">
+          <h4 className={`text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-gray-700"}`}>Notification Settings</h4>
+          <div className="space-y-3">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={task.emailNotificationsEnabled}
+                onChange={() => setTask((prev: any) => ({ ...prev, emailNotificationsEnabled: !prev.emailNotificationsEnabled, email_notifications_enabled: !prev.emailNotificationsEnabled }))}
+                disabled={isLoadingParent}
+                className="mr-2"
+              />
+              <span className={mode === "dark" ? "text-gray-300" : "text-gray-700"}>Send email notification when an open tender is found</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={task.smsNotificationsEnabled}
+                onChange={() => setTask((prev: any) => ({ ...prev, smsNotificationsEnabled: !prev.smsNotificationsEnabled, sms_notifications_enabled: !prev.smsNotificationsEnabled }))}
+                disabled={isLoadingParent}
+                className="mr-2"
+              />
+              <span className={mode === "dark" ? "text-gray-300" : "text-gray-700"}>Send SMS notification when an open tender is found</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={task.slackNotificationsEnabled}
+                onChange={() => setTask((prev: any) => ({ ...prev, slackNotificationsEnabled: !prev.slackNotificationsEnabled, slack_notifications_enabled: !prev.slackNotificationsEnabled }))}
+                disabled={isLoadingParent}
+                className="mr-2"
+              />
+              <span className={mode === "dark" ? "text-gray-300" : "text-gray-700"}>Send Slack notification to #tenders channel when an open tender is found</span>
+            </label>
+            <div className="mt-4">
+              <label className={`block mb-1 ${mode === "dark" ? "text-gray-300" : "text-gray-700"}`}>Additional Email Recipients</label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="email"
+                  value={currentEmail}
+                  onChange={(e) => {
+                    setCurrentEmail(e.target.value);
+                    setEmailError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddEmail();
+                    }
+                  }}
+                  placeholder="e.g., user@example.com"
+                  className={`flex-1 p-2 rounded-md border ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} ${emailError ? "border-red-500" : ""}`}
+                  disabled={isLoadingParent}
+                />
+                <button onClick={handleAddEmail} className={`px-3 py-1 rounded-lg ${mode === "dark" ? "bg-gray-600 hover:bg-gray-500" : "bg-gray-200 hover:bg-gray-300"}`} disabled={isLoadingParent}>
+                  Add
+                </button>
+              </div>
+              {emailError && <p className="text-sm text-red-500 mb-2">{emailError}</p>}
+              {Array.isArray(task.customEmails) && task.customEmails.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {task.customEmails.map((email: string, index: number) => (
+                    <span key={index} className={`px-2 py-1 rounded-full text-sm flex items-center gap-1 ${mode === "dark" ? "bg-gray-600 text-white" : "bg-gray-200 text-[#231812]"}`}>
+                      {email}
+                      <button onClick={() => handleRemoveEmail(email)} className="ml-1 focus:outline-none" disabled={isLoadingParent}>
+                        <Icon icon="mdi:close" width={16} height={16} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className={`block mb-1 mt-4 text-sm italic ${mode === "dark" ? "text-gray-300" : "text-gray-700"}`}>
+                By default, Tender notifications will be sent to<span className="underline"> strategic@growthpad.co.ke</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
