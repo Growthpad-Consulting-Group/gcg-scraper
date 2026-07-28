@@ -12,22 +12,18 @@ import { useNotifications } from "@/shared/contexts/NotificationsContext";
 import { useTheme } from "@/app/providers";
 import LeadSearchForm from "@/features/leads/components/LeadSearchForm";
 import LeadsTable from "@/features/leads/components/LeadsTable";
+import LinkedInSearchForm from "@/features/leads/components/LinkedInSearchForm";
+import LinkedInLeadsTable from "@/features/leads/components/LinkedInLeadsTable";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 
-export default function LeadsPage() {
-  const { mode, toggleMode } = useTheme();
-  const { isSidebarOpen, toggleSidebar } = useSidebar();
-  const { fullName, loading: userLoading, handleLogout } = useUserProfile();
-  const { notifications, isLoading: notificationsLoading, markNotificationAsRead } = useNotifications();
-
+function GmbTab({ mode }: { mode: "light" | "dark" }) {
   const [leads, setLeads] = useState<any[]>([]);
-  const [isLoadingLeads, setIsLoadingLeads] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [jobId, setJobId] = useState<string | null>(null);
-
   const { scrapeStatus, setScrapeStatus } = useRealtimeJob(jobId);
 
   const fetchLeads = useCallback(async () => {
-    setIsLoadingLeads(true);
+    setIsLoading(true);
     try {
       const res = await fetch("/api/leads");
       const data = await res.json();
@@ -36,7 +32,7 @@ export default function LeadsPage() {
     } catch (err: any) {
       toast.error("Error fetching leads: " + err.message);
     } finally {
-      setIsLoadingLeads(false);
+      setIsLoading(false);
     }
   }, []);
 
@@ -86,7 +82,111 @@ export default function LeadsPage() {
     }
   };
 
-  const isRunning = scrapeStatus === "running";
+  return (
+    <div className="space-y-6">
+      <LeadSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64 bg-opacity-50 rounded-lg">
+          <Icon icon="mdi:loading" width={40} height={40} className="animate-spin text-[#f05d23]" />
+        </div>
+      ) : (
+        <LeadsTable leads={leads} mode={mode} onDelete={handleDelete} />
+      )}
+    </div>
+  );
+}
+
+function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
+  const [leads, setLeads] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const { scrapeStatus, setScrapeStatus } = useRealtimeJob(jobId);
+
+  const fetchLeads = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/linkedin-leads");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch leads");
+      setLeads(data.leads || []);
+    } catch (err: any) {
+      toast.error("Error fetching LinkedIn leads: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  useEffect(() => {
+    if (scrapeStatus === "complete") {
+      toast.success("LinkedIn search complete!");
+      fetchLeads();
+      setJobId(null);
+      setScrapeStatus("idle");
+    } else if (scrapeStatus === "error") {
+      toast.error("LinkedIn search failed.");
+      setJobId(null);
+      setScrapeStatus("idle");
+    }
+  }, [scrapeStatus, fetchLeads, setScrapeStatus]);
+
+  const handleSearch = async (searchQuery: string, location: string) => {
+    const toastId = toast.loading("Starting LinkedIn search...");
+    try {
+      const res = await fetch("/api/linkedin-leads/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ searchQuery, location }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start search");
+      setJobId(data.jobId);
+      toast.success("Searching LinkedIn... this can take a minute.", { id: toastId, duration: 4000 });
+    } catch (err: any) {
+      toast.error("Failed to start search: " + err.message, { id: toastId });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const previous = leads;
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    try {
+      const res = await fetch(`/api/linkedin-leads/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete lead");
+    } catch (err: any) {
+      setLeads(previous);
+      toast.error(err.message);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <LinkedInSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64 bg-opacity-50 rounded-lg">
+          <Icon icon="mdi:loading" width={40} height={40} className="animate-spin text-[#f05d23]" />
+        </div>
+      ) : (
+        <LinkedInLeadsTable leads={leads} mode={mode} onDelete={handleDelete} />
+      )}
+    </div>
+  );
+}
+
+export default function LeadsPage() {
+  const { mode, toggleMode } = useTheme();
+  const { isSidebarOpen, toggleSidebar } = useSidebar();
+  const { fullName, loading: userLoading, handleLogout } = useUserProfile();
+  const { notifications, isLoading: notificationsLoading, markNotificationAsRead } = useNotifications();
+  const [activeTab, setActiveTab] = useState<"gmb" | "linkedin">("gmb");
+
+  const tabs = [
+    { id: "gmb" as const, label: "Google Maps", icon: "mdi:map-marker-radius" },
+    { id: "linkedin" as const, label: "LinkedIn", icon: "mdi:linkedin" },
+  ];
 
   return (
     <div className={`flex flex-col ${mode === "dark" ? "bg-gradient-to-b from-gray-900 to-gray-800" : "bg-gradient-to-b from-gray-50 to-gray-100"}`}>
@@ -97,7 +197,7 @@ export default function LeadsPage() {
         toggleMode={toggleMode}
         onLogout={handleLogout}
         pageName="Business Leads"
-        pageDescription="Find business leads from Google Maps."
+        pageDescription="Find business and people leads from Google Maps and LinkedIn."
         fullName={fullName}
         loading={userLoading}
         notifications={notifications}
@@ -108,15 +208,24 @@ export default function LeadsPage() {
         <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} fullName={fullName} />
         <div className="content-container h-full flex-1 p-6 transition-all duration-300 overflow-hidden md:ml-[80px] sidebar-open:md:ml-[300px] sidebar-closed:md:ml-[80px]">
           <div className="max-w-7xl mx-auto mt-10 space-y-6">
-            <LeadSearchForm mode={mode} isRunning={isRunning} onSubmit={handleSearch} />
+            <div className="flex gap-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center px-5 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? `bg-[#f05d23] bg-opacity-10 text-[#f05d23] ${mode === "dark" ? "ring-1 ring-[#f05d23] ring-opacity-40" : "shadow-sm"}`
+                      : `${mode === "dark" ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`
+                  }`}
+                >
+                  <Icon icon={tab.icon} className="w-5 h-5 mr-2" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-            {isLoadingLeads ? (
-              <div className="flex justify-center items-center h-64 bg-opacity-50 rounded-lg">
-                <Icon icon="mdi:loading" width={40} height={40} className="animate-spin text-[#f05d23]" />
-              </div>
-            ) : (
-              <LeadsTable leads={leads} mode={mode} onDelete={handleDelete} />
-            )}
+            {activeTab === "gmb" ? <GmbTab mode={mode} /> : <LinkedInTab mode={mode} />}
           </div>
         </div>
       </div>
