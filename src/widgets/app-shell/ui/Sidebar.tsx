@@ -1,29 +1,37 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
-import { sidebarNav } from "@/shared/lib/nav";
+import { motion, AnimatePresence } from "framer-motion";
+import { sidebarNavGroups } from "@/shared/lib/nav";
+import SidebarUserMenu from "@/widgets/app-shell/ui/sidebar/SidebarUserMenu";
+import type { UserProfile } from "@/features/auth/hooks/useUserProfile";
 
 export default function Sidebar({
   isOpen,
   mode,
   onLogout,
   toggleSidebar,
-  fullName = "GCG BD Team",
+  user = null,
+  loading = false,
 }: {
   isOpen: boolean;
   mode: "light" | "dark";
   onLogout: () => void;
   toggleSidebar: () => void;
-  fullName?: string;
+  user?: UserProfile | null;
+  loading?: boolean;
 }) {
   const [windowWidth, setWindowWidth] = useState<number | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const sidebarRef = useRef<HTMLDivElement>(null);
+
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(sidebarNavGroups.map((g) => [g.category, true]))
+  );
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -46,103 +54,149 @@ export default function Sidebar({
     };
   }, [isOpen, windowWidth, toggleSidebar]);
 
+  const toggleCategory = useCallback((category: string) => {
+    setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
+  }, []);
+
   if (windowWidth === null) return null;
 
-  const isActive = (href: string) =>
-    pathname === href
-      ? "bg-[#f05d23] text-white shadow-md"
-      : mode === "dark"
-      ? "text-gray-200 hover:bg-gray-700 hover:text-white"
-      : "text-[#231812] hover:bg-gray-200 hover:text-[#f05d23]";
+  const isActive = (href: string) => pathname === href;
+  const isMobile = windowWidth < 640;
 
   return (
     <div
       ref={sidebarRef}
-      className={`fixed left-0 top-0 z-50 h-full transition-all duration-300 ${mode === "dark" ? "bg-gray-900" : "bg-gray-50"}`}
-      style={{ width: isOpen ? "300px" : windowWidth < 640 ? "0" : "80px" }}
+      className={`shrink-0 z-50 transition-all duration-300 ${
+        isMobile ? "fixed inset-y-0 left-0 m-0" : "sticky top-0 h-screen my-1 md:my-4 md:ml-4"
+      }`}
+      style={{ width: isOpen ? "240px" : isMobile ? "0" : "64px" }}
     >
-      <div className="flex flex-col h-full">
-        <div className={`flex justify-left py-8 ${isOpen ? "px-6" : "px-0"}`}>
+      <div
+        className={`relative h-full flex flex-col border transition-all duration-300 ${isMobile ? "rounded-none" : "rounded-3xl"} ${
+          mode === "dark"
+            ? "bg-gray-900/80 backdrop-blur-2xl border-white/5 text-gray-100 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
+            : "bg-white/70 backdrop-blur-2xl border-white/20 text-gray-800 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]"
+        }`}
+      >
+        {/* Logo — collapse/expand is Header's job; sidebar only gets a close (X) button on mobile */}
+        <div className={`flex items-center h-[72px] shrink-0 py-4 px-2 border-b border-white/10 dark:border-white/5 ${isOpen ? "px-6 justify-between" : "px-0 justify-center"}`}>
           {isOpen ? (
             <Image
               src={mode === "dark" ? "/assets/images/logo-white.svg" : "/assets/images/logo.svg"}
               alt="Growthpad Logo"
-              width={180}
-              height={75}
+              width={150}
+              height={62}
               className="object-contain"
             />
           ) : (
             <Image
               src={mode === "dark" ? "/favicon-white.png" : "/favicon.png"}
               alt="Growthpad Logo"
-              width={48}
-              height={48}
-              className="object-contain"
+              width={40}
+              height={40}
+              className="object-contain mx-auto"
             />
+          )}
+
+          {isMobile && (
+            <button
+              onClick={toggleSidebar}
+              title="Close Sidebar"
+              aria-label="Close Sidebar"
+              className="text-gray-500 dark:text-gray-400 hover:text-[#f05d23] transition-all p-2 rounded-full hover:bg-white/10"
+            >
+              <Icon icon="mdi:close" className="w-6 h-6" />
+            </button>
           )}
         </div>
 
-        <ul className="flex-grow px-2">
-          {sidebarNav.map(({ href, icon, label }) => (
-            <li key={href} className="py-2">
-              <button
-                onClick={() => {
-                  router.push(href);
-                  if (windowWidth < 640) toggleSidebar();
-                }}
-                className={`flex items-center font-semibold text-sm w-full ${
-                  isOpen ? "justify-start px-6" : "justify-center px-0"
-                } py-3 rounded-lg hover:shadow-md transition-all duration-200 group relative ${isActive(href)}`}
-              >
-                <Icon icon={icon} className={`${isOpen ? "h-7 w-7 mr-3" : "h-6 w-6"} group-hover:scale-110 transition-transform`} />
-                {isOpen && <span className="text-base">{label}</span>}
-                {!isOpen && (
-                  <span
-                    className={`absolute left-full ml-2 text-xs ${
-                      mode === "dark" ? "bg-gray-800 text-gray-200" : "bg-gray-700 text-white"
-                    } rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50`}
-                  >
-                    {label}
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        {!isOpen && windowWidth < 640 ? null : (
-          <div
-            className={`flex items-center justify-between px-4 py-3 mt-auto ${
-              mode === "dark" ? "bg-gradient-to-r from-gray-800 to-gray-700" : "bg-gradient-to-r from-gray-200 to-gray-100"
-            } shadow-inner`}
-          >
-            {isOpen ? (
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 overflow-hidden">
-                    <Image src={mode === "dark" ? "/favicon-white.png" : "/favicon.png"} alt="Profile" width={48} height={48} className="object-cover" />
-                  </div>
-                  <span className={`text-base font-medium ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>{fullName}</span>
-                </div>
-                <button onClick={onLogout} className="flex items-center justify-center text-red-500 hover:text-red-600 transition-colors" aria-label="Logout">
-                  <ArrowRightStartOnRectangleIcon className="h-7 w-7" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center w-full relative group">
-                <button onClick={onLogout} className="flex items-center justify-center text-red-500 hover:text-red-600 transition-colors" aria-label="Logout">
-                  <ArrowRightStartOnRectangleIcon className="h-6 w-6 group-hover:scale-110 transition-transform" />
-                </button>
-                <span
-                  className={`absolute left-full ml-2 text-xs ${
-                    mode === "dark" ? "bg-gray-800 text-gray-200" : "bg-gray-700 text-white"
-                  } rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50`}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-1 scrollbar-hide">
+          {sidebarNavGroups.map((group, gi) => (
+            <div key={group.category} className={`w-full ${gi > 0 ? "pt-4" : ""} ${!isOpen ? "flex flex-col items-center" : ""}`}>
+              {isOpen ? (
+                <div
+                  className="flex items-center justify-between px-3 py-2 cursor-pointer group transition-all duration-200"
+                  onClick={() => toggleCategory(group.category)}
                 >
-                  Sign Out
-                </span>
-              </div>
-            )}
-          </div>
+                  <span className="flex items-center gap-2">
+                    <Icon icon={group.icon} className="h-4 w-4 text-gray-400 group-hover:text-[#f05d23] transition-colors" />
+                    <span className="text-md font-semibold capitalize text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+                      {group.category}
+                    </span>
+                  </span>
+                  <Icon
+                    icon="solar:alt-arrow-right-broken"
+                    className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${expandedCategories[group.category] ? "rotate-90" : ""}`}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="flex items-center justify-center py-2 cursor-pointer group"
+                  onClick={() => toggleCategory(group.category)}
+                  onMouseEnter={() => {
+                    if (!isOpen && !isMobile) toggleSidebar();
+                  }}
+                  title={group.category}
+                >
+                  <Icon icon={group.icon} className="h-5 w-5 text-gray-400 group-hover:text-[#f05d23] transition-colors" />
+                </div>
+              )}
+
+              <AnimatePresence initial={false}>
+                {expandedCategories[group.category] && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <ul className={`${isOpen ? "pl-2" : "pl-0"} mt-1 flex flex-col gap-1`}>
+                      {group.items.map(({ href, icon, label }, itemIndex) => {
+                        const active = isActive(href);
+                        return (
+                          <motion.li
+                            key={href}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.2, delay: itemIndex * 0.03, ease: "easeOut" }}
+                          >
+                            <motion.div
+                              onClick={() => {
+                                router.push(href);
+                                if (isMobile) toggleSidebar();
+                              }}
+                              onMouseEnter={() => {
+                                if (!isOpen && !isMobile) toggleSidebar();
+                              }}
+                              title={!isOpen ? label : undefined}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-all duration-300 ${
+                                active
+                                  ? "bg-[#f05d23] text-white shadow-lg shadow-[#f05d23]/20"
+                                  : mode === "dark"
+                                    ? "text-gray-400 hover:bg-white/5 hover:text-white"
+                                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                              } ${!isOpen ? "justify-center" : ""}`}
+                            >
+                              {active && <div className="absolute left-0 w-1 h-1/2 bg-white/60 rounded-r-full" />}
+                              <Icon icon={icon} className={`h-5 w-5 shrink-0 transition-all duration-300 ${active ? "scale-105" : "group-hover:scale-110"}`} />
+                              {isOpen && <span className="truncate">{label}</span>}
+                            </motion.div>
+                          </motion.li>
+                        );
+                      })}
+                    </ul>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </nav>
+
+        {!(!isOpen && isMobile) && (
+          <SidebarUserMenu mode={mode} user={user} loading={loading} isOpen={isOpen} isMobile={isMobile} onLogout={onLogout} />
         )}
       </div>
     </div>

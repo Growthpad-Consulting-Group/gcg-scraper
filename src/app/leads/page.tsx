@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import Sidebar from "@/shared/components/Sidebar";
-import Header from "@/shared/components/Header";
-import SimpleFooter from "@/shared/components/SimpleFooter";
+import Sidebar from "@/widgets/app-shell/ui/Sidebar";
+import Header from "@/widgets/app-shell/ui/Header";
+import PageHeader from "@/shared/ui/PageHeader";
+import SimpleFooter from "@/shared/ui/SimpleFooter";
 import useSidebar from "@/shared/hooks/useSidebar";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useNotifications } from "@/shared/contexts/NotificationsContext";
-import { useTheme } from "@/app/providers";
+import { useTheme } from "@/shared/contexts/ThemeContext";
 import LeadSearchForm from "@/features/leads/components/LeadSearchForm";
 import LeadsTable from "@/features/leads/components/LeadsTable";
 import LinkedInSearchForm from "@/features/leads/components/LinkedInSearchForm";
@@ -177,9 +178,9 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
 }
 
 export default function LeadsPage() {
-  const { mode, toggleMode } = useTheme();
+  const { resolvedMode: mode, toggleMode } = useTheme();
   const { isSidebarOpen, toggleSidebar } = useSidebar();
-  const { fullName, loading: userLoading, handleLogout } = useUserProfile();
+  const { user, loading: userLoading, handleLogout } = useUserProfile();
   const { notifications, isLoading: notificationsLoading, markNotificationAsRead } = useNotifications();
   const [activeTab, setActiveTab] = useState<"gmb" | "linkedin">("gmb");
 
@@ -190,24 +191,30 @@ export default function LeadsPage() {
 
   return (
     <div className={`flex flex-col ${mode === "dark" ? "bg-gradient-to-b from-gray-900 to-gray-800" : "bg-gradient-to-b from-gray-50 to-gray-100"}`}>
-      <Header
-        toggleSidebar={toggleSidebar}
-        isSidebarOpen={!!isSidebarOpen}
-        mode={mode}
-        toggleMode={toggleMode}
-        onLogout={handleLogout}
-        pageName="Business Leads"
-        pageDescription="Find business and people leads from Google Maps and LinkedIn."
-        fullName={fullName}
-        loading={userLoading}
-        notifications={notifications}
-        isLoading={notificationsLoading}
-        onMarkAsRead={markNotificationAsRead}
-      />
       <div className="flex flex-1">
-        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} fullName={fullName} />
-        <div className="content-container h-full flex-1 p-6 transition-all duration-300 overflow-hidden md:ml-[80px] sidebar-open:md:ml-[300px] sidebar-closed:md:ml-[80px]">
-          <div className="max-w-7xl mx-auto mt-10 space-y-6">
+        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header
+            toggleSidebar={toggleSidebar}
+            isSidebarOpen={!!isSidebarOpen}
+            mode={mode}
+            toggleMode={toggleMode}
+            onLogout={handleLogout}
+            user={user}
+            loading={userLoading}
+            notifications={notifications}
+            isLoading={notificationsLoading}
+            onMarkAsRead={markNotificationAsRead}
+          />
+        <div className="h-full flex-1 p-6 transition-all duration-300 overflow-hidden">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <PageHeader
+              title="Business Leads"
+              description="Find business and people leads from Google Maps and LinkedIn."
+              icon="mdi:map-marker-radius"
+              mode={mode}
+            />
+
             <div className="flex gap-2">
               {tabs.map((tab) => (
                 <button
@@ -228,8 +235,10 @@ export default function LeadsPage() {
             {activeTab === "gmb" ? <GmbTab mode={mode} /> : <LinkedInTab mode={mode} />}
           </div>
         </div>
+
+          <SimpleFooter mode={mode} />
+        </div>
       </div>
-      <SimpleFooter mode={mode} isSidebarOpen={!!isSidebarOpen} />
     </div>
   );
 }

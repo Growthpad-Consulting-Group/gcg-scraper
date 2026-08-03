@@ -4,13 +4,14 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import Sidebar from "@/shared/components/Sidebar";
-import Header from "@/shared/components/Header";
-import SimpleFooter from "@/shared/components/SimpleFooter";
+import Sidebar from "@/widgets/app-shell/ui/Sidebar";
+import Header from "@/widgets/app-shell/ui/Header";
+import PageHeader from "@/shared/ui/PageHeader";
+import SimpleFooter from "@/shared/ui/SimpleFooter";
 import useSidebar from "@/shared/hooks/useSidebar";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useNotifications } from "@/shared/contexts/NotificationsContext";
-import { useTheme } from "@/app/providers";
+import { useTheme } from "@/shared/contexts/ThemeContext";
 import QueryForm from "@/features/scraping/components/QueryForm";
 import ScrapingStatus from "@/features/scraping/components/ScrapingStatus";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
@@ -18,9 +19,9 @@ import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 import type { SearchTerm, BaseKeyword, Country } from "@/features/scraping/types";
 
 function RunQueryContent() {
-  const { mode, toggleMode } = useTheme();
+  const { resolvedMode: mode, toggleMode } = useTheme();
   const { isSidebarOpen, toggleSidebar } = useSidebar();
-  const { fullName, loading: userLoading, handleLogout } = useUserProfile();
+  const { user, loading: userLoading, handleLogout } = useUserProfile();
   const { notifications, isLoading: notificationsLoading, markNotificationAsRead } = useNotifications();
   const searchParams = useSearchParams();
 
@@ -153,24 +154,30 @@ function RunQueryContent() {
 
   return (
     <div className={`min-h-screen flex flex-col pt-14 ${mode === "dark" ? "bg-gradient-to-b from-gray-900 to-gray-800" : "bg-gradient-to-b from-gray-50 to-gray-100"}`}>
-      <Header
-        toggleSidebar={toggleSidebar}
-        isSidebarOpen={!!isSidebarOpen}
-        mode={mode}
-        toggleMode={toggleMode}
-        onLogout={handleLogout}
-        pageName="Tender Overview"
-        pageDescription="Monitor and manage your tender scraping tasks."
-        fullName={fullName}
-        loading={userLoading}
-        notifications={notifications}
-        isLoading={notificationsLoading}
-        onMarkAsRead={markNotificationAsRead}
-      />
       <div className="flex flex-1">
-        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} fullName={fullName} />
-        <div className="content-container flex-1 p-6 transition-all duration-300 overflow-hidden md:ml-[80px] sidebar-open:md:ml-[300px] sidebar-closed:md:ml-[80px]">
+        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header
+            toggleSidebar={toggleSidebar}
+            isSidebarOpen={!!isSidebarOpen}
+            mode={mode}
+            toggleMode={toggleMode}
+            onLogout={handleLogout}
+            user={user}
+            loading={userLoading}
+            notifications={notifications}
+            isLoading={notificationsLoading}
+            onMarkAsRead={markNotificationAsRead}
+          />
+        <div className="flex-1 p-6 transition-all duration-300 overflow-hidden">
           <div className="max-w-7xl mx-auto">
+            <PageHeader
+              title="Run Query"
+              description="Search and scrape tenders from configured sources."
+              icon="mdi:database-search"
+              mode={mode}
+            />
+
             {error && <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">{error}</div>}
             {loading || userLoading ? (
               <div className="flex justify-center items-center h-64 bg-opacity-50 rounded-lg">
@@ -228,9 +235,11 @@ function RunQueryContent() {
             )}
           </div>
         </div>
+
+          <SimpleFooter mode={mode} />
+        </div>
       </div>
       <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} summary={summary} mode={mode} scrapeStatus={scrapeStatus} startTime={summary.startTime} taskId={jobId} />
-      <SimpleFooter mode={mode} isSidebarOpen={!!isSidebarOpen} />
     </div>
   );
 }

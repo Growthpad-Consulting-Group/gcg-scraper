@@ -4,8 +4,16 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
+export interface UserProfile {
+  id: number;
+  email: string;
+  name: string;
+}
+
+const DEFAULT_NAME = "GCG BD Team";
+
 export default function useUserProfile() {
-  const [fullName, setFullName] = useState("GCG BD Team");
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -13,9 +21,9 @@ export default function useUserProfile() {
     const fetchUser = async () => {
       const cached = localStorage.getItem("user_profile");
       if (cached) {
-        const { name, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 3600 * 1000) {
-          setFullName(name);
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.timestamp < 3600 * 1000) {
+          setUser(parsed.user);
           setLoading(false);
           return;
         }
@@ -24,12 +32,11 @@ export default function useUserProfile() {
       try {
         const res = await fetch("/api/auth/me");
         if (!res.ok) throw new Error("Not authenticated");
-        const { user } = await res.json();
-        const name = user.name || "GCG BD Team";
-        setFullName(name);
-        localStorage.setItem("user_profile", JSON.stringify({ name, timestamp: Date.now() }));
+        const { user: fetchedUser } = await res.json();
+        setUser(fetchedUser);
+        localStorage.setItem("user_profile", JSON.stringify({ user: fetchedUser, timestamp: Date.now() }));
       } catch {
-        // leave default name; middleware already gates access to protected pages
+        // leave user null; middleware already gates access to protected pages
       } finally {
         setLoading(false);
       }
@@ -45,5 +52,5 @@ export default function useUserProfile() {
     setTimeout(() => router.push("/"), 500);
   };
 
-  return { fullName, loading, setFullName, handleLogout };
+  return { user, fullName: user?.name || DEFAULT_NAME, loading, handleLogout };
 }

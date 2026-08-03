@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import Footer from "@/shared/components/Footer";
+import Footer from "@/shared/ui/Footer";
 import { Icon } from "@iconify/react";
 import Image from "next/image";
 

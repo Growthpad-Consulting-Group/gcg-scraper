@@ -1,12 +1,33 @@
 import type { Metadata } from "next";
-import { Questrial } from "next/font/google";
+import { Figtree } from "next/font/google";
+import localFont from "next/font/local";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
-import { Providers } from "./providers";
+import { ThemeProvider } from "@/shared/contexts/ThemeContext";
+import { NotificationsProvider } from "@/shared/contexts/NotificationsContext";
+import AppToaster from "@/shared/ui/AppToaster";
+import RouteChangeToast from "@/shared/ui/RouteChangeToast";
 
-const questrial = Questrial({
+const figtree = Figtree({
   subsets: ["latin"],
-  weight: "400",
+  variable: "--font-figtree",
+  display: "swap",
+});
+
+const cloverDisplay = localFont({
+  src: [
+    {
+      path: "../../public/assets/fonts/CloverDisplay-SemiBold.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../../public/assets/fonts/CloverDisplay-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-clover-display",
   display: "swap",
 });
 
@@ -16,9 +37,22 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={questrial.className}>
-        <Providers>{children}</Providers>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body suppressHydrationWarning className={`${figtree.variable} ${cloverDisplay.variable} ${figtree.className}`}>
+        <ThemeProvider>
+          <NotificationsProvider>
+            <AppToaster />
+            <RouteChangeToast />
+            {children}
+          </NotificationsProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

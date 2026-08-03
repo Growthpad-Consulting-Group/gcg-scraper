@@ -20,8 +20,6 @@ export default function useSidebar() {
   useEffect(() => {
     if (isSidebarOpen !== null) {
       localStorage.setItem("sidebarOpen", JSON.stringify(isSidebarOpen));
-      document.body.classList.toggle("sidebar-open", isSidebarOpen);
-      document.body.classList.toggle("sidebar-closed", !isSidebarOpen);
     }
   }, [isSidebarOpen]);
 

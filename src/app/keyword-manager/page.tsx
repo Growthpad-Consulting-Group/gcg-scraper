@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Sidebar from "@/shared/components/Sidebar";
-import Header from "@/shared/components/Header";
-import SimpleFooter from "@/shared/components/SimpleFooter";
+import Sidebar from "@/widgets/app-shell/ui/Sidebar";
+import Header from "@/widgets/app-shell/ui/Header";
+import PageHeader from "@/shared/ui/PageHeader";
+import SimpleFooter from "@/shared/ui/SimpleFooter";
 import useSidebar from "@/shared/hooks/useSidebar";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import BaseKeywordsTable from "@/features/keywords/components/BaseKeywordsTable";
@@ -12,8 +13,8 @@ import ClosingKeywordsTable from "@/features/keywords/components/ClosingKeywords
 import SearchTermsTable from "@/features/keywords/components/SearchTermsTable";
 import { Icon } from "@iconify/react";
 import { useNotifications } from "@/shared/contexts/NotificationsContext";
-import MetricCard from "@/shared/components/MetricCard";
-import { useTheme } from "@/app/providers";
+import MetricCard from "@/shared/ui/MetricCard";
+import { useTheme } from "@/shared/contexts/ThemeContext";
 import { motion } from "framer-motion";
 
 const CACHE_DURATION = 1000 * 60 * 60;
@@ -33,9 +34,9 @@ function writeCache(key: string, data: unknown) {
 }
 
 export default function KeywordManagerPage() {
-  const { mode, toggleMode } = useTheme();
+  const { resolvedMode: mode, toggleMode } = useTheme();
   const { isSidebarOpen, toggleSidebar } = useSidebar();
-  const { fullName, loading: userLoading, handleLogout } = useUserProfile();
+  const { user, loading: userLoading, handleLogout } = useUserProfile();
   const { notifications, isLoading: notificationsLoading, markNotificationAsRead } = useNotifications();
 
   const [baseKeywords, setBaseKeywords] = useState<any[]>([]);
@@ -123,23 +124,30 @@ export default function KeywordManagerPage() {
 
   return (
     <div className={`min-h-screen flex flex-col ${mode === "dark" ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-800"}`}>
-      <Header
-        toggleSidebar={toggleSidebar}
-        isSidebarOpen={!!isSidebarOpen}
-        mode={mode}
-        toggleMode={toggleMode}
-        onLogout={handleLogout}
-        pageName="Keyword Manager"
-        pageDescription="Monitor and manage your keyword collection"
-        fullName={fullName}
-        notifications={notifications}
-        isLoading={notificationsLoading}
-        onMarkAsRead={markNotificationAsRead}
-      />
       <div className="flex flex-1">
-        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} fullName={fullName} />
-        <div className="content-container flex-1 transition-all duration-300 overflow-hidden md:ml-[80px] sidebar-open:md:ml-[300px] sidebar-closed:md:ml-[80px]">
+        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header
+            toggleSidebar={toggleSidebar}
+            isSidebarOpen={!!isSidebarOpen}
+            mode={mode}
+            toggleMode={toggleMode}
+            onLogout={handleLogout}
+            user={user}
+            loading={userLoading}
+            notifications={notifications}
+            isLoading={notificationsLoading}
+            onMarkAsRead={markNotificationAsRead}
+          />
+        <div className="flex-1 transition-all duration-300 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+            <PageHeader
+              title="Keyword Manager"
+              description="Monitor and manage your keyword collection."
+              icon="mdi:tag"
+              mode={mode}
+            />
+
             {!loading && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8 mb-10">
                 <MetricCard title="Base Keywords" value={baseKeywords.length} icon="mdi:database" color="blue" mode={mode} onClick={() => handleTabChange("base")} />
@@ -219,8 +227,10 @@ export default function KeywordManagerPage() {
             )}
           </div>
         </div>
+
+          <SimpleFooter mode={mode} />
+        </div>
       </div>
-      <SimpleFooter mode={mode} isSidebarOpen={!!isSidebarOpen} />
     </div>
   );
 }

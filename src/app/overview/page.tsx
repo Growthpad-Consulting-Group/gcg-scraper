@@ -4,25 +4,25 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import Sidebar from "@/shared/components/Sidebar";
-import Header from "@/shared/components/Header";
-import SimpleFooter from "@/shared/components/SimpleFooter";
+import Sidebar from "@/widgets/app-shell/ui/Sidebar";
+import Header from "@/widgets/app-shell/ui/Header";
+import SimpleFooter from "@/shared/ui/SimpleFooter";
 import useSidebar from "@/shared/hooks/useSidebar";
 import WelcomeCard from "@/features/overview/components/WelcomeCard";
-import MetricCard from "@/shared/components/MetricCard";
+import MetricCard from "@/shared/ui/MetricCard";
 import RecentActivity from "@/features/overview/components/RecentActivity";
 import TaskStatusSummary from "@/features/overview/components/TaskStatusSummary";
-import Notifications from "@/shared/components/Notifications";
+import Notifications from "@/shared/ui/Notifications";
 import TenderActivityChart from "@/features/overview/components/TenderActivityChart";
 import TenderStatusDonutChart from "@/features/overview/components/TenderStatusDonutChart";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useNotifications } from "@/shared/contexts/NotificationsContext";
-import { useTheme } from "@/app/providers";
+import { useTheme } from "@/shared/contexts/ThemeContext";
 
 export default function OverviewPage() {
-  const { mode, toggleMode } = useTheme();
+  const { resolvedMode: mode, toggleMode } = useTheme();
   const { isSidebarOpen, toggleSidebar } = useSidebar();
-  const { fullName, loading: userLoading, handleLogout } = useUserProfile();
+  const { user, fullName, loading: userLoading, handleLogout } = useUserProfile();
   const { notifications, isLoading: notificationsLoading, markNotificationAsRead, clearAllNotifications } = useNotifications();
 
   const [metrics, setMetrics] = useState({ totalTasks: 0, openTenders: 0, closedTenders: 0, tasksRunning: 0, expiredTenders: 0 });
@@ -111,26 +111,25 @@ export default function OverviewPage() {
 
   return (
     <div className={`min-h-screen flex flex-col ${mode === "dark" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700" : "bg-gradient-to-br from-gray-100 via-gray-50 to-white"}`}>
-      <Header
-        toggleSidebar={toggleSidebar}
-        isSidebarOpen={!!isSidebarOpen}
-        mode={mode}
-        toggleMode={toggleMode}
-        onLogout={handleLogout}
-        pageName="Tender Overview"
-        pageDescription="Monitor and manage your tender scraping tasks."
-        fullName={fullName}
-        loading={userLoading}
-        notifications={notifications}
-        isLoading={notificationsLoading}
-        onMarkAsRead={markNotificationAsRead}
-        onClearAll={clearAllNotifications}
-      />
-
       <div className="flex flex-1">
-        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} fullName={fullName} />
+        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
 
-        <div className="content-container flex-1 p-6 md:p-8 transition-all duration-300 overflow-hidden md:ml-[80px] sidebar-open:md:ml-[300px] sidebar-closed:md:ml-[80px]">
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header
+            toggleSidebar={toggleSidebar}
+            isSidebarOpen={!!isSidebarOpen}
+            mode={mode}
+            toggleMode={toggleMode}
+            onLogout={handleLogout}
+            user={user}
+            loading={userLoading}
+            notifications={notifications}
+            isLoading={notificationsLoading}
+            onMarkAsRead={markNotificationAsRead}
+            onClearAll={clearAllNotifications}
+          />
+
+        <div className="flex-1 p-6 md:p-8 transition-all duration-300 overflow-hidden">
           <div className="max-w-7xl mx-auto space-y-8">
             <WelcomeCard mode={mode} userName={fullName} loading={userLoading} totalTasks={metrics.totalTasks} openTenders={metrics.openTenders} />
 
@@ -185,9 +184,10 @@ export default function OverviewPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      <SimpleFooter mode={mode} isSidebarOpen={!!isSidebarOpen} />
+          <SimpleFooter mode={mode} />
+        </div>
+      </div>
     </div>
   );
 }
