@@ -2,7 +2,7 @@ import { inngest } from "./inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { searchWeb } from "./firecrawlSearch";
 import { extractTenders } from "@/features/tenders/api/firecrawlExtract";
-import { computeStatus, resolveClosingDate, insertTenderRows } from "@/features/tenders/api/tenderRow";
+import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "@/features/tenders/api/tenderRow";
 import { isJobCanceled } from "./jobStatus";
 import { notifyTaskOwner } from "./notify";
 
@@ -32,7 +32,7 @@ export const runScrapeJob = inngest.createFunction(
         await supabase.from("scrape_jobs").update({ progress: { visited: 0, total: results.length, stage: "extracting" } }).eq("id", jobId);
       });
 
-      const prompt = `Extract any tender, RFP, RFQ, or procurement opportunity details from this page relevant to: "${query}". Include title, closing/deadline date if shown, and the full URL linking to the specific tender/notice.`;
+      const prompt = `Extract any tender, RFP, RFQ, or procurement opportunity details from this page relevant to: "${query}". Include title, closing/deadline date if shown, the full URL linking to the specific tender/notice, the issuing organization, a short category label, location, and budget/value if stated.`;
 
       let visited = 0;
       let totalInserted = 0;
@@ -66,6 +66,7 @@ export const runScrapeJob = inngest.createFunction(
               tender_type: TENDER_TYPE,
               format: (t.source_url || result.url).toLowerCase().endsWith(".pdf") ? "PDF" : "HTML",
               scraped_at: new Date().toISOString(),
+              ...resolveOptionalFields(t),
             }));
 
           const inserted = await insertTenderRows(supabase, rows);

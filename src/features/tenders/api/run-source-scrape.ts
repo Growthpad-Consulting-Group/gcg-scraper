@@ -2,7 +2,7 @@ import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
 import { getSourceConfig } from "./sourceConfigs";
-import { computeStatus, resolveClosingDate, insertTenderRows } from "./tenderRow";
+import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 
 export const runSourceScrapeJob = inngest.createFunction(
@@ -38,6 +38,7 @@ export const runSourceScrapeJob = inngest.createFunction(
             tender_type: tenderType,
             format: t.source_url?.toLowerCase().endsWith(".pdf") ? "PDF" : t.source_url?.toLowerCase().endsWith(".docx") ? "DOCX" : "HTML",
             scraped_at: new Date().toISOString(),
+            ...resolveOptionalFields(t),
           }));
 
         const inserted = await insertTenderRows(supabase, rows);

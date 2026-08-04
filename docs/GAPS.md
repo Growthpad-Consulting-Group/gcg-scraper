@@ -151,6 +151,6 @@ Sends real email via SMTP — never triggered live to confirm delivery works.
 3. **Website batch rotation** (`last_scraped_at` + order-by-oldest) — cheap, unblocks real
    coverage of the uploaded website list.
 4. **Data retention / cleanup** — needed now that cron is live and volume will actually grow.
-5. **Extraction schema fields** (organization, category) — moderate effort, meaningfully better
-   data quality.
+5. ~~**Extraction schema fields**~~ — done: `organization`, `category`, `location`, `budget` now
+   extracted and stored (`0006_tender_fields.sql`), shown in the Tenders table/detail view.
 6. Everything else — real gaps, lower urgency.

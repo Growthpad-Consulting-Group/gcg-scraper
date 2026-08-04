@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ExtractedTender } from "./firecrawlExtract";
 
 // Shared by every insert path (search-query, fixed-source, uploaded-website): `tenders.closing_date`
 // is NOT NULL in the DB, but extraction often can't find a date. Status is computed from the raw
@@ -15,6 +16,23 @@ export interface TenderRow {
   tender_type: string;
   format: string;
   scraped_at: string;
+  organization: string | null;
+  category: string | null;
+  location: string | null;
+  budget: number | null;
+}
+
+/** `tenders.location` is varchar(100); `budget` is numeric — guard both against malformed
+ * extraction output before it hits the DB. */
+export function resolveOptionalFields(t: ExtractedTender): Pick<TenderRow, "organization" | "category" | "location" | "budget"> {
+  return {
+    organization: t.organization?.trim() || null,
+    category: t.category?.trim() || null,
+    location: t.location?.trim().slice(0, 100) || null,
+    // The model defaults unstated numbers to 0 rather than omitting the field — treat 0 as
+    // "not provided" too, since a genuine $0 tender is not a real case worth distinguishing.
+    budget: typeof t.budget === "number" && isFinite(t.budget) && t.budget > 0 ? t.budget : null,
+  };
 }
 
 /**

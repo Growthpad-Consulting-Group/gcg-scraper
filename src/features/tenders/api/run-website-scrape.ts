@@ -1,7 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
-import { computeStatus, resolveClosingDate, insertTenderRows } from "./tenderRow";
+import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 
@@ -36,7 +36,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       });
 
       const terms = (searchTerms || []).map((t) => t.term).join(", ");
-      const prompt = `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, and the full URL to the tender/notice if available (otherwise use the page URL). If no tenders are found, return an empty list.`;
+      const prompt = `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, the full URL to the tender/notice if available (otherwise use the page URL), the issuing organization (usually this website's own organization unless stated otherwise), a short category label, location, and budget/value if stated. If no tenders are found, return an empty list.`;
 
       let totalInserted = 0;
       let processed = 0;
@@ -70,6 +70,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
               tender_type: TENDER_TYPE,
               format: "HTML",
               scraped_at: new Date().toISOString(),
+              ...resolveOptionalFields(t),
             }));
 
           const inserted = await insertTenderRows(supabase, rows);

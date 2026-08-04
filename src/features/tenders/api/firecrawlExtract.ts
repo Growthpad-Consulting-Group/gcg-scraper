@@ -7,6 +7,10 @@ export type ExtractedTender = {
   closing_date: string | null;
   source_url: string | null;
   description?: string | null;
+  organization?: string | null;
+  category?: string | null;
+  location?: string | null;
+  budget?: number | null;
 };
 
 const EXTRACTION_SCHEMA = {
@@ -21,6 +25,10 @@ const EXTRACTION_SCHEMA = {
           closing_date: { type: "string", description: "Deadline/closing date in ISO 8601 format (YYYY-MM-DD) if determinable, otherwise the raw date text" },
           source_url: { type: "string", description: "Full absolute URL linking to this specific tender/notice" },
           description: { type: "string" },
+          organization: { type: "string", description: "The issuing organization/agency/company that published this tender — not the aggregator site, the actual issuer named on the page" },
+          category: { type: "string", description: "Sector/category, e.g. 'IT', 'Construction', 'Consultancy', 'Supplies' — a short label, not a sentence" },
+          location: { type: "string", description: "Country or city the tender applies to, if stated" },
+          budget: { type: "number", description: "Estimated value/budget as a plain number (no currency symbol or commas) if stated, otherwise omit" },
         },
         required: ["title"],
       },

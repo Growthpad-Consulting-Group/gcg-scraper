@@ -19,7 +19,15 @@ interface Tender {
   tender_type?: string | null;
   location?: string | null;
   source_url?: string | null;
+  organization?: string | null;
+  category?: string | null;
+  budget?: number | null;
   [key: string]: unknown;
+}
+
+function formatBudget(budget?: number | null): string | null {
+  if (budget == null) return null;
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
 }
 
 type StatusFilter = "all" | "open" | "closed" | "closing-soon";
@@ -75,7 +83,14 @@ export default function TenderTableV2({
     }
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((t) => t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q) || t.location?.toLowerCase().includes(q));
+      result = result.filter(
+        (t) =>
+          t.title?.toLowerCase().includes(q) ||
+          t.description?.toLowerCase().includes(q) ||
+          t.location?.toLowerCase().includes(q) ||
+          t.organization?.toLowerCase().includes(q) ||
+          t.category?.toLowerCase().includes(q)
+      );
     }
     return result;
   }, [tenders, statusFilter, search]);
@@ -127,17 +142,16 @@ export default function TenderTableV2({
             <TableTh className="w-8" />
             <TableTh>Title</TableTh>
             <TableTh>Status</TableTh>
-            <TableTh>Type</TableTh>
+            <TableTh>Organization</TableTh>
             <TableTh>Closing</TableTh>
             <TableTh>Source</TableTh>
-            <TableTh>Scraped</TableTh>
             <TableTh className="w-8" />
           </TableRow>
         </TableHead>
         <TableBody>
           {filtered.length === 0 && (
             <TableRow>
-              <TableTd colSpan={8} className="py-8 text-center text-text-lo">
+              <TableTd colSpan={7} className="py-8 text-center text-text-lo">
                 No tenders match your filters.
               </TableTd>
             </TableRow>
@@ -155,12 +169,11 @@ export default function TenderTableV2({
                   <TableTd>
                     <Badge status={badge.status}>{badge.label}</Badge>
                   </TableTd>
-                  <TableTd mono>{tender.tender_type || "—"}</TableTd>
+                  <TableTd className="max-w-[180px] truncate">{tender.organization || <span className="text-text-lo">—</span>}</TableTd>
                   <TableTd mono>{tender.closing_date ? new Date(tender.closing_date).toLocaleDateString() : "—"}</TableTd>
                   <TableTd>
                     <Badge status="neutral">{sourceLabel(tender.source_url)}</Badge>
                   </TableTd>
-                  <TableTd mono>{tender.scraped_at ? new Date(tender.scraped_at).toLocaleDateString() : "—"}</TableTd>
                   <TableTd onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => onDeleteTender(tender)}
@@ -173,7 +186,7 @@ export default function TenderTableV2({
                 </TableRow>
                 {expanded && (
                   <TableRow className="h-auto hover:bg-transparent">
-                    <TableTd colSpan={8} className="bg-canvas p-3">
+                    <TableTd colSpan={7} className="bg-canvas p-3">
                       <TenderDetail tender={tender} />
                     </TableTd>
                   </TableRow>
@@ -225,8 +238,13 @@ function TenderDetail({ tender }: { tender: Tender }) {
       {view === "parsed" ? (
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-app-border bg-surface p-3 text-sm md:grid-cols-3">
           {[
+            ["Organization", tender.organization],
+            ["Category", tender.category],
+            ["Budget", formatBudget(tender.budget)],
             ["Location", tender.location],
+            ["Type", tender.tender_type as string | undefined],
             ["Format", tender.format as string | undefined],
+            ["Scraped", tender.scraped_at ? new Date(tender.scraped_at).toLocaleString() : undefined],
             ["Source URL", tender.source_url],
             ["Description", tender.description],
           ].map(([label, value]) => (
