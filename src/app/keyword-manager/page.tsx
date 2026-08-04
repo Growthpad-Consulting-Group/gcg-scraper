@@ -22,10 +22,8 @@ function writeCache(key: string, data: unknown) {
 }
 
 export default function KeywordManagerPage() {
-  const [baseKeywords, setBaseKeywords] = useState<any[]>([]);
   const [relevantKeywords, setRelevantKeywords] = useState<any[]>([]);
   const [closingKeywords, setClosingKeywords] = useState<any[]>([]);
-  const [searchTerms, setSearchTerms] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -44,16 +42,12 @@ export default function KeywordManagerPage() {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [base, relevant, closing, terms] = await Promise.all([
-          fetchWithCache("/api/base-keywords", "base_keywords"),
+        const [relevant, closing] = await Promise.all([
           fetchWithCache("/api/relevant-keywords", "relevant_keywords"),
           fetchWithCache("/api/closing-keywords", "closing_keywords"),
-          fetchWithCache("/api/search-terms", "search_terms", (body) => body.search_terms),
         ]);
-        setBaseKeywords(base);
         setRelevantKeywords(relevant);
         setClosingKeywords(closing);
-        setSearchTerms(terms);
       } catch (err: any) {
         setError(`Failed to load keyword data: ${err.message}`);
       } finally {
@@ -69,7 +63,9 @@ export default function KeywordManagerPage() {
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <div>
           <h1 className="font-display text-xl font-semibold text-text-hi">Keyword Manager</h1>
-          <p className="mt-0.5 text-sm text-text-lo">Base, search, relevance, and closing keywords used to build and filter scrape queries.</p>
+          <p className="mt-0.5 text-sm text-text-lo">
+            Filters applied after scraping — relevance and closing-date detection. Base keywords and search terms now live in Run Query.
+          </p>
         </div>
 
         {error && <div className="rounded-md bg-status-danger/10 p-4 text-sm text-status-danger">{error}</div>}
@@ -83,21 +79,6 @@ export default function KeywordManagerPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <KeywordChipEditor
-              title="Base Keywords"
-              description="Core keywords like 'rfp,' 'rfq,' and 'tender' included in every search query."
-              keywords={baseKeywords}
-              setKeywords={setBaseKeywords}
-              apiEndpoint="/api/base-keywords"
-            />
-            <KeywordChipEditor
-              title="Search Terms"
-              description="Custom phrases queried across the web, e.g. 'Web Development rfp'."
-              keywords={searchTerms}
-              setKeywords={setSearchTerms}
-              apiEndpoint="/api/search-terms"
-              keywordKey="term"
-            />
             <KeywordChipEditor
               title="Relevant Keywords"
               description="Filters used to refine results, keeping only the most relevant tenders."

@@ -20,7 +20,6 @@ function RunQueryContent() {
 
   const [searchTerms, setSearchTerms] = useState<SearchTerm[]>([]);
   const [selectedTerms, setSelectedTerms] = useState<string[]>([]);
-  const [selectedEngines, setSelectedEngines] = useState<string[]>(["Bing"]);
   const [baseKeywords, setBaseKeywords] = useState<BaseKeyword[]>([]);
   const [selectedBaseKeywords, setSelectedBaseKeywords] = useState<string[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -73,8 +72,8 @@ function RunQueryContent() {
   }, []);
 
   const handleAddScheduledTask = async () => {
-    if (selectedTerms.length === 0 || selectedEngines.length === 0 || selectedBaseKeywords.length === 0) {
-      toast.error("Please select at least one search term, base keyword, and engine.");
+    if (selectedTerms.length === 0 || selectedBaseKeywords.length === 0) {
+      toast.error("Please select at least one search term and base keyword.");
       return;
     }
 
@@ -87,7 +86,6 @@ function RunQueryContent() {
           frequency: "Daily",
           tenderType: "Search Query Tenders",
           search_terms: selectedTerms,
-          engines: selectedEngines,
         }),
       });
       const data = await res.json();
@@ -100,8 +98,8 @@ function RunQueryContent() {
   };
 
   const handleRunQuery = async () => {
-    if (selectedTerms.length === 0 || selectedEngines.length === 0 || selectedBaseKeywords.length === 0) {
-      toast.error("Please select at least one search term, base keyword, and engine.");
+    if (selectedTerms.length === 0 || selectedBaseKeywords.length === 0) {
+      toast.error("Please select at least one search term and base keyword.");
       return;
     }
 
@@ -116,7 +114,7 @@ function RunQueryContent() {
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, engines: selectedEngines }),
+        body: JSON.stringify({ query }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start scraping");
@@ -137,9 +135,14 @@ function RunQueryContent() {
     }
     setIsCanceling(true);
     try {
-      // Job cancellation isn't wired into the Inngest runner yet (Phase 2) — this marks it
-      // canceled client-side for now.
-      setScrapeStatus("canceled");
+      const res = await fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to cancel");
+      // The running job checks its own status between steps and stops itself — the realtime
+      // subscription in useRealtimeJob picks up the resulting "canceled" row update.
+      toast.success("Canceling — the job will stop after its current step.");
+    } catch (err: any) {
+      toast.error("Failed to cancel: " + err.message);
     } finally {
       setIsCanceling(false);
     }
@@ -166,11 +169,11 @@ function RunQueryContent() {
           <div className="flex flex-col gap-4">
             <QueryComposer
               searchTerms={searchTerms}
+              setSearchTerms={setSearchTerms}
               selectedTerms={selectedTerms}
               setSelectedTerms={setSelectedTerms}
-              selectedEngines={selectedEngines}
-              setSelectedEngines={setSelectedEngines}
               baseKeywords={baseKeywords}
+              setBaseKeywords={setBaseKeywords}
               selectedBaseKeywords={selectedBaseKeywords}
               setSelectedBaseKeywords={setSelectedBaseKeywords}
               countries={countries}

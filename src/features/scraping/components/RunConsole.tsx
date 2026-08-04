@@ -34,7 +34,7 @@ export default function RunConsole({
   const lines: LogLine[] = [];
   if (taskId) lines.push({ text: `job ${taskId}`, tone: "info" });
   if (scrapeStatus === "idle") lines.push({ text: "waiting to start…", tone: "default" });
-  if (scrapeStatus !== "idle") lines.push({ text: `[ ${scrapeStatus.toUpperCase()} ] ${totalUrlsToVisit} engines queued`, tone: "info" });
+  if (scrapeStatus !== "idle") lines.push({ text: `[ ${scrapeStatus.toUpperCase()} ] ${totalUrlsToVisit} results queued`, tone: "info" });
   visitedUrls.forEach((url) => lines.push({ text: `[ 200 OK ] ${url}`, tone: "success" }));
   if (scrapeStatus === "complete") lines.push({ text: "[ DONE ] scrape completed", tone: "success" });
   if (scrapeStatus === "error") lines.push({ text: "[ FAILED ] scrape errored — see toast for details", tone: "danger" });

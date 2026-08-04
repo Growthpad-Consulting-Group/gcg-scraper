@@ -13,7 +13,6 @@ function normalizeTask(task: any) {
     frequency: task.frequency || "Daily",
     priority: task.priority || "Medium",
     searchTerms: task.search_terms || [],
-    engines: task.engines || [],
     emailNotificationsEnabled: task.email_notifications_enabled || false,
     smsNotificationsEnabled: task.sms_notifications_enabled || false,
     slackNotificationsEnabled: task.slack_notifications_enabled || false,
@@ -57,10 +56,6 @@ export default function EditTaskModal({
       toast.error("Task name is required!");
       return false;
     }
-    if (editedTask.engines.length === 0) {
-      toast.error("Please select at least one search engine.");
-      return false;
-    }
     if (editedTask.tenderType === "Search Query Tenders" && editedTask.searchTerms.length === 0) {
       toast.error("Please select at least one search term for Search Query Tenders.");
       return false;
@@ -92,7 +87,6 @@ export default function EditTaskModal({
           frequency: editedTask.frequency,
           priority: editedTask.priority,
           search_terms: editedTask.searchTerms,
-          engines: editedTask.engines,
           email_notifications_enabled: editedTask.emailNotificationsEnabled,
           sms_notifications_enabled: editedTask.smsNotificationsEnabled,
           slack_notifications_enabled: editedTask.slackNotificationsEnabled,

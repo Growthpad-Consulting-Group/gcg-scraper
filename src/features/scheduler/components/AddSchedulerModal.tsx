@@ -24,7 +24,6 @@ export default function AddSchedulerModal({
     frequency: "Daily",
     priority: "Medium",
     searchTerms: [] as string[],
-    engines: [] as string[],
     emailNotificationsEnabled: false,
     smsNotificationsEnabled: false,
     slackNotificationsEnabled: false,
@@ -61,10 +60,6 @@ export default function AddSchedulerModal({
       return false;
     }
     if (newTask.tenderType === "Search Query Tenders") {
-      if (newTask.engines.length === 0) {
-        toast.error("Please select at least one search engine.");
-        return false;
-      }
       if (newTask.searchTerms.length === 0) {
         toast.error("Please select at least one search term for Search Query Tenders.");
         return false;
@@ -95,7 +90,6 @@ export default function AddSchedulerModal({
         frequency: newTask.frequency,
         priority: newTask.priority,
         search_terms: newTask.searchTerms,
-        engines: newTask.engines,
         email_notifications_enabled: newTask.emailNotificationsEnabled,
         sms_notifications_enabled: newTask.smsNotificationsEnabled,
         slack_notifications_enabled: newTask.slackNotificationsEnabled,

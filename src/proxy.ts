@@ -12,6 +12,9 @@ export async function proxy(req: NextRequest) {
     // Inngest calls this endpoint directly (sync + step execution) using its own signing-key
     // verification, not a user session cookie — must stay outside the auth gate.
     pathname.startsWith("/api/inngest") ||
+    // Hit by an external cron (e.g. cron-job.org), not a logged-in browser — protects itself
+    // with its own CRON_SECRET check instead of a session cookie.
+    pathname.startsWith("/api/cron") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon")
   ) {

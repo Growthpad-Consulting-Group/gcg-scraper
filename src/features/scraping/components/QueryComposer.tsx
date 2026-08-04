@@ -4,7 +4,6 @@ import { Icon } from "@iconify/react";
 import Popover from "@/shared/ui/Popover";
 import Button from "@/shared/ui/Button";
 import SearchTermsSelector from "./SearchTermsSelector";
-import SearchEngineSelector from "./SearchEngineSelector";
 import BaseKeywordsSelector from "./BaseKeywordsSelector";
 import CountrySelector from "./CountrySelector";
 import type { SearchTerm, BaseKeyword, Country, ScrapeStatus } from "@/features/scraping/types";
@@ -30,11 +29,11 @@ function PickerTrigger({ icon, label, count, open }: { icon: string; label: stri
  */
 export default function QueryComposer({
   searchTerms,
+  setSearchTerms,
   selectedTerms,
   setSelectedTerms,
-  selectedEngines,
-  setSelectedEngines,
   baseKeywords,
+  setBaseKeywords,
   selectedBaseKeywords,
   setSelectedBaseKeywords,
   countries,
@@ -46,11 +45,11 @@ export default function QueryComposer({
   mode,
 }: {
   searchTerms: SearchTerm[];
+  setSearchTerms?: (updater: (prev: SearchTerm[]) => SearchTerm[]) => void;
   selectedTerms: string[];
   setSelectedTerms: (terms: string[]) => void;
-  selectedEngines: string[];
-  setSelectedEngines: (engines: string[]) => void;
   baseKeywords: BaseKeyword[];
+  setBaseKeywords?: (updater: (prev: BaseKeyword[]) => BaseKeyword[]) => void;
   selectedBaseKeywords: string[];
   setSelectedBaseKeywords: (keywords: string[]) => void;
   countries: Country[];
@@ -64,7 +63,7 @@ export default function QueryComposer({
   const currentYear = new Date().getFullYear();
   const query = `${currentYear} ${selectedBaseKeywords.join(" ")} ${selectedTerms.join(" ")} ${selectedCountry}`.trim();
   const isRunning = scrapeStatus === "running";
-  const canRun = selectedTerms.length > 0 && selectedEngines.length > 0 && selectedBaseKeywords.length > 0;
+  const canRun = selectedTerms.length > 0 && selectedBaseKeywords.length > 0;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-app-border bg-surface p-3">
@@ -74,15 +73,11 @@ export default function QueryComposer({
 
       <div className="flex flex-wrap items-center gap-2">
         <Popover trigger={(open) => <PickerTrigger icon="solar:magnifer-broken" label="Terms" count={selectedTerms.length} open={open} />} className="w-80">
-          <SearchTermsSelector searchTerms={searchTerms} selectedTerms={selectedTerms} setSelectedTerms={setSelectedTerms} mode={mode} />
+          <SearchTermsSelector searchTerms={searchTerms} setSearchTerms={setSearchTerms} selectedTerms={selectedTerms} setSelectedTerms={setSelectedTerms} mode={mode} />
         </Popover>
 
         <Popover trigger={(open) => <PickerTrigger icon="solar:tag-broken" label="Keywords" count={selectedBaseKeywords.length} open={open} />} className="w-80">
-          <BaseKeywordsSelector baseKeywords={baseKeywords} selectedBaseKeywords={selectedBaseKeywords} setSelectedBaseKeywords={setSelectedBaseKeywords} mode={mode} />
-        </Popover>
-
-        <Popover trigger={(open) => <PickerTrigger icon="solar:global-broken" label="Engines" count={selectedEngines.length} open={open} />} className="w-80">
-          <SearchEngineSelector selectedEngines={selectedEngines} setSelectedEngines={setSelectedEngines} mode={mode} />
+          <BaseKeywordsSelector baseKeywords={baseKeywords} setBaseKeywords={setBaseKeywords} selectedBaseKeywords={selectedBaseKeywords} setSelectedBaseKeywords={setSelectedBaseKeywords} mode={mode} />
         </Popover>
 
         <Popover

@@ -1,16 +1,25 @@
+"use client";
+
+import { useState } from "react";
+import { Icon } from "@iconify/react";
+import toast from "react-hot-toast";
 import type { SearchTerm } from "@/features/scraping/types";
 
 export default function SearchTermsSelector({
   searchTerms,
+  setSearchTerms,
   selectedTerms,
   setSelectedTerms,
-  mode,
 }: {
   searchTerms: SearchTerm[];
+  setSearchTerms?: (updater: (prev: SearchTerm[]) => SearchTerm[]) => void;
   selectedTerms: string[];
   setSelectedTerms: (terms: string[]) => void;
   mode: "light" | "dark";
 }) {
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+
   const toggleTerm = (term: string) => {
     if (selectedTerms.includes(term)) {
       setSelectedTerms(selectedTerms.filter((t) => t !== term));
@@ -27,41 +36,72 @@ export default function SearchTermsSelector({
     }
   };
 
-  const isDark = mode === "dark";
+  const addTerm = async () => {
+    const value = draft.trim();
+    if (!value || !setSearchTerms) return;
+    setAdding(true);
+    try {
+      const res = await fetch("/api/search-terms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ term: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed to add "${value}"`);
+      const saved: SearchTerm = data.keyword ?? { id: Date.now(), term: value };
+      setSearchTerms((prev) => [...prev, saved]);
+      setSelectedTerms([...selectedTerms, saved.term]);
+      setDraft("");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
-    <div className="space-y-2 flex-1">
-      <div className="flex items-center justify-between">
-        <label className={`text-lg font-semibold ${isDark ? "text-white" : "text-[#231812]"}`}>Select Search Terms:</label>
-        <button
-          onClick={toggleSelectAll}
-          className={`text-sm px-3 py-1 rounded-full border-2 transition-all duration-300 font-medium ${
-            selectedTerms.length === searchTerms.length
-              ? "border-[#f05d23] bg-[#f05d23] text-white"
-              : isDark
-              ? "border-gray-600 text-white hover:border-white"
-              : "border-gray-300 text-[#231812] hover:border-[#231812]"
-          }`}
-        >
-          {selectedTerms.length === searchTerms.length ? "Deselect All" : "Select All"}
+    <div className="w-full">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-medium text-text-hi">Search Terms</span>
+        <button onClick={toggleSelectAll} className="font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:text-brand-600">
+          {selectedTerms.length === searchTerms.length ? "Deselect all" : "Select all"}
         </button>
       </div>
 
-      <div className={`max-h-40 overflow-y-auto pr-2 rounded-md ${isDark ? "bg-gray-700" : "bg-white"}`}>
-        <div className="grid grid-cols-2 gap-4 p-2">
-          {searchTerms.map((term) => (
-            <label key={term.id} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedTerms.includes(term.term)}
-                onChange={() => toggleTerm(term.term)}
-                className="form-checkbox h-5 w-5 text-[#f05d23] border-gray-300 dark:border-gray-600"
-              />
-              <span className={`text-sm ${isDark ? "text-white" : "text-gray-700"}`}>{term.term}</span>
-            </label>
-          ))}
-        </div>
+      <div className="max-h-40 overflow-y-auto rounded-md border border-app-border p-1.5">
+        {searchTerms.length === 0 ? (
+          <div className="p-2 text-sm text-text-lo">No search terms yet — add one below.</div>
+        ) : (
+          <div className="flex flex-col">
+            {searchTerms.map((term) => (
+              <label key={term.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface-2">
+                <input
+                  type="checkbox"
+                  checked={selectedTerms.includes(term.term)}
+                  onChange={() => toggleTerm(term.term)}
+                  className="h-4 w-4 accent-brand-500"
+                />
+                <span className="text-sm text-text-hi">{term.term}</span>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
+
+      {setSearchTerms && (
+        <div className="mt-2 flex gap-1.5">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTerm()}
+            placeholder="Add a search term…"
+            className="h-8 flex-1 rounded-md border border-app-border bg-canvas px-2.5 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500"
+          />
+          <button onClick={addTerm} disabled={adding} className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50">
+            <Icon icon={adding ? "mdi:loading" : "mdi:plus"} width={16} className={adding ? "animate-spin" : ""} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { query, engines, taskId } = await req.json();
-  if (!query || !Array.isArray(engines) || engines.length === 0) {
-    return NextResponse.json({ error: "query and engines are required" }, { status: 400 });
+  const { query, taskId } = await req.json();
+  if (!query) {
+    return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
 
   const supabase = createServerSupabaseClient();
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   await inngest.send({
     name: "scrape/job.queued",
-    data: { jobId: job.id, query, engines },
+    data: { jobId: job.id, query },
   });
 
   return NextResponse.json({ jobId: job.id });

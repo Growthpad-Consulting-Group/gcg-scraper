@@ -3,14 +3,6 @@
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 
-const ENGINES = [
-  { name: "Bing", icon: "mdi:microsoft-bing" },
-  { name: "Yahoo", icon: "mdi:yahoo" },
-  { name: "DuckDuckGo", icon: "simple-icons:duckduckgo" },
-  { name: "Ecosia", icon: "simple-icons:ecosia" },
-  { name: "Startpage", icon: "simple-icons:startpage" },
-];
-
 export default function TaskForm({
   task,
   setTask,
@@ -103,11 +95,6 @@ export default function TaskForm({
   const handleCheckboxChange = (term: string) => {
     const updatedSearchTerms = task.searchTerms.includes(term) ? task.searchTerms.filter((t: string) => t !== term) : [...task.searchTerms, term];
     setTask({ ...task, searchTerms: updatedSearchTerms, search_terms: updatedSearchTerms });
-  };
-
-  const handleEngineChange = (engine: string) => {
-    const updatedEngines = task.engines.includes(engine) ? task.engines.filter((e: string) => e !== engine) : [...task.engines, engine];
-    setTask({ ...task, engines: updatedEngines });
   };
 
   useEffect(() => {
@@ -245,36 +232,6 @@ export default function TaskForm({
               ))}
             </div>
           </>
-        )}
-      </div>
-
-      <div>
-        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Search Engines</label>
-        <div className="grid grid-cols-2 gap-4 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-[#f05d23] scrollbar-track-gray-200">
-          {ENGINES.map((engine) => (
-            <label key={engine.name} className={`flex items-center space-x-2 text-sm ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>
-              <input type="checkbox" checked={task.engines.includes(engine.name)} onChange={() => handleEngineChange(engine.name)} className="h-4 w-4 text-[#f05d23] border-gray-300 rounded focus:ring-[#f05d23]" />
-              <Icon icon={engine.icon} width={16} height={16} />
-              <span>{engine.name}</span>
-            </label>
-          ))}
-        </div>
-        {task.engines.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {task.engines.map((engineName: string, index: number) => {
-              const engine = ENGINES.find((e) => e.name === engineName);
-              if (!engine) return null;
-              return (
-                <span key={index} className={`px-2 py-1 rounded-full text-sm flex items-center gap-1 ${mode === "dark" ? "bg-gray-600 text-white" : "bg-gray-200 text-[#231812]"}`}>
-                  <Icon icon={engine.icon} width={16} height={16} />
-                  {engine.name}
-                  <button onClick={() => handleEngineChange(engine.name)} className="ml-1 focus:outline-none">
-                    <Icon icon="mdi:close" width={16} height={16} />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
         )}
       </div>
 

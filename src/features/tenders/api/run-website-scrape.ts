@@ -1,92 +1,117 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
+import { computeStatus, resolveClosingDate, insertTenderRows } from "./tenderRow";
+import { isJobCanceled } from "@/features/scraping/api/jobStatus";
+import { notifyTaskOwner } from "@/features/scraping/api/notify";
 
 const TENDER_TYPE = "Website Tenders";
 // Scraping all ~1000 rows in `websites` in a single run isn't practical (Firecrawl cost/time);
-// each scheduled run processes a bounded batch instead. Runs it repeatedly over time to cover
-// the full list — a known limitation, not full coverage per run.
+// each scheduled run processes a bounded batch instead, ordered oldest-checked-first (nulls —
+// never checked — sort first) so repeated runs rotate through the full list instead of always
+// hitting the same head slice. A single `websiteId` (from the Upload Website page's "Scan Now"
+// action) skips the batch and checks just that one site instead.
 const BATCH_SIZE = 15;
 
-function computeStatus(closingDate: string | null): "open" | "closed" {
-  if (!closingDate) return "open";
-  const parsed = new Date(closingDate);
-  if (isNaN(parsed.getTime())) return "open";
-  return parsed.getTime() < Date.now() ? "closed" : "open";
-}
-
 export const runWebsiteScrapeJob = inngest.createFunction(
-  { id: "run-website-scrape-job", retries: 1, triggers: { event: "tenders/website.queued" } },
+  { id: "run-website-scrape-job", retries: 0, triggers: { event: "tenders/website.queued" } },
   async ({ event, step }) => {
-    const { jobId } = event.data as { jobId: string };
+    const { jobId, websiteId } = event.data as { jobId: string; websiteId?: number };
     const supabase = createServerSupabaseClient();
 
     await step.run("mark-running", async () => {
       await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "starting" } }).eq("id", jobId);
     });
 
-    const [{ data: websites }, { data: searchTerms }] = await step.run("fetch-inputs", async () => {
-      return Promise.all([
-        supabase.from("websites").select("id, name, url").order("id").limit(BATCH_SIZE),
-        supabase.from("search_terms").select("term").limit(20),
-      ]);
-    });
+    try {
+      const [{ data: websites }, { data: searchTerms }] = await step.run("fetch-inputs", async () => {
+        const websitesQuery = websiteId
+          ? supabase.from("websites").select("id, name, url").eq("id", websiteId)
+          : supabase
+              .from("websites")
+              .select("id, name, url")
+              .order("last_scraped_at", { ascending: true, nullsFirst: true })
+              .limit(BATCH_SIZE);
+        return Promise.all([websitesQuery, supabase.from("search_terms").select("term").limit(20)]);
+      });
 
-    const terms = (searchTerms || []).map((t) => t.term).join(", ");
-    const prompt = `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, and the full URL to the tender/notice if available (otherwise use the page URL). If no tenders are found, return an empty list.`;
+      const terms = (searchTerms || []).map((t) => t.term).join(", ");
+      const prompt = `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, and the full URL to the tender/notice if available (otherwise use the page URL). If no tenders are found, return an empty list.`;
 
-    let totalInserted = 0;
-    let processed = 0;
+      let totalInserted = 0;
+      let processed = 0;
+      let openCount = 0;
+      let closedCount = 0;
 
-    for (const website of websites || []) {
-      const extracted = await step.run(`extract-${website.id}`, async () => {
-        try {
-          return await extractTenders(website.url, prompt);
-        } catch {
-          return [];
+      for (const website of websites || []) {
+        if (await step.run(`check-canceled-${website.id}`, () => isJobCanceled(supabase, jobId))) {
+          return { jobId, tendersFound: totalInserted, canceled: true };
         }
+
+        const extracted = await step.run(`extract-${website.id}`, async () => {
+          try {
+            return await extractTenders(website.url, prompt);
+          } catch {
+            return [];
+          }
+        });
+
+        processed += 1;
+
+        const { inserted: insertedForSite, open, closed } = await step.run(`save-${website.id}`, async () => {
+          const rows = extracted
+            .filter((t) => t.source_url || website.url)
+            .map((t) => ({
+              title: t.title,
+              description: t.description || null,
+              closing_date: resolveClosingDate(t.closing_date),
+              source_url: t.source_url || website.url,
+              status: computeStatus(t.closing_date ?? null),
+              tender_type: TENDER_TYPE,
+              format: "HTML",
+              scraped_at: new Date().toISOString(),
+            }));
+
+          const inserted = await insertTenderRows(supabase, rows);
+          return { inserted, open: rows.filter((r) => r.status === "open").length, closed: rows.filter((r) => r.status === "closed").length };
+        });
+
+        totalInserted += insertedForSite;
+        openCount += open;
+        closedCount += closed;
+
+        await step.run(`progress-${website.id}`, async () => {
+          await Promise.all([
+            supabase.from("scrape_jobs").update({ progress: { stage: "running", processed, total: (websites || []).length } }).eq("id", jobId),
+            supabase.from("websites").update({ last_scraped_at: new Date().toISOString() }).eq("id", website.id),
+          ]);
+        });
+      }
+
+      await step.run("mark-done", async () => {
+        await supabase
+          .from("scrape_jobs")
+          .update({
+            status: "done",
+            finished_at: new Date().toISOString(),
+            result_summary: { tendersFound: totalInserted, totalTenders: totalInserted, websitesProcessed: processed, openTenders: openCount, closedTenders: closedCount },
+          })
+          .eq("id", jobId)
+          .neq("status", "canceled");
       });
 
-      processed += 1;
+      await step.run("notify", () => notifyTaskOwner(supabase, jobId, totalInserted));
 
-      const insertedForSite = await step.run(`save-${website.id}`, async () => {
-        if (extracted.length === 0) return 0;
-        const { data: existing } = await supabase.from("tenders").select("source_url").not("source_url", "is", null);
-        const existingUrls = new Set((existing || []).map((t) => t.source_url));
-
-        const rows = extracted
-          .filter((t) => (t.source_url || website.url) && !existingUrls.has(t.source_url || website.url))
-          .map((t) => ({
-            title: t.title,
-            description: t.description || null,
-            closing_date: t.closing_date && !isNaN(new Date(t.closing_date).getTime()) ? new Date(t.closing_date).toISOString().slice(0, 10) : null,
-            source_url: t.source_url || website.url,
-            status: computeStatus(t.closing_date ?? null),
-            tender_type: TENDER_TYPE,
-            format: "HTML",
-            scraped_at: new Date().toISOString(),
-          }));
-
-        if (rows.length === 0) return 0;
-        const { error } = await supabase.from("tenders").insert(rows);
-        if (error) throw error;
-        return rows.length;
+      return { jobId, tendersFound: totalInserted };
+    } catch (err: any) {
+      await step.run("mark-error", async () => {
+        await supabase
+          .from("scrape_jobs")
+          .update({ status: "error", finished_at: new Date().toISOString(), result_summary: { error: err?.message ?? "Unknown error" } })
+          .eq("id", jobId)
+          .neq("status", "canceled");
       });
-
-      totalInserted += insertedForSite;
-
-      await step.run(`progress-${website.id}`, async () => {
-        await supabase.from("scrape_jobs").update({ progress: { stage: "running", processed, total: (websites || []).length } }).eq("id", jobId);
-      });
+      throw err;
     }
-
-    await step.run("mark-done", async () => {
-      await supabase
-        .from("scrape_jobs")
-        .update({ status: "done", finished_at: new Date().toISOString(), result_summary: { tendersFound: totalInserted, websitesProcessed: processed } })
-        .eq("id", jobId);
-    });
-
-    return { jobId, tendersFound: totalInserted };
   }
 );
