@@ -10,10 +10,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { data: task, error: fetchError } = await supabase.from("scheduled_tasks").select("*").eq("task_id", id).maybeSingle();
   if (fetchError || !task) return NextResponse.json({ error: fetchError?.message || "Task not found" }, { status: 404 });
 
-  const { data: job, error } = await supabase.from("scrape_jobs").insert({ task_id: id, status: "queued" }).select("id").single();
-  if (error || !job) return NextResponse.json({ error: error?.message || "Failed to create job" }, { status: 500 });
-
   const tenderType = task.tender_type as string | undefined;
+  const kind = tenderType === "Website Tenders" ? "tender-website" : tenderType && getSourceConfig(tenderType) ? "tender-source" : "search-query";
+
+  const { data: job, error } = await supabase
+    .from("scrape_jobs")
+    .insert({ task_id: id, status: "queued", kind, label: task.name ?? tenderType ?? "Scheduled run" })
+    .select("id")
+    .single();
+  if (error || !job) return NextResponse.json({ error: error?.message || "Failed to create job" }, { status: 500 });
 
   if (tenderType === "Website Tenders") {
     await inngest.send({ name: "tenders/website.queued", data: { jobId: job.id } });

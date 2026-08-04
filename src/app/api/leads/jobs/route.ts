@@ -12,7 +12,11 @@ export async function POST(req: NextRequest) {
   if (!searchTerm) return NextResponse.json({ error: "searchTerm is required" }, { status: 400 });
 
   const supabase = createServerSupabaseClient();
-  const { data: job, error } = await supabase.from("scrape_jobs").insert({ status: "queued" }).select("id").single();
+  const { data: job, error } = await supabase
+    .from("scrape_jobs")
+    .insert({ status: "queued", kind: "gmb-leads", label: location ? `${searchTerm} · ${location}` : searchTerm })
+    .select("id")
+    .single();
   if (error || !job) return NextResponse.json({ error: error?.message || "Failed to create job" }, { status: 500 });
 
   await inngest.send({ name: "leads/gmb.queued", data: { jobId: job.id, searchTerm, location: location || "" } });

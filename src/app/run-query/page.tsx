@@ -4,25 +4,18 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import Sidebar from "@/widgets/app-shell/ui/Sidebar";
-import Header from "@/widgets/app-shell/ui/Header";
-import PageHeader from "@/shared/ui/PageHeader";
-import SimpleFooter from "@/shared/ui/SimpleFooter";
-import useSidebar from "@/shared/hooks/useSidebar";
+import AppShell from "@/widgets/app-shell/ui/AppShell";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
-import { useNotifications } from "@/shared/contexts/NotificationsContext";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import QueryForm from "@/features/scraping/components/QueryForm";
-import ScrapingStatus from "@/features/scraping/components/ScrapingStatus";
+import RunConsole from "@/features/scraping/components/RunConsole";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 import type { SearchTerm, BaseKeyword, Country } from "@/features/scraping/types";
 
 function RunQueryContent() {
-  const { resolvedMode: mode, toggleMode } = useTheme();
-  const { isSidebarOpen, toggleSidebar } = useSidebar();
-  const { user, loading: userLoading, handleLogout } = useUserProfile();
-  const { notifications, isLoading: notificationsLoading, markNotificationAsRead } = useNotifications();
+  const { resolvedMode: mode } = useTheme();
+  const { loading: userLoading } = useUserProfile();
   const searchParams = useSearchParams();
 
   const [searchTerms, setSearchTerms] = useState<SearchTerm[]>([]);
@@ -153,94 +146,60 @@ function RunQueryContent() {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col pt-14 ${mode === "dark" ? "bg-gradient-to-b from-gray-900 to-gray-800" : "bg-gradient-to-b from-gray-50 to-gray-100"}`}>
-      <div className="flex flex-1">
-        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
-        <div className="flex-1 flex flex-col min-w-0">
-          <Header
-            toggleSidebar={toggleSidebar}
-            isSidebarOpen={!!isSidebarOpen}
-            mode={mode}
-            toggleMode={toggleMode}
-            onLogout={handleLogout}
-            user={user}
-            loading={userLoading}
-            notifications={notifications}
-            isLoading={notificationsLoading}
-            onMarkAsRead={markNotificationAsRead}
-          />
-        <div className="flex-1 p-6 transition-all duration-300 overflow-hidden">
-          <div className="max-w-7xl mx-auto">
-            <PageHeader
-              title="Run Query"
-              description="Search and scrape tenders from configured sources."
-              icon="mdi:database-search"
-              mode={mode}
-            />
+    <AppShell>
+      <div className="mx-auto flex max-w-7xl flex-col gap-4">
+        <div>
+          <h1 className="font-display text-xl font-semibold text-text-hi">Run Query</h1>
+          <p className="mt-0.5 text-sm text-text-lo">Search and scrape tenders from configured sources.</p>
+        </div>
 
-            {error && <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">{error}</div>}
-            {loading || userLoading ? (
-              <div className="flex justify-center items-center h-64 bg-opacity-50 rounded-lg">
-                <div className="flex flex-col items-center">
-                  <Icon icon="mdi:loading" width={40} height={40} className="animate-spin text-[#f05d23]" />
-                  <p className={`mt-2 text-lg font-medium animate-pulse ${mode === "dark" ? "text-gray-300" : "text-[#231812]"}`}>Loading, please wait...</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {scrapeStatus === "error" && (
-                  <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${mode === "dark" ? "bg-red-900 text-red-200" : "bg-red-100 text-red-700"}`}>
-                    <Icon icon="mdi:alert-circle" width="24" height="24" />
-                    <p>An error occurred. Please try again.</p>
-                  </div>
-                )}
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="flex-1 max-h-[600px] overflow-y-auto">
-                    <QueryForm
-                      searchTerms={searchTerms}
-                      selectedTerms={selectedTerms}
-                      setSelectedTerms={setSelectedTerms}
-                      selectedEngines={selectedEngines}
-                      setSelectedEngines={setSelectedEngines}
-                      baseKeywords={baseKeywords}
-                      selectedBaseKeywords={selectedBaseKeywords}
-                      setSelectedBaseKeywords={setSelectedBaseKeywords}
-                      countries={countries}
-                      selectedCountry={selectedCountry}
-                      setSelectedCountry={setSelectedCountry}
-                      scrapeStatus={scrapeStatus}
-                      handleRunQuery={handleRunQuery}
-                      handleAddScheduledTask={handleAddScheduledTask}
-                      mode={mode}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <ScrapingStatus
-                      scrapeStatus={scrapeStatus}
-                      progress={progress}
-                      visitedUrls={visitedUrls}
-                      tenders={[]}
-                      isCanceling={isCanceling}
-                      handleCancelScrape={handleCancelScrape}
-                      setShowSummary={setShowSummary}
-                      mode={mode}
-                      completedSearchEngines={selectedEngines}
-                      startTime={summary.startTime}
-                      totalUrlsToVisit={totalUrlsToVisit}
-                      taskId={jobId}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+        {error && <div className="rounded-md bg-status-danger/10 p-4 text-sm text-status-danger">{error}</div>}
+
+        {loading || userLoading ? (
+          <div className="flex h-64 items-center justify-center rounded-lg border border-app-border bg-surface">
+            <div className="flex flex-col items-center gap-2">
+              <Icon icon="mdi:loading" width={32} height={32} className="animate-spin text-brand-500" />
+              <p className="text-sm text-text-lo">Loading, please wait…</p>
+            </div>
           </div>
-        </div>
-
-          <SimpleFooter mode={mode} />
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="max-h-[600px] overflow-y-auto rounded-lg border border-app-border bg-surface p-4">
+              <QueryForm
+                searchTerms={searchTerms}
+                selectedTerms={selectedTerms}
+                setSelectedTerms={setSelectedTerms}
+                selectedEngines={selectedEngines}
+                setSelectedEngines={setSelectedEngines}
+                baseKeywords={baseKeywords}
+                selectedBaseKeywords={selectedBaseKeywords}
+                setSelectedBaseKeywords={setSelectedBaseKeywords}
+                countries={countries}
+                selectedCountry={selectedCountry}
+                setSelectedCountry={setSelectedCountry}
+                scrapeStatus={scrapeStatus}
+                handleRunQuery={handleRunQuery}
+                handleAddScheduledTask={handleAddScheduledTask}
+                mode={mode}
+              />
+            </div>
+            <div className="min-h-[500px]">
+              <RunConsole
+                scrapeStatus={scrapeStatus}
+                progress={progress}
+                visitedUrls={visitedUrls}
+                totalUrlsToVisit={totalUrlsToVisit}
+                isCanceling={isCanceling}
+                handleCancelScrape={handleCancelScrape}
+                taskId={jobId}
+              />
+            </div>
+          </div>
+        )}
       </div>
+
       <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} summary={summary} mode={mode} scrapeStatus={scrapeStatus} startTime={summary.startTime} taskId={jobId} />
-    </div>
+    </AppShell>
   );
 }
 

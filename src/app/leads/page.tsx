@@ -2,20 +2,27 @@
 
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
-import { Icon } from "@iconify/react";
-import Sidebar from "@/widgets/app-shell/ui/Sidebar";
-import Header from "@/widgets/app-shell/ui/Header";
-import PageHeader from "@/shared/ui/PageHeader";
-import SimpleFooter from "@/shared/ui/SimpleFooter";
-import useSidebar from "@/shared/hooks/useSidebar";
-import useUserProfile from "@/features/auth/hooks/useUserProfile";
-import { useNotifications } from "@/shared/contexts/NotificationsContext";
+import AppShell from "@/widgets/app-shell/ui/AppShell";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import LeadSearchForm from "@/features/leads/components/LeadSearchForm";
-import LeadsTable from "@/features/leads/components/LeadsTable";
 import LinkedInSearchForm from "@/features/leads/components/LinkedInSearchForm";
-import LinkedInLeadsTable from "@/features/leads/components/LinkedInLeadsTable";
+import LeadsTableV2, { LeadColumn } from "@/features/leads/components/LeadsTableV2";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
+
+const gmbColumns: LeadColumn<any>[] = [
+  { key: "business_name", label: "Business", render: (l) => l.business_name },
+  { key: "category", label: "Category", render: (l) => l.category || "—" },
+  { key: "phone", label: "Phone", render: (l) => l.phone || "—", mono: true },
+  { key: "address", label: "Address", render: (l) => l.address || "—" },
+  { key: "rating", label: "Rating", render: (l) => (l.rating ? `${l.rating} (${l.reviews_count ?? 0})` : "—"), mono: true },
+];
+
+const linkedinColumns: LeadColumn<any>[] = [
+  { key: "full_name", label: "Name", render: (l) => l.full_name },
+  { key: "headline", label: "Headline", render: (l) => l.headline || "—" },
+  { key: "current_company", label: "Company", render: (l) => l.current_company || "—" },
+  { key: "location", label: "Location", render: (l) => l.location || "—" },
+];
 
 function GmbTab({ mode }: { mode: "light" | "dark" }) {
   const [leads, setLeads] = useState<any[]>([]);
@@ -71,7 +78,7 @@ function GmbTab({ mode }: { mode: "light" | "dark" }) {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string | number) => {
     const previous = leads;
     setLeads((prev) => prev.filter((l) => l.id !== id));
     try {
@@ -84,14 +91,12 @@ function GmbTab({ mode }: { mode: "light" | "dark" }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4">
       <LeadSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
       {isLoading ? (
-        <div className="flex justify-center items-center h-64 bg-opacity-50 rounded-lg">
-          <Icon icon="mdi:loading" width={40} height={40} className="animate-spin text-[#f05d23]" />
-        </div>
+        <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading leads…</div>
       ) : (
-        <LeadsTable leads={leads} mode={mode} onDelete={handleDelete} />
+        <LeadsTableV2 leads={leads} columns={gmbColumns} onDelete={handleDelete} sourceBadge="Google Maps" />
       )}
     </div>
   );
@@ -151,7 +156,7 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string | number) => {
     const previous = leads;
     setLeads((prev) => prev.filter((l) => l.id !== id));
     try {
@@ -164,81 +169,50 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4">
       <LinkedInSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
       {isLoading ? (
-        <div className="flex justify-center items-center h-64 bg-opacity-50 rounded-lg">
-          <Icon icon="mdi:loading" width={40} height={40} className="animate-spin text-[#f05d23]" />
-        </div>
+        <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading leads…</div>
       ) : (
-        <LinkedInLeadsTable leads={leads} mode={mode} onDelete={handleDelete} />
+        <LeadsTableV2 leads={leads} columns={linkedinColumns} onDelete={handleDelete} sourceBadge="LinkedIn" />
       )}
     </div>
   );
 }
 
 export default function LeadsPage() {
-  const { resolvedMode: mode, toggleMode } = useTheme();
-  const { isSidebarOpen, toggleSidebar } = useSidebar();
-  const { user, loading: userLoading, handleLogout } = useUserProfile();
-  const { notifications, isLoading: notificationsLoading, markNotificationAsRead } = useNotifications();
+  const { resolvedMode: mode } = useTheme();
   const [activeTab, setActiveTab] = useState<"gmb" | "linkedin">("gmb");
 
   const tabs = [
-    { id: "gmb" as const, label: "Google Maps", icon: "mdi:map-marker-radius" },
-    { id: "linkedin" as const, label: "LinkedIn", icon: "mdi:linkedin" },
+    { id: "gmb" as const, label: "Google Maps" },
+    { id: "linkedin" as const, label: "LinkedIn" },
   ];
 
   return (
-    <div className={`flex flex-col ${mode === "dark" ? "bg-gradient-to-b from-gray-900 to-gray-800" : "bg-gradient-to-b from-gray-50 to-gray-100"}`}>
-      <div className="flex flex-1">
-        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
-        <div className="flex-1 flex flex-col min-w-0">
-          <Header
-            toggleSidebar={toggleSidebar}
-            isSidebarOpen={!!isSidebarOpen}
-            mode={mode}
-            toggleMode={toggleMode}
-            onLogout={handleLogout}
-            user={user}
-            loading={userLoading}
-            notifications={notifications}
-            isLoading={notificationsLoading}
-            onMarkAsRead={markNotificationAsRead}
-          />
-        <div className="h-full flex-1 p-6 transition-all duration-300 overflow-hidden">
-          <div className="max-w-7xl mx-auto space-y-6">
-            <PageHeader
-              title="Business Leads"
-              description="Find business and people leads from Google Maps and LinkedIn."
-              icon="mdi:map-marker-radius"
-              mode={mode}
-            />
-
-            <div className="flex gap-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-5 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? `bg-[#f05d23] bg-opacity-10 text-[#f05d23] ${mode === "dark" ? "ring-1 ring-[#f05d23] ring-opacity-40" : "shadow-sm"}`
-                      : `${mode === "dark" ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`
-                  }`}
-                >
-                  <Icon icon={tab.icon} className="w-5 h-5 mr-2" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === "gmb" ? <GmbTab mode={mode} /> : <LinkedInTab mode={mode} />}
-          </div>
+    <AppShell>
+      <div className="mx-auto flex max-w-7xl flex-col gap-4">
+        <div>
+          <h1 className="font-display text-xl font-semibold text-text-hi">Leads</h1>
+          <p className="mt-0.5 text-sm text-text-lo">Business and people leads from Google Maps and LinkedIn.</p>
         </div>
 
-          <SimpleFooter mode={mode} />
+        <div className="flex w-fit gap-1 rounded-md border border-app-border bg-surface p-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                activeTab === tab.id ? "bg-brand-500/10 text-brand-500" : "text-text-lo hover:text-text-hi"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
+
+        {activeTab === "gmb" ? <GmbTab mode={mode} /> : <LinkedInTab mode={mode} />}
       </div>
-    </div>
+    </AppShell>
   );
 }

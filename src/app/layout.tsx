@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Figtree } from "next/font/google";
+import { Figtree, Inter, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
@@ -11,6 +11,18 @@ import RouteChangeToast from "@/shared/ui/RouteChangeToast";
 const figtree = Figtree({
   subsets: ["latin"],
   variable: "--font-figtree",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
   display: "swap",
 });
 
@@ -45,7 +57,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body suppressHydrationWarning className={`${figtree.variable} ${cloverDisplay.variable} ${figtree.className}`}>
+      <body
+        suppressHydrationWarning
+        className={`${figtree.variable} ${cloverDisplay.variable} ${inter.variable} ${jetbrainsMono.variable} ${figtree.className}`}
+      >
         <ThemeProvider>
           <NotificationsProvider>
             <AppToaster />

@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { sidebarNavGroups } from "@/shared/lib/nav";
+import { NAV_SHORTCUTS } from "@/widgets/app-shell/lib/shortcuts";
 import SidebarUserMenu from "@/widgets/app-shell/ui/sidebar/SidebarUserMenu";
 import type { UserProfile } from "@/features/auth/hooks/useUserProfile";
 
@@ -105,7 +106,7 @@ export default function Sidebar({
               aria-label="Close Sidebar"
               className="text-gray-500 dark:text-gray-400 hover:text-[#f05d23] transition-all p-2 rounded-full hover:bg-white/10"
             >
-              <Icon icon="mdi:close" className="w-6 h-6" />
+              <Icon icon="solar:close-circle-broken" className="w-6 h-6" />
             </button>
           )}
         </div>
@@ -182,7 +183,16 @@ export default function Sidebar({
                             >
                               {active && <div className="absolute left-0 w-1 h-1/2 bg-white/60 rounded-r-full" />}
                               <Icon icon={icon} className={`h-5 w-5 shrink-0 transition-all duration-300 ${active ? "scale-105" : "group-hover:scale-110"}`} />
-                              {isOpen && <span className="truncate">{label}</span>}
+                              {isOpen && <span className="flex-1 truncate">{label}</span>}
+                              {isOpen && NAV_SHORTCUTS[href] && (
+                                <span
+                                  className={`hidden font-mono text-[10px] uppercase tracking-wide group-hover:inline ${
+                                    active ? "text-white/70" : "text-gray-400 dark:text-gray-500"
+                                  }`}
+                                >
+                                  G {NAV_SHORTCUTS[href]}
+                                </span>
+                              )}
                             </motion.div>
                           </motion.li>
                         );
@@ -194,6 +204,12 @@ export default function Sidebar({
             </div>
           ))}
         </nav>
+
+        {isOpen && (
+          <div className="px-4 pb-2 font-mono text-[10px] text-gray-400 dark:text-gray-500">
+            <kbd className={`rounded border px-1 py-0.5 ${mode === "dark" ? "border-white/10" : "border-gray-200"}`}>⌘K</kbd> to search
+          </div>
+        )}
 
         {!(!isOpen && isMobile) && (
           <SidebarUserMenu mode={mode} user={user} loading={loading} isOpen={isOpen} isMobile={isMobile} onLogout={onLogout} />

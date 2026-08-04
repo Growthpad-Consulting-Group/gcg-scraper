@@ -47,11 +47,11 @@ export default function Header({
 
   const addNewItems = useMemo(
     () => [
-      { label: "Run Query", icon: "mdi:database-search", href: "/run-query" },
-      { label: "Lead Search", icon: "mdi:map-marker-radius", href: "/leads" },
-      { label: "Keyword", icon: "mdi:tag", href: "/keyword-manager" },
-      { label: "Scheduled Task", icon: "akar-icons:schedule", href: "/scheduler" },
-      { label: "Upload Website", icon: "mdi:cloud-upload", href: "/upload-website" },
+      { label: "Run Query", icon: "solar:database-broken", href: "/run-query" },
+      { label: "Lead Search", icon: "solar:map-point-broken", href: "/leads" },
+      { label: "Keyword", icon: "solar:tag-broken", href: "/keyword-manager" },
+      { label: "Scheduled Task", icon: "solar:calendar-broken", href: "/scheduler" },
+      { label: "Upload Website", icon: "solar:cloud-upload-broken", href: "/upload-website" },
     ],
     []
   );

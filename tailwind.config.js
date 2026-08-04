@@ -11,6 +11,34 @@ module.exports = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+
+        canvas: "var(--canvas)",
+        surface: "var(--surface)",
+        "surface-2": "var(--surface-2)",
+        "app-border": "var(--border)",
+        "text-hi": "var(--text-hi)",
+        "text-lo": "var(--text-lo)",
+
+        brand: {
+          500: "#f05d23",
+          600: "#d94f1e",
+        },
+        status: {
+          success: "#22c55e",
+          warning: "#eab308",
+          danger: "#ef4444",
+          info: "#3b82f6",
+        },
+      },
+      fontFamily: {
+        sans: ["var(--font-inter)", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "monospace"],
+        display: ["var(--font-clover-display)", "sans-serif"],
+      },
+      borderRadius: {
+        DEFAULT: "6px",
+        md: "6px",
+        lg: "8px",
       },
       animation: {
         ping: 'ping 2.0s linear infinite', // Adjust the duration here

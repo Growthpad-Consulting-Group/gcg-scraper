@@ -13,28 +13,25 @@ export type NavGroup = {
 export const sidebarNavGroups: NavGroup[] = [
   {
     category: "Overview",
-    icon: "mdi:view-dashboard",
-    items: [{ href: "/overview", icon: "mdi:view-dashboard", label: "Dashboard Overview" }],
+    icon: "solar:widget-2-broken",
+    items: [{ href: "/overview", icon: "solar:widget-2-broken", label: "Dashboard Overview" }],
   },
   {
-    category: "Tenders",
-    icon: "mdi:briefcase-search",
+    category: "Scrape",
+    icon: "solar:database-broken",
     items: [
-      { href: "/run-query", icon: "mdi:database-search", label: "Run Query" },
-      { href: "/tenders", icon: "mdi:briefcase-search", label: "View Tenders" },
-      { href: "/keyword-manager", icon: "mdi:tag", label: "Keyword Manager" },
-      { href: "/upload-website", icon: "mdi:cloud-upload", label: "Upload Website" },
+      { href: "/run-query", icon: "solar:database-broken", label: "Run Query" },
+      { href: "/tenders", icon: "solar:case-minimalistic-broken", label: "View Tenders" },
+      { href: "/leads", icon: "solar:map-point-broken", label: "Business Leads" },
     ],
   },
   {
-    category: "Leads",
-    icon: "mdi:map-marker-radius",
-    items: [{ href: "/leads", icon: "mdi:map-marker-radius", label: "Business Leads" }],
-  },
-  {
-    category: "Automation",
-    icon: "akar-icons:schedule",
-    items: [{ href: "/scheduler", icon: "akar-icons:schedule", label: "Scheduler" }],
+    category: "Automate",
+    icon: "solar:calendar-broken",
+    items: [
+      { href: "/scheduler", icon: "solar:calendar-broken", label: "Scheduler" },
+      { href: "/keyword-manager", icon: "solar:tag-broken", label: "Keyword Manager" },
+    ],
   },
 ];
 
