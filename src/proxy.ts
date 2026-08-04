@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserForSessionToken, SESSION_COOKIE_NAME } from "@/features/auth/api/session";
 
-// Requires the Node.js runtime (not Edge) since session lookup hits Supabase via the
-// service-role client and hashes tokens with Node's crypto module.
-export const runtime = "nodejs";
-
 const PUBLIC_PATHS = ["/", "/verify"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (

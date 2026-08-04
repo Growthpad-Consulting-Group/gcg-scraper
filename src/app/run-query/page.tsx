@@ -7,7 +7,7 @@ import { Icon } from "@iconify/react";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useTheme } from "@/shared/contexts/ThemeContext";
-import QueryForm from "@/features/scraping/components/QueryForm";
+import QueryComposer from "@/features/scraping/components/QueryComposer";
 import RunConsole from "@/features/scraping/components/RunConsole";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
@@ -163,26 +163,24 @@ function RunQueryContent() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="max-h-[600px] overflow-y-auto rounded-lg border border-app-border bg-surface p-4">
-              <QueryForm
-                searchTerms={searchTerms}
-                selectedTerms={selectedTerms}
-                setSelectedTerms={setSelectedTerms}
-                selectedEngines={selectedEngines}
-                setSelectedEngines={setSelectedEngines}
-                baseKeywords={baseKeywords}
-                selectedBaseKeywords={selectedBaseKeywords}
-                setSelectedBaseKeywords={setSelectedBaseKeywords}
-                countries={countries}
-                selectedCountry={selectedCountry}
-                setSelectedCountry={setSelectedCountry}
-                scrapeStatus={scrapeStatus}
-                handleRunQuery={handleRunQuery}
-                handleAddScheduledTask={handleAddScheduledTask}
-                mode={mode}
-              />
-            </div>
+          <div className="flex flex-col gap-4">
+            <QueryComposer
+              searchTerms={searchTerms}
+              selectedTerms={selectedTerms}
+              setSelectedTerms={setSelectedTerms}
+              selectedEngines={selectedEngines}
+              setSelectedEngines={setSelectedEngines}
+              baseKeywords={baseKeywords}
+              selectedBaseKeywords={selectedBaseKeywords}
+              setSelectedBaseKeywords={setSelectedBaseKeywords}
+              countries={countries}
+              selectedCountry={selectedCountry}
+              setSelectedCountry={setSelectedCountry}
+              scrapeStatus={scrapeStatus}
+              handleRunQuery={handleRunQuery}
+              handleAddScheduledTask={handleAddScheduledTask}
+              mode={mode}
+            />
             <div className="min-h-[500px]">
               <RunConsole
                 scrapeStatus={scrapeStatus}

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Figtree, Inter, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
-import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/contexts/ThemeContext";
 import { NotificationsProvider } from "@/shared/contexts/NotificationsContext";
