@@ -1,6 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
-import { startGoogleMapsRun, getRunStatus, getDatasetItems } from "./apify";
+import { startGoogleMapsRun, getRunStatus, getDatasetItems, abortRun } from "./apify";
+import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 
 const MAX_POLLS = 40; // ~10 minutes at 15s apart, generous for an Apify Google Maps run
 
@@ -19,6 +20,11 @@ export const runGmbScrapeJob = inngest.createFunction(
 
     let status: string = "RUNNING";
     for (let i = 0; i < MAX_POLLS; i++) {
+      if (await step.run(`check-canceled-${i}`, () => isJobCanceled(supabase, jobId))) {
+        await step.run("abort-apify-run", () => abortRun(runId));
+        return { jobId, status: "canceled" };
+      }
+
       status = await step.run(`poll-${i}`, () => getRunStatus(runId));
       if (status !== "RUNNING" && status !== "READY") break;
 
@@ -30,7 +36,11 @@ export const runGmbScrapeJob = inngest.createFunction(
 
     if (status !== "SUCCEEDED") {
       await step.run("mark-error", async () => {
-        await supabase.from("scrape_jobs").update({ status: "error", finished_at: new Date().toISOString(), result_summary: { apifyStatus: status } }).eq("id", jobId);
+        await supabase
+          .from("scrape_jobs")
+          .update({ status: "error", finished_at: new Date().toISOString(), result_summary: { apifyStatus: status } })
+          .eq("id", jobId)
+          .neq("status", "canceled");
       });
       return { jobId, status };
     }
@@ -62,7 +72,8 @@ export const runGmbScrapeJob = inngest.createFunction(
       await supabase
         .from("scrape_jobs")
         .update({ status: "done", finished_at: new Date().toISOString(), result_summary: { leadsFound: inserted } })
-        .eq("id", jobId);
+        .eq("id", jobId)
+        .neq("status", "canceled");
     });
 
     return { jobId, leadsFound: inserted };

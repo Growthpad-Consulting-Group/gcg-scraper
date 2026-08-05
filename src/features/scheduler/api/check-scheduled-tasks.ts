@@ -13,7 +13,7 @@ const FREQUENCY_MS: Record<string, number> = {
 };
 const DEFAULT_INTERVAL_MS = FREQUENCY_MS.Daily;
 
-function isDue(task: { frequency: string | null; last_run: string | null }): boolean {
+export function isDue(task: { frequency: string | null; last_run: string | null }): boolean {
   if (!task.last_run) return true; // never run ⇒ due immediately
   const intervalMs = (task.frequency ? FREQUENCY_MS[task.frequency] : undefined) ?? DEFAULT_INTERVAL_MS;
   return Date.now() - new Date(task.last_run).getTime() >= intervalMs;

@@ -4,6 +4,7 @@ import { extractTenders } from "./firecrawlExtract";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
+import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 
 const TENDER_TYPE = "Website Tenders";
 // Scraping all ~1000 rows in `websites` in a single run isn't practical (Firecrawl cost/time);
@@ -36,58 +37,60 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       });
 
       const terms = (searchTerms || []).map((t) => t.term).join(", ");
-      const prompt = `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, the full URL to the tender/notice if available (otherwise use the page URL), the issuing organization (usually this website's own organization unless stated otherwise), a short category label, location, and budget/value if stated. If no tenders are found, return an empty list.`;
+      const prompt = `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, the full URL to the tender/notice if available (otherwise use the page URL), the direct document/PDF link if different, the issuing organization (usually this website's own organization unless stated otherwise), a short category label, location, and budget/value if stated. If no tenders are found, return an empty list.`;
+
+      if (await step.run("check-canceled-before-extract", () => isJobCanceled(supabase, jobId))) {
+        return { jobId, tendersFound: 0, canceled: true };
+      }
 
       let totalInserted = 0;
       let processed = 0;
       let openCount = 0;
       let closedCount = 0;
 
-      for (const website of websites || []) {
-        if (await step.run(`check-canceled-${website.id}`, () => isJobCanceled(supabase, jobId))) {
-          return { jobId, tendersFound: totalInserted, canceled: true };
-        }
+      // Extracted concurrently instead of one site at a time.
+      await Promise.all(
+        (websites || []).map(async (website) => {
+          const { tenders: extracted, markdown } = await step.run(`extract-${website.id}`, async () => {
+            try {
+              return await extractTenders(website.url, prompt);
+            } catch {
+              return { tenders: [], markdown: null };
+            }
+          });
 
-        const extracted = await step.run(`extract-${website.id}`, async () => {
-          try {
-            return await extractTenders(website.url, prompt);
-          } catch {
-            return [];
-          }
-        });
+          const { inserted, open, closed } = await step.run(`save-${website.id}`, async () => {
+            const rows = extracted
+              .filter((t) => t.source_url || website.url)
+              .map((t) => ({
+                title: t.title,
+                description: t.description || null,
+                closing_date: resolveClosingDate(t.closing_date),
+                source_url: t.source_url || website.url,
+                status: computeStatus(t.closing_date ?? null),
+                tender_type: TENDER_TYPE,
+                format: "HTML",
+                scraped_at: new Date().toISOString(),
+                raw_content: markdown,
+                ...resolveOptionalFields(t),
+              }));
 
-        processed += 1;
+            return insertTenderRows(supabase, rows);
+          });
 
-        const { inserted: insertedForSite, open, closed } = await step.run(`save-${website.id}`, async () => {
-          const rows = extracted
-            .filter((t) => t.source_url || website.url)
-            .map((t) => ({
-              title: t.title,
-              description: t.description || null,
-              closing_date: resolveClosingDate(t.closing_date),
-              source_url: t.source_url || website.url,
-              status: computeStatus(t.closing_date ?? null),
-              tender_type: TENDER_TYPE,
-              format: "HTML",
-              scraped_at: new Date().toISOString(),
-              ...resolveOptionalFields(t),
-            }));
+          processed += 1;
+          totalInserted += inserted;
+          openCount += open;
+          closedCount += closed;
 
-          const inserted = await insertTenderRows(supabase, rows);
-          return { inserted, open: rows.filter((r) => r.status === "open").length, closed: rows.filter((r) => r.status === "closed").length };
-        });
-
-        totalInserted += insertedForSite;
-        openCount += open;
-        closedCount += closed;
-
-        await step.run(`progress-${website.id}`, async () => {
-          await Promise.all([
-            supabase.from("scrape_jobs").update({ progress: { stage: "running", processed, total: (websites || []).length } }).eq("id", jobId),
-            supabase.from("websites").update({ last_scraped_at: new Date().toISOString() }).eq("id", website.id),
-          ]);
-        });
-      }
+          await step.run(`progress-${website.id}`, async () => {
+            await Promise.all([
+              supabase.from("scrape_jobs").update({ progress: { stage: "running", processed, total: (websites || []).length } }).eq("id", jobId),
+              supabase.from("websites").update({ last_scraped_at: new Date().toISOString() }).eq("id", website.id),
+            ]);
+          });
+        })
+      );
 
       await step.run("mark-done", async () => {
         await supabase
@@ -102,6 +105,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       });
 
       await step.run("notify", () => notifyTaskOwner(supabase, jobId, totalInserted));
+      await step.run("log-done", () => logJobOutcome(supabase, jobId, `Run finished: ${totalInserted} tender(s) found across ${processed} site(s).`));
 
       return { jobId, tendersFound: totalInserted };
     } catch (err: any) {
@@ -112,6 +116,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
           .eq("id", jobId)
           .neq("status", "canceled");
       });
+      await step.run("log-error", () => logJobOutcome(supabase, jobId, `Run failed: ${err?.message ?? "Unknown error"}`));
       throw err;
     }
   }

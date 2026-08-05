@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
+import { Icon } from "@iconify/react";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
+import Button from "@/shared/ui/Button";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import LeadSearchForm from "@/features/leads/components/LeadSearchForm";
 import LinkedInSearchForm from "@/features/leads/components/LinkedInSearchForm";
 import LeadsTableV2, { LeadColumn } from "@/features/leads/components/LeadsTableV2";
+import LeadsExportButton from "@/features/leads/components/LeadsExportButton";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 
 const gmbColumns: LeadColumn<any>[] = [
@@ -23,6 +26,36 @@ const linkedinColumns: LeadColumn<any>[] = [
   { key: "current_company", label: "Company", render: (l) => l.current_company || "—" },
   { key: "location", label: "Location", render: (l) => l.location || "—" },
 ];
+
+function CancelRunningJob({ jobId }: { jobId: string }) {
+  const [isCanceling, setIsCanceling] = useState(false);
+
+  const handleCancel = async () => {
+    setIsCanceling(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to cancel");
+      toast.success("Canceling — the search will stop shortly.");
+    } catch (err: any) {
+      toast.error("Failed to cancel: " + err.message);
+    } finally {
+      setIsCanceling(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between rounded-md border border-app-border bg-surface px-3 py-2 text-sm text-text-lo">
+      <span className="flex items-center gap-2">
+        <Icon icon="mdi:loading" width={14} className="animate-spin text-brand-500" />
+        Search running…
+      </span>
+      <Button size="sm" variant="danger" onClick={handleCancel} disabled={isCanceling}>
+        {isCanceling ? "Canceling…" : "Cancel"}
+      </Button>
+    </div>
+  );
+}
 
 function GmbTab({ mode }: { mode: "light" | "dark" }) {
   const [leads, setLeads] = useState<any[]>([]);
@@ -56,6 +89,11 @@ function GmbTab({ mode }: { mode: "light" | "dark" }) {
       setScrapeStatus("idle");
     } else if (scrapeStatus === "error") {
       toast.error("Lead search failed.");
+      setJobId(null);
+      setScrapeStatus("idle");
+    } else if (scrapeStatus === "canceled") {
+      toast.success("Search canceled.");
+      fetchLeads();
       setJobId(null);
       setScrapeStatus("idle");
     }
@@ -93,6 +131,12 @@ function GmbTab({ mode }: { mode: "light" | "dark" }) {
   return (
     <div className="flex flex-col gap-4">
       <LeadSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
+      {scrapeStatus === "running" && jobId && <CancelRunningJob jobId={jobId} />}
+      {!isLoading && leads.length > 0 && (
+        <div className="flex justify-end">
+          <LeadsExportButton leads={leads} filename="gmb_leads.csv" />
+        </div>
+      )}
       {isLoading ? (
         <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading leads…</div>
       ) : (
@@ -171,6 +215,12 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
   return (
     <div className="flex flex-col gap-4">
       <LinkedInSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
+      {scrapeStatus === "running" && jobId && <CancelRunningJob jobId={jobId} />}
+      {!isLoading && leads.length > 0 && (
+        <div className="flex justify-end">
+          <LeadsExportButton leads={leads} filename="linkedin_leads.csv" />
+        </div>
+      )}
       {isLoading ? (
         <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading leads…</div>
       ) : (

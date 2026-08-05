@@ -32,6 +32,11 @@ export async function getRunStatus(runId: string) {
   return data.status as "READY" | "RUNNING" | "SUCCEEDED" | "FAILED" | "ABORTED" | "TIMED-OUT";
 }
 
+export async function abortRun(runId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/actor-runs/${runId}/abort?token=${process.env.APIFY_API_TOKEN}`, { method: "POST" });
+  if (!res.ok) throw new Error(`Failed to abort Apify run: ${res.status} ${await res.text()}`);
+}
+
 export async function getDatasetItems(datasetId: string): Promise<GoogleMapsPlace[]> {
   const res = await fetch(`${BASE_URL}/datasets/${datasetId}/items?token=${process.env.APIFY_API_TOKEN}`);
   if (!res.ok) throw new Error(`Failed to fetch Apify dataset: ${res.status} ${await res.text()}`);

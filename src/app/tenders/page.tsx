@@ -9,18 +9,23 @@ import Button from "@/shared/ui/Button";
 import TenderTableV2 from "@/features/tenders/components/TenderTableV2";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 
+const PAGE_SIZE = 500;
+
 export default function TendersPage() {
   const { resolvedMode: mode } = useTheme();
   const [tenders, setTenders] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const fetchTenders = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/tenders");
+      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=0`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch tenders");
       setTenders(data.tenders || []);
+      setTotal(data.total ?? (data.tenders || []).length);
     } catch (err: any) {
       toast.error("Error fetching tenders: " + err.message);
       setTenders([]);
@@ -28,6 +33,20 @@ export default function TendersPage() {
       setIsLoading(false);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    setIsLoadingMore(true);
+    try {
+      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=${tenders.length}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch tenders");
+      setTenders((prev) => [...prev, ...(data.tenders || [])]);
+    } catch (err: any) {
+      toast.error("Error loading more tenders: " + err.message);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [tenders.length]);
 
   useEffect(() => {
     fetchTenders();
@@ -63,6 +82,12 @@ export default function TendersPage() {
           </Link>
         </div>
         <TenderTableV2 tenders={tenders} isLoading={isLoading} mode={mode} onDeleteTender={handleDeleteTender} />
+        {!isLoading && tenders.length < total && (
+          <Button size="sm" variant="secondary" onClick={loadMore} disabled={isLoadingMore} className="self-center">
+            <Icon icon={isLoadingMore ? "mdi:loading" : "mdi:chevron-down"} width={16} className={isLoadingMore ? "animate-spin" : ""} />
+            Load more ({tenders.length} of {total})
+          </Button>
+        )}
       </div>
     </AppShell>
   );

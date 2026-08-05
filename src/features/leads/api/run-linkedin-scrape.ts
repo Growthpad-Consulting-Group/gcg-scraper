@@ -1,7 +1,8 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
-import { getRunStatus, getDatasetItems } from "./apify";
+import { getRunStatus, getDatasetItems, abortRun } from "./apify";
 import { startLinkedInSearch } from "./apifyLinkedIn";
+import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 
 const MAX_POLLS = 40; // ~10 minutes at 15s apart
 
@@ -23,6 +24,11 @@ export const runLinkedInScrapeJob = inngest.createFunction(
 
     let status: string = "RUNNING";
     for (let i = 0; i < MAX_POLLS; i++) {
+      if (await step.run(`check-canceled-${i}`, () => isJobCanceled(supabase, jobId))) {
+        await step.run("abort-apify-run", () => abortRun(runId));
+        return { jobId, leadsFound: 0, status: "canceled" };
+      }
+
       status = await step.run(`poll-${i}`, () => getRunStatus(runId));
       if (status !== "RUNNING" && status !== "READY") break;
 
@@ -37,7 +43,8 @@ export const runLinkedInScrapeJob = inngest.createFunction(
         await supabase
           .from("scrape_jobs")
           .update({ status: "done", finished_at: new Date().toISOString(), result_summary: { leadsFound: 0, apifyStatus: status } })
-          .eq("id", jobId);
+          .eq("id", jobId)
+          .neq("status", "canceled");
       });
       return { jobId, leadsFound: 0, apifyStatus: status };
     }
@@ -65,7 +72,8 @@ export const runLinkedInScrapeJob = inngest.createFunction(
       await supabase
         .from("scrape_jobs")
         .update({ status: "done", finished_at: new Date().toISOString(), result_summary: { leadsFound: inserted } })
-        .eq("id", jobId);
+        .eq("id", jobId)
+        .neq("status", "canceled");
     });
 
     return { jobId, leadsFound: inserted };

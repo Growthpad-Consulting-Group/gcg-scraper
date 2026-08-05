@@ -4,6 +4,7 @@ import { extractTenders } from "./firecrawlExtract";
 import { getSourceConfig } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
+import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 
 export const runSourceScrapeJob = inngest.createFunction(
   { id: "run-source-scrape-job", retries: 0, triggers: { event: "tenders/source.queued" } },
@@ -24,9 +25,9 @@ export const runSourceScrapeJob = inngest.createFunction(
     });
 
     try {
-      const extracted = await step.run("extract", () => extractTenders(config.url, config.prompt));
+      const { tenders: extracted, markdown } = await step.run("extract", () => extractTenders(config.url, config.prompt));
 
-      const { inserted, openCount, closedCount } = await step.run("save-tenders", async () => {
+      const { inserted, open: openCount, closed: closedCount } = await step.run("save-tenders", async () => {
         const rows = extracted
           .filter((t) => t.source_url)
           .map((t) => ({
@@ -38,15 +39,11 @@ export const runSourceScrapeJob = inngest.createFunction(
             tender_type: tenderType,
             format: t.source_url?.toLowerCase().endsWith(".pdf") ? "PDF" : t.source_url?.toLowerCase().endsWith(".docx") ? "DOCX" : "HTML",
             scraped_at: new Date().toISOString(),
+            raw_content: markdown,
             ...resolveOptionalFields(t),
           }));
 
-        const inserted = await insertTenderRows(supabase, rows);
-        return {
-          inserted,
-          openCount: rows.filter((r) => r.status === "open").length,
-          closedCount: rows.filter((r) => r.status === "closed").length,
-        };
+        return insertTenderRows(supabase, rows);
       });
 
       await step.run("mark-done", async () => {
@@ -62,6 +59,7 @@ export const runSourceScrapeJob = inngest.createFunction(
       });
 
       await step.run("notify", () => notifyTaskOwner(supabase, jobId, inserted));
+      await step.run("log-done", () => logJobOutcome(supabase, jobId, `Run finished: ${inserted} tender(s) found.`));
 
       return { jobId, tendersFound: inserted };
     } catch (err: any) {
@@ -72,6 +70,7 @@ export const runSourceScrapeJob = inngest.createFunction(
           .eq("id", jobId)
           .neq("status", "canceled");
       });
+      await step.run("log-error", () => logJobOutcome(supabase, jobId, `Run failed: ${err?.message ?? "Unknown error"}`));
       throw err;
     }
   }

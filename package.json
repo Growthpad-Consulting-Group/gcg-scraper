@@ -7,7 +7,8 @@
     "dev:inngest": "inngest-cli dev -u http://localhost:3000/api/inngest",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.5.0",
@@ -62,7 +63,8 @@
     "postcss": "^8",
     "supabase": "^2.15.8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "allowScripts": {
     "inngest-cli@1.39.0": true

@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
-import nodemailer from "nodemailer";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
+import { sendEmail } from "@/shared/lib/mailer";
 
 const MAGIC_LINK_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -57,18 +57,11 @@ export async function consumeMagicLink(token: string, email: string) {
 }
 
 async function sendMagicLinkEmail(email: string, token: string) {
-  const transport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-  });
-
   const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/verify?token=${token}&email=${encodeURIComponent(
     email
   )}`;
 
-  await transport.sendMail({
-    from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
+  await sendEmail({
     to: email,
     subject: "Your sign-in link",
     html: `<p>Click to sign in: <a href="${verifyUrl}">${verifyUrl}</a></p><p>This link expires in 15 minutes.</p>`,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import Link from "next/link";
 import { Icon } from "@iconify/react";
 import Badge from "@/shared/ui/Badge";
 import Button from "@/shared/ui/Button";
@@ -22,6 +23,8 @@ interface Tender {
   organization?: string | null;
   category?: string | null;
   budget?: number | null;
+  document_url?: string | null;
+  raw_content?: string | null;
   [key: string]: unknown;
 }
 
@@ -165,7 +168,11 @@ export default function TenderTableV2({
                   <TableTd onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={selected.has(tender.id)} onChange={() => toggleSelected(tender.id)} className="accent-brand-500" />
                   </TableTd>
-                  <TableTd className="max-w-xs truncate font-medium text-text-hi">{tender.title}</TableTd>
+                  <TableTd className="max-w-xs truncate font-medium text-text-hi">
+                    <Link href={`/tenders/${tender.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-brand-500 hover:underline">
+                      {tender.title}
+                    </Link>
+                  </TableTd>
                   <TableTd>
                     <Badge status={badge.status}>{badge.label}</Badge>
                   </TableTd>
@@ -246,16 +253,28 @@ function TenderDetail({ tender }: { tender: Tender }) {
             ["Format", tender.format as string | undefined],
             ["Scraped", tender.scraped_at ? new Date(tender.scraped_at).toLocaleString() : undefined],
             ["Source URL", tender.source_url],
+            ["Document", tender.document_url],
             ["Description", tender.description],
           ].map(([label, value]) => (
             <div key={label as string} className="flex flex-col gap-0.5">
               <dt className="font-mono text-[10px] uppercase tracking-wide text-text-lo">{label}</dt>
-              <dd className="truncate text-text-hi">{(value as string) || "—"}</dd>
+              {(label === "Source URL" || label === "Document") && value ? (
+                <dd className="truncate">
+                  <a href={value as string} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline">
+                    {value as string}
+                  </a>
+                </dd>
+              ) : (
+                <dd className="truncate text-text-hi">{(value as string) || "—"}</dd>
+              )}
             </div>
           ))}
         </dl>
       ) : (
-        <LogPanel autoScroll={false} lines={[{ text: JSON.stringify(tender, null, 2), tone: "default" }]} />
+        <LogPanel
+          autoScroll={false}
+          lines={[{ text: tender.raw_content || "No raw content captured for this tender (scraped before raw capture was added).", tone: "default" }]}
+        />
       )}
     </div>
   );

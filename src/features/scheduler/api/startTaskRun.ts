@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { getSourceConfig } from "@/features/tenders/api/sourceConfigs";
+import { logTaskEvent } from "./taskLog";
 
 export interface ScheduledTaskRow {
   task_id: number;
@@ -33,6 +34,7 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
   }
 
   await supabase.from("scheduled_tasks").update({ last_run: new Date().toISOString() }).eq("task_id", task.task_id);
+  await logTaskEvent(supabase, task.task_id, `Run started (job ${job.id}).`);
 
   return job.id;
 }

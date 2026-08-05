@@ -11,6 +11,15 @@ export type ExtractedTender = {
   category?: string | null;
   location?: string | null;
   budget?: number | null;
+  document_url?: string | null;
+};
+
+export type ExtractResult = {
+  tenders: ExtractedTender[];
+  /** Raw markdown of the scraped page — shared across every tender pulled from that one page,
+   * since most sources are a single listing page rather than per-tender detail pages. Powers the
+   * Tenders table's "raw" view, which previously just re-serialized the parsed row as JSON. */
+  markdown: string | null;
 };
 
 const EXTRACTION_SCHEMA = {
@@ -29,6 +38,7 @@ const EXTRACTION_SCHEMA = {
           category: { type: "string", description: "Sector/category, e.g. 'IT', 'Construction', 'Consultancy', 'Supplies' — a short label, not a sentence" },
           location: { type: "string", description: "Country or city the tender applies to, if stated" },
           budget: { type: "number", description: "Estimated value/budget as a plain number (no currency symbol or commas) if stated, otherwise omit" },
+          document_url: { type: "string", description: "Direct URL to the downloadable tender document/PDF, if different from source_url (the listing page)" },
         },
         required: ["title"],
       },
@@ -37,7 +47,7 @@ const EXTRACTION_SCHEMA = {
   required: ["tenders"],
 };
 
-export async function extractTenders(url: string, prompt: string): Promise<ExtractedTender[]> {
+export async function extractTenders(url: string, prompt: string): Promise<ExtractResult> {
   const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
     headers: {
@@ -46,7 +56,7 @@ export async function extractTenders(url: string, prompt: string): Promise<Extra
     },
     body: JSON.stringify({
       url,
-      formats: ["extract"],
+      formats: ["markdown", "extract"],
       extract: { schema: EXTRACTION_SCHEMA, prompt },
     }),
   });
@@ -57,5 +67,6 @@ export async function extractTenders(url: string, prompt: string): Promise<Extra
 
   const body = await res.json();
   const tenders = body?.data?.extract?.tenders;
-  return Array.isArray(tenders) ? tenders : [];
+  const markdown = typeof body?.data?.markdown === "string" ? body.data.markdown : null;
+  return { tenders: Array.isArray(tenders) ? tenders : [], markdown };
 }

@@ -20,11 +20,13 @@ export interface TenderRow {
   category: string | null;
   location: string | null;
   budget: number | null;
+  document_url: string | null;
+  raw_content: string | null;
 }
 
 /** `tenders.location` is varchar(100); `budget` is numeric — guard both against malformed
  * extraction output before it hits the DB. */
-export function resolveOptionalFields(t: ExtractedTender): Pick<TenderRow, "organization" | "category" | "location" | "budget"> {
+export function resolveOptionalFields(t: ExtractedTender): Pick<TenderRow, "organization" | "category" | "location" | "budget" | "document_url"> {
   return {
     organization: t.organization?.trim() || null,
     category: t.category?.trim() || null,
@@ -32,7 +34,12 @@ export function resolveOptionalFields(t: ExtractedTender): Pick<TenderRow, "orga
     // The model defaults unstated numbers to 0 rather than omitting the field — treat 0 as
     // "not provided" too, since a genuine $0 tender is not a real case worth distinguishing.
     budget: typeof t.budget === "number" && isFinite(t.budget) && t.budget > 0 ? t.budget : null,
+    document_url: t.document_url?.trim() || null,
   };
+}
+
+function normalizeTitle(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 /**
@@ -41,17 +48,41 @@ export function resolveOptionalFields(t: ExtractedTender): Pick<TenderRow, "orga
  * exist" check before either has committed, and the second insert throws a duplicate-key error.
  * Upsert-and-ignore sidesteps the race entirely (and drops the need to pre-fetch every existing
  * source_url on every batch).
+ *
+ * Also filters out near-duplicates — the same tender re-listed under a different URL on another
+ * aggregator — by normalized title + closing_date, since source_url uniqueness alone doesn't
+ * catch that case.
  */
-export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow[]): Promise<number> {
-  if (rows.length === 0) return 0;
+export interface InsertResult {
+  inserted: number;
+  open: number;
+  closed: number;
+}
 
-  // Dedupe within this batch too — a single page can list the same tender twice.
+// Callers previously computed open/closed counts themselves from the pre-filter row list, which
+// silently drifted from reality once near-duplicate filtering could drop rows here — the returned
+// counts are now always derived from what was actually attempted post-filter.
+export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow[]): Promise<InsertResult> {
+  if (rows.length === 0) return { inserted: 0, open: 0, closed: 0 };
+
   const seen = new Set<string>();
-  const deduped = rows.filter((r) => (seen.has(r.source_url) ? false : (seen.add(r.source_url), true)));
+  let deduped = rows.filter((r) => (seen.has(r.source_url) ? false : (seen.add(r.source_url), true)));
+
+  const closingDates = [...new Set(deduped.map((r) => r.closing_date))];
+  const { data: existing } = await supabase.from("tenders").select("title, closing_date").in("closing_date", closingDates);
+  const existingKeys = new Set((existing || []).map((e: any) => `${normalizeTitle(e.title)}|${e.closing_date}`));
+  deduped = deduped.filter((r) => !existingKeys.has(`${normalizeTitle(r.title)}|${r.closing_date}`));
+
+  if (deduped.length === 0) return { inserted: 0, open: 0, closed: 0 };
 
   const { error } = await supabase.from("tenders").upsert(deduped, { onConflict: "source_url", ignoreDuplicates: true });
   if (error) throw error;
-  return deduped.length;
+
+  return {
+    inserted: deduped.length,
+    open: deduped.filter((r) => r.status === "open").length,
+    closed: deduped.filter((r) => r.status === "closed").length,
+  };
 }
 
 export function computeStatus(closingDate: string | null): "open" | "closed" {
