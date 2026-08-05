@@ -11,7 +11,6 @@ import RunFilterBanner from "@/shared/ui/RunFilterBanner";
 import Badge from "@/shared/ui/Badge";
 import LogPanel from "@/shared/ui/LogPanel";
 import GenericTable, { type Column } from "@/shared/ui/GenericTable";
-import { useTheme } from "@/shared/contexts/ThemeContext";
 import LeadSearchForm from "@/features/leads/components/LeadSearchForm";
 import LinkedInSearchForm from "@/features/leads/components/LinkedInSearchForm";
 import LeadsExportButton from "@/features/leads/components/LeadsExportButton";
@@ -144,7 +143,7 @@ function CancelRunningJob({ jobId }: { jobId: string }) {
   );
 }
 
-function GmbTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark"; jobFilter: string | null; onClearFilter: () => void }) {
+function GmbTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClearFilter: () => void }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -217,7 +216,7 @@ function GmbTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark"; jo
 
   return (
     <div className="flex flex-col gap-4">
-      <LeadSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
+      <LeadSearchForm isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
       {scrapeStatus === "running" && jobId && <CancelRunningJob jobId={jobId} />}
       {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
       {!isLoading && leads.length > 0 && (
@@ -234,7 +233,7 @@ function GmbTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark"; jo
   );
 }
 
-function LinkedInTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark"; jobFilter: string | null; onClearFilter: () => void }) {
+function LinkedInTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClearFilter: () => void }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -307,7 +306,7 @@ function LinkedInTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark
 
   return (
     <div className="flex flex-col gap-4">
-      <LinkedInSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
+      <LinkedInSearchForm isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
       {scrapeStatus === "running" && jobId && <CancelRunningJob jobId={jobId} />}
       {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
       {!isLoading && leads.length > 0 && (
@@ -325,7 +324,6 @@ function LinkedInTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark
 }
 
 function LeadsContent() {
-  const { resolvedMode: mode } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobFilter = searchParams?.get("job") || null;
@@ -370,9 +368,9 @@ function LeadsContent() {
         </div>
 
         {activeTab === "gmb" ? (
-          <GmbTab mode={mode} jobFilter={jobFilter} onClearFilter={clearFilter} />
+          <GmbTab jobFilter={jobFilter} onClearFilter={clearFilter} />
         ) : (
-          <LinkedInTab mode={mode} jobFilter={jobFilter} onClearFilter={clearFilter} />
+          <LinkedInTab jobFilter={jobFilter} onClearFilter={clearFilter} />
         )}
       </div>
     </AppShell>

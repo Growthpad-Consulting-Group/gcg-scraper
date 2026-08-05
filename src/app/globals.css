@@ -46,7 +46,7 @@
 body {
   transition: background-color 0.3s ease, color 0.3s ease;
   font-family: var(--font-figtree), sans-serif;
-  background-color: #fafafa;
+  background-color: var(--canvas);
   font-size: 15px;
 }
 

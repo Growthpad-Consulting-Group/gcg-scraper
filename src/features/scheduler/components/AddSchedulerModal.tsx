@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import TaskForm from "./TaskForm";
-import TaskModalWrapper from "./TaskModalWrapper";
+import SimpleModal from "@/shared/ui/SimpleModal";
+import FormActions from "@/shared/ui/FormActions";
 import toast from "react-hot-toast";
 
 export default function AddSchedulerModal({
@@ -115,18 +116,28 @@ export default function AddSchedulerModal({
   };
 
   return (
-    <TaskModalWrapper isOpen={isOpen} onClose={onClose} title="Add Scheduler" mode={mode} onSave={handleAddTask} saveLabel="Add Task" isSaving={isSaving}>
+    <SimpleModal isOpen={isOpen} onClose={onClose} title="Add Scheduler" mode={mode} noPadding>
       <TaskForm
         task={newTask}
         setTask={setNewTask}
         currentSearchTerm={currentSearchTerm}
         setCurrentSearchTerm={setCurrentSearchTerm}
         tenderTypes={tenderTypes}
-        mode={mode}
         handleAddSearchTerm={handleAddSearchTerm}
         handleRemoveSearchTerm={handleRemoveSearchTerm}
         isLoadingParent={isSaving}
       />
-    </TaskModalWrapper>
+      <div className="border-t border-app-border p-4">
+        <FormActions
+          onCancel={onClose}
+          onSave={handleAddTask}
+          loading={isSaving}
+          saveText="Add Task"
+          saveIcon="solar:add-circle-broken"
+          layout="page-footer"
+          fullWidth={false}
+        />
+      </div>
+    </SimpleModal>
   );
 }

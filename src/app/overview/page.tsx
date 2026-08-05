@@ -8,7 +8,9 @@ import AppShell from "@/widgets/app-shell/ui/AppShell";
 import Button from "@/shared/ui/Button";
 import Badge from "@/shared/ui/Badge";
 import RunFeed from "@/features/overview/components/RunFeed";
+import TendersTrendChart from "@/features/overview/components/TendersTrendChart";
 import type { RunJob } from "@/features/overview/lib/runFeed";
+import { buildTenderTrend, type TenderTrendPoint } from "@/features/overview/lib/tenderTrend";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 
 interface ScheduledTask {
@@ -25,6 +27,7 @@ export default function OverviewPage() {
   const [jobs, setJobs] = useState<RunJob[]>([]);
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [openTendersToday, setOpenTendersToday] = useState(0);
+  const [trendPoints, setTrendPoints] = useState<TenderTrendPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const hasLoadedOnce = useRef(false);
 
@@ -48,6 +51,7 @@ export default function OverviewPage() {
       const today = new Date().toDateString();
       const allTenders = tendersData.tenders || [];
       setOpenTendersToday(allTenders.filter((t: any) => t.scraped_at && new Date(t.scraped_at).toDateString() === today).length);
+      setTrendPoints(buildTenderTrend(allTenders, 14));
     } catch (err: any) {
       toast.error("Error loading run feed: " + err.message);
     } finally {
@@ -89,6 +93,8 @@ export default function OverviewPage() {
           <StatChip label="Tenders found today" value={openTendersToday} />
           <StatChip label="Scheduled tasks" value={tasks.length} />
         </div>
+
+        <TendersTrendChart points={trendPoints} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
           <div>

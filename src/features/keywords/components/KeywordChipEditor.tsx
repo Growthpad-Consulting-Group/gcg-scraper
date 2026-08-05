@@ -123,7 +123,7 @@ export default function KeywordChipEditor({
           </select>
         )}
         <button onClick={submit} className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500 text-white hover:bg-brand-600">
-          <Icon icon="mdi:plus" width={16} />
+          <Icon icon="solar:add-circle-broken" width={16} />
         </button>
       </div>
 
@@ -142,7 +142,7 @@ export default function KeywordChipEditor({
               <Icon icon="mdi:loading" width={12} className="animate-spin text-text-lo" />
             ) : (
               <button onClick={() => remove(keyword)} className="text-text-lo hover:text-status-danger" aria-label={`Remove ${keyword[keywordKey]}`}>
-                <Icon icon="mdi:close" width={12} />
+                <Icon icon="solar:close-circle-broken" width={12} />
               </button>
             )}
           </span>

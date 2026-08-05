@@ -490,11 +490,11 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
   if (loading) {
     return (
       <div
-        className="mx-auto rounded-xl shadow-lg border overflow-hidden bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+        className="mx-auto rounded-xl shadow-lg border overflow-hidden bg-surface border-app-border"
       >
         {(title || searchable || onAddNew || enableDateFilter) && (
           <div
-            className="p-3 sm:p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50"
+            className="p-3 sm:p-6 border-b border-app-border bg-surface-2"
           >
             <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
               {title && (
@@ -523,7 +523,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
         )}
         <TableSkeleton rows={5} columns={columns.length || 4} />
         <div
-          className="px-3 sm:px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
+          className="px-3 sm:px-6 py-4 border-t bg-surface-2 border-app-border"
         >
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="w-48 h-4 bg-gray-200 rounded animate-pulse"></div>
@@ -665,7 +665,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
 
   return (
     <div
-      className="w-full max-w-full rounded-2xl border overflow-visible transition-all duration-500 bg-white dark:bg-slate-900/50 dark:backdrop-blur-xl border-slate-100 dark:border-slate-800/60 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/40"
+      className="w-full max-w-full rounded-2xl border overflow-visible transition-all duration-500 bg-surface dark:backdrop-blur-xl border-app-border shadow-xl"
       style={{
         // @ts-ignore
         "--select-z-index": "9999",
@@ -673,7 +673,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
     >
       {(title || searchable || onAddNew || enableDateFilter || showExportButton) && (
         <div
-          className="px-0 p-4 sm:p-6 border-b transition-colors duration-500 border-slate-100 dark:border-slate-800/60"
+          className="px-0 p-4 sm:p-6 border-b transition-colors duration-500 border-app-border"
         >
           <div className="flex flex-col lg:flex-row items-start lg:items-center  gap-4">
             {/* Left Side - Title */}
@@ -797,7 +797,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
                 {onImport && canEdit && (
                   <button
                     onClick={onImport}
-                    className="flex items-center justify-center gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 whitespace-nowrap"
+                    className="flex items-center justify-center gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm bg-surface border border-app-border text-text-hi rounded-lg hover:bg-surface-2 transition-all duration-200 whitespace-nowrap"
                   >
                     <Icon icon="solar:import-broken" className="w-4 h-4 sm:w-4 sm:h-4" />
                     Import
@@ -875,7 +875,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
       )}
 
       {table.isMobile ? (
-        <div className="bg-white dark:bg-gray-900">
+        <div className="bg-surface">
           {table.paged.length === 0 ? (
             <GenericEmptyState
               icon="solar:magnifer-broken"
@@ -908,7 +908,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
         </div>
       ) : table.isTablet ? (
         <div
-          className="overflow-hidden bg-white dark:bg-gray-900"
+          className="overflow-hidden bg-surface"
         >
           {table.paged.length === 0 ? (
             <GenericEmptyState
@@ -968,7 +968,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
             />
 
             <TableBody
-              className="bg-white dark:bg-gray-900"
+              className="bg-surface"
             >
               {table.paged.length === 0 ? (
                 <tr>

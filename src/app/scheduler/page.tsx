@@ -9,7 +9,7 @@ import Badge from "@/shared/ui/Badge";
 import { Icon } from "@iconify/react";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
 import AddSchedulerModal from "@/features/scheduler/components/AddSchedulerModal";
-import DeleteConfirmationModal from "@/features/scheduler/components/DeleteConfirmationModal";
+import ConfirmDeleteModal from "@/shared/ui/ConfirmDeleteModal";
 import LogsModal from "@/features/scheduler/components/LogsModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 
@@ -236,8 +236,15 @@ export default function SchedulerPage() {
       </div>
 
       <AddSchedulerModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} mode={mode} tenderTypes={tenderTypes} onTaskAdded={handleTaskAdded} />
-      <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteTask} taskName={currentTaskName} isDark={mode === "dark"} />
-      <LogsModal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} logsContent={logsContent} taskName={currentTaskName} isDark={mode === "dark"} />
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteTask}
+        itemName={currentTaskName}
+        itemType="scheduled task"
+        mode={mode}
+      />
+      <LogsModal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} logsContent={logsContent} taskName={currentTaskName} />
     </AppShell>
   );
 }

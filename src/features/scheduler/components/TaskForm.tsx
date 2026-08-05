@@ -3,13 +3,16 @@
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 
+const inputClass = "w-full rounded-lg border border-app-border bg-canvas p-2 text-sm text-text-hi focus:outline-none focus:ring-2 focus:ring-brand-500";
+const pillClass = "flex items-center gap-1 rounded-full bg-surface-2 px-2 py-1 text-sm text-text-hi";
+const secondaryButtonClass = "rounded-lg bg-surface-2 px-3 py-1 text-text-hi hover:bg-app-border";
+
 export default function TaskForm({
   task,
   setTask,
   currentSearchTerm,
   setCurrentSearchTerm,
   tenderTypes,
-  mode,
   handleAddSearchTerm,
   handleRemoveSearchTerm,
   isLoadingParent,
@@ -19,7 +22,6 @@ export default function TaskForm({
   currentSearchTerm?: string;
   setCurrentSearchTerm?: (v: string) => void;
   tenderTypes: string[];
-  mode: "light" | "dark";
   handleAddSearchTerm?: () => void;
   handleRemoveSearchTerm: (term: string) => void;
   isLoadingParent: boolean;
@@ -102,26 +104,19 @@ export default function TaskForm({
   }, [task.emailNotificationsEnabled, task.smsNotificationsEnabled, task.slackNotificationsEnabled]);
 
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#f05d23] scrollbar-track-gray-200 p-6 space-y-6">
+    <div className="max-h-[70vh] flex-1 space-y-6 overflow-y-auto p-6">
       <div>
-        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Task Name</label>
-        <input
-          type="text"
-          name="name"
-          value={task.name}
-          onChange={handleInputChange}
-          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
-          placeholder="Enter task name"
-        />
+        <label className="mb-2 block text-sm font-medium text-text-hi">Task Name</label>
+        <input type="text" name="name" value={task.name} onChange={handleInputChange} className={inputClass} placeholder="Enter task name" />
       </div>
 
       <div>
-        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Tender Type</label>
+        <label className="mb-2 block text-sm font-medium text-text-hi">Tender Type</label>
         <select
           name="tenderType"
           value={task.tenderType}
           onChange={(e) => setTask((prev: any) => ({ ...prev, tenderType: e.target.value, tender_type: e.target.value }))}
-          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
+          className={inputClass}
         >
           {tenderTypes.length > 0 ? (
             tenderTypes.map((type) => (
@@ -138,13 +133,8 @@ export default function TaskForm({
       </div>
 
       <div>
-        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Frequency</label>
-        <select
-          name="frequency"
-          value={task.frequency}
-          onChange={handleInputChange}
-          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
-        >
+        <label className="mb-2 block text-sm font-medium text-text-hi">Frequency</label>
+        <select name="frequency" value={task.frequency} onChange={handleInputChange} className={inputClass}>
           <option value="Hourly">Hourly</option>
           <option value="Every 3 Hours">Every 3 Hours</option>
           <option value="Every 12 Hours">Every 12 Hours</option>
@@ -155,13 +145,8 @@ export default function TaskForm({
       </div>
 
       <div>
-        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Priority</label>
-        <select
-          name="priority"
-          value={task.priority}
-          onChange={handleInputChange}
-          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
-        >
+        <label className="mb-2 block text-sm font-medium text-text-hi">Priority</label>
+        <select name="priority" value={task.priority} onChange={handleInputChange} className={inputClass}>
           <option value="Low">Low</option>
           <option value="Medium">Medium</option>
           <option value="High">High</option>
@@ -169,35 +154,40 @@ export default function TaskForm({
       </div>
 
       <div>
-        <label className={`block text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>
+        <label className="mb-2 block text-sm font-medium text-text-hi">
           Search Term / Keyword
           {task.tenderType !== "Search Query Tenders" && " (Optional)"}
         </label>
         {task.tenderType === "Search Query Tenders" ? (
           <>
             {isLoadingSearchTerms ? (
-              <p className="text-sm">Loading search terms...</p>
+              <p className="text-sm text-text-lo">Loading search terms...</p>
             ) : error ? (
-              <p className="text-sm text-red-500">Error: {error}</p>
+              <p className="text-sm text-status-danger">Error: {error}</p>
             ) : searchTerms.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-[#f05d23] scrollbar-track-gray-200">
+              <div className="grid max-h-32 grid-cols-2 gap-4 overflow-y-auto">
                 {searchTerms.map((termObj) => (
-                  <label key={termObj.id} className={`flex items-center space-x-2 text-sm ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>
-                    <input type="checkbox" checked={task.searchTerms.includes(termObj.term)} onChange={() => handleCheckboxChange(termObj.term)} className="h-4 w-4 text-[#f05d23] border-gray-300 rounded focus:ring-[#f05d23]" />
+                  <label key={termObj.id} className="flex items-center space-x-2 text-sm text-text-hi">
+                    <input
+                      type="checkbox"
+                      checked={task.searchTerms.includes(termObj.term)}
+                      onChange={() => handleCheckboxChange(termObj.term)}
+                      className="h-4 w-4 rounded border-app-border text-brand-500 focus:ring-brand-500"
+                    />
                     <span>{termObj.term}</span>
                   </label>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-red-500">No search terms available. Please add search terms to proceed.</p>
+              <p className="text-sm text-status-danger">No search terms available. Please add search terms to proceed.</p>
             )}
             {task.searchTerms.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {task.searchTerms.map((term: string, index: number) => (
-                  <span key={index} className={`px-2 py-1 rounded-full text-sm flex items-center gap-1 ${mode === "dark" ? "bg-gray-600 text-white" : "bg-gray-200 text-[#231812]"}`}>
+                  <span key={index} className={pillClass}>
                     {term}
-                    <button onClick={() => handleRemoveSearchTerm(term)} className="ml-1 focus:outline-none">
-                      <Icon icon="mdi:close" width={16} height={16} />
+                    <button onClick={() => handleRemoveSearchTerm(term)} className="focus:outline-none">
+                      <Icon icon="solar:close-circle-broken" width={16} height={16} />
                     </button>
                   </span>
                 ))}
@@ -206,27 +196,27 @@ export default function TaskForm({
           </>
         ) : (
           <>
-            <div className="flex gap-2 mb-2">
+            <div className="mb-2 flex gap-2">
               <input
                 type="text"
                 value={currentSearchTerm}
                 onChange={(e) => setCurrentSearchTerm?.(e.target.value)}
-                className={`flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f05d23] text-sm ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300 text-[#231812]"}`}
+                className={inputClass}
                 placeholder="Add a search term"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleAddSearchTerm?.();
                 }}
               />
-              <button onClick={handleAddSearchTerm} className={`px-3 py-1 rounded-lg ${mode === "dark" ? "bg-gray-600 hover:bg-gray-500" : "bg-gray-200 hover:bg-gray-300"}`}>
+              <button onClick={handleAddSearchTerm} className={secondaryButtonClass}>
                 Add
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
               {task.searchTerms.map((term: string, index: number) => (
-                <span key={index} className={`px-2 py-1 rounded-full text-sm flex items-center gap-1 ${mode === "dark" ? "bg-gray-600 text-white" : "bg-gray-200 text-[#231812]"}`}>
+                <span key={index} className={pillClass}>
                   {term}
-                  <button onClick={() => handleRemoveSearchTerm(term)} className="ml-1 focus:outline-none">
-                    <Icon icon="mdi:close" width={16} height={16} />
+                  <button onClick={() => handleRemoveSearchTerm(term)} className="focus:outline-none">
+                    <Icon icon="solar:close-circle-broken" width={16} height={16} />
                   </button>
                 </span>
               ))}
@@ -236,9 +226,9 @@ export default function TaskForm({
       </div>
 
       <div className="flex items-center space-x-3">
-        <label className={`text-lg font-medium ${mode === "dark" ? "text-gray-200" : "text-[#231812]"}`}>Enable Notifications?</label>
+        <label className="text-sm font-medium text-text-hi">Enable Notifications?</label>
         <div
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showNotifications ? "bg-[#f05d23]" : mode === "dark" ? "bg-gray-700" : "bg-gray-300"} cursor-pointer`}
+          className={`relative inline-flex h-6 w-11 cursor-pointer items-center rounded-full transition-colors ${showNotifications ? "bg-brand-500" : "bg-surface-2"}`}
           onClick={() => {
             const newState = !showNotifications;
             setShowNotifications(newState);
@@ -262,8 +252,8 @@ export default function TaskForm({
       </div>
 
       {showNotifications && (
-        <div className="mt-4 p-4 rounded-lg border animate-fade-in-down transition-all duration-300 ease-in-out">
-          <h4 className={`text-lg font-medium mb-2 ${mode === "dark" ? "text-gray-200" : "text-gray-700"}`}>Notification Settings</h4>
+        <div className="mt-4 rounded-lg border border-app-border p-4">
+          <h4 className="mb-2 text-sm font-medium text-text-hi">Notification Settings</h4>
           <div className="space-y-3">
             <label className="flex items-center">
               <input
@@ -273,7 +263,7 @@ export default function TaskForm({
                 disabled={isLoadingParent}
                 className="mr-2"
               />
-              <span className={mode === "dark" ? "text-gray-300" : "text-gray-700"}>Send email notification when an open tender is found</span>
+              <span className="text-text-lo">Send email notification when an open tender is found</span>
             </label>
             <label className="flex items-center">
               <input
@@ -283,7 +273,7 @@ export default function TaskForm({
                 disabled={isLoadingParent}
                 className="mr-2"
               />
-              <span className={mode === "dark" ? "text-gray-300" : "text-gray-700"}>Send SMS notification when an open tender is found</span>
+              <span className="text-text-lo">Send SMS notification when an open tender is found</span>
             </label>
             <label className="flex items-center">
               <input
@@ -293,11 +283,11 @@ export default function TaskForm({
                 disabled={isLoadingParent}
                 className="mr-2"
               />
-              <span className={mode === "dark" ? "text-gray-300" : "text-gray-700"}>Send Slack notification to #tenders channel when an open tender is found</span>
+              <span className="text-text-lo">Send Slack notification to #tenders channel when an open tender is found</span>
             </label>
             <div className="mt-4">
-              <label className={`block mb-1 ${mode === "dark" ? "text-gray-300" : "text-gray-700"}`}>Additional Email Recipients</label>
-              <div className="flex gap-2 mb-2">
+              <label className="mb-1 block text-text-lo">Additional Email Recipients</label>
+              <div className="mb-2 flex gap-2">
                 <input
                   type="email"
                   value={currentEmail}
@@ -312,27 +302,27 @@ export default function TaskForm({
                     }
                   }}
                   placeholder="e.g., user@example.com"
-                  className={`flex-1 p-2 rounded-md border ${mode === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} ${emailError ? "border-red-500" : ""}`}
+                  className={`${inputClass} ${emailError ? "border-status-danger" : ""}`}
                   disabled={isLoadingParent}
                 />
-                <button onClick={handleAddEmail} className={`px-3 py-1 rounded-lg ${mode === "dark" ? "bg-gray-600 hover:bg-gray-500" : "bg-gray-200 hover:bg-gray-300"}`} disabled={isLoadingParent}>
+                <button onClick={handleAddEmail} className={secondaryButtonClass} disabled={isLoadingParent}>
                   Add
                 </button>
               </div>
-              {emailError && <p className="text-sm text-red-500 mb-2">{emailError}</p>}
+              {emailError && <p className="mb-2 text-sm text-status-danger">{emailError}</p>}
               {Array.isArray(task.customEmails) && task.customEmails.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {task.customEmails.map((email: string, index: number) => (
-                    <span key={index} className={`px-2 py-1 rounded-full text-sm flex items-center gap-1 ${mode === "dark" ? "bg-gray-600 text-white" : "bg-gray-200 text-[#231812]"}`}>
+                    <span key={index} className={pillClass}>
                       {email}
-                      <button onClick={() => handleRemoveEmail(email)} className="ml-1 focus:outline-none" disabled={isLoadingParent}>
-                        <Icon icon="mdi:close" width={16} height={16} />
+                      <button onClick={() => handleRemoveEmail(email)} className="focus:outline-none" disabled={isLoadingParent}>
+                        <Icon icon="solar:close-circle-broken" width={16} height={16} />
                       </button>
                     </span>
                   ))}
                 </div>
               )}
-              <p className={`block mb-1 mt-4 text-sm italic ${mode === "dark" ? "text-gray-300" : "text-gray-700"}`}>
+              <p className="mb-1 mt-4 text-sm italic text-text-lo">
                 By default, Tender notifications will be sent to<span className="underline"> strategic@growthpad.co.ke</span>
               </p>
             </div>

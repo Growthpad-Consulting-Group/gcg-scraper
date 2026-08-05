@@ -40,7 +40,7 @@ const ModalLeftPanel: React.FC<ModalLeftPanelProps> = ({
     };
 
     return (
-        <div className="hidden lg:flex lg:col-span-2 flex-col p-8 bg-gradient-to-br from-gcg-orange via-gcg-orange to-gcg-orange-dark text-white relative overflow-hidden border-r border-white/10">
+        <div className="hidden md:flex md:col-span-2 flex-col p-8 bg-gradient-to-br from-gcg-orange via-gcg-orange to-gcg-orange-dark text-white relative overflow-hidden border-r border-white/10">
             {/* Decorative background elements */}
             <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-gcg-brown/20 rounded-full blur-3xl pointer-events-none" />

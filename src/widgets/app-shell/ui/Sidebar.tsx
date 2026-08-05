@@ -75,7 +75,7 @@ export default function Sidebar({
       <div
         className={`relative h-full flex flex-col border transition-all duration-300 ${isMobile ? "rounded-none" : "rounded-3xl"} ${
           mode === "dark"
-            ? "bg-gray-900/80 backdrop-blur-2xl border-white/5 text-gray-100 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
+            ? "bg-[#131417]/80 backdrop-blur-2xl border-white/5 text-gray-100 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
             : "bg-white/70 backdrop-blur-2xl border-white/20 text-gray-800 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]"
         }`}
       >

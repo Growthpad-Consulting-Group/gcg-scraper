@@ -87,8 +87,9 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
   }
 
   return (
+    <div className="max-h-[480px] overflow-y-auto rounded-lg border border-app-border [&>div]:rounded-none [&>div]:border-0">
     <Table>
-      <TableHead>
+      <TableHead className="sticky top-0 z-10">
         <TableRow>
           <TableTh>Source</TableTh>
           <TableTh>Status</TableTh>
@@ -178,5 +179,6 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
         })}
       </TableBody>
     </Table>
+    </div>
   );
 }
