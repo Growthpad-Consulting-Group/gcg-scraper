@@ -5,7 +5,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/shared/contexts/ThemeContext";
 import { NotificationsProvider } from "@/shared/contexts/NotificationsContext";
 import AppToaster from "@/shared/ui/AppToaster";
-import RouteChangeToast from "@/shared/ui/RouteChangeToast";
 
 const figtree = Figtree({
   subsets: ["latin"],
@@ -63,7 +62,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <NotificationsProvider>
             <AppToaster />
-            <RouteChangeToast />
             {children}
           </NotificationsProvider>
         </ThemeProvider>

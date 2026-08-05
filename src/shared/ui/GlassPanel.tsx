@@ -57,7 +57,7 @@ export default function GlassPanel({ mode = "light", className = "", shadow, chi
         <div
           aria-hidden
           className={`absolute inset-0 rounded-[inherit] border ring-1 ring-inset ${
-            mode === "dark" ? "border-white/10 ring-white/10" : "border-white/40 ring-white/40"
+            mode === "dark" ? "border-white/5 ring-white/5" : "border-white/40 ring-white/40"
           }`}
         />
       </div>

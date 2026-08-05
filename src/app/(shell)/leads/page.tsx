@@ -4,7 +4,6 @@ import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import AppShell from "@/widgets/app-shell/ui/AppShell";
 import PageHeader from "@/shared/ui/PageHeader";
 import Button from "@/shared/ui/Button";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
@@ -342,7 +341,6 @@ function LeadsContent() {
   const clearFilter = () => router.push("/leads");
 
   return (
-    <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
           title="Leads"
@@ -373,7 +371,6 @@ function LeadsContent() {
           <LinkedInTab jobFilter={jobFilter} onClearFilter={clearFilter} />
         )}
       </div>
-    </AppShell>
   );
 }
 

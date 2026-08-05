@@ -7,6 +7,7 @@ import { Icon } from "@iconify/react";
 import { sidebarNav } from "@/shared/lib/nav";
 import { NAV_SHORTCUTS } from "@/widgets/app-shell/lib/shortcuts";
 import { tenderHref } from "@/shared/lib/slug";
+import { useCommandPalette } from "@/shared/contexts/CommandPaletteContext";
 
 const RESULT_LIMIT = 5;
 const MIN_QUERY_LENGTH = 2;
@@ -25,25 +26,13 @@ interface LeadResult {
 
 /** ⌘K command palette — jump between sections, or search live across tenders and leads. */
 export default function CommandPalette() {
-  const [open, setOpen] = useState(false);
+  const { isOpen: open, close } = useCommandPalette();
   const [query, setQuery] = useState("");
   const [tenders, setTenders] = useState<TenderResult[]>([]);
   const [gmbLeads, setGmbLeads] = useState<LeadResult[]>([]);
   const [linkedinLeads, setLinkedinLeads] = useState<LeadResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -97,7 +86,7 @@ export default function CommandPalette() {
 
   const go = (href: string) => {
     router.push(href);
-    setOpen(false);
+    close();
   };
 
   if (!open) return null;
@@ -108,7 +97,7 @@ export default function CommandPalette() {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[15vh]"
-      onClick={() => setOpen(false)}
+      onClick={() => close()}
     >
       <Command
         className="w-full max-w-lg overflow-hidden rounded-lg border border-app-border bg-surface shadow-2xl"

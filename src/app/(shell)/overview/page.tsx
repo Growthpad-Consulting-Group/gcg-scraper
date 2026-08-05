@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import AppShell from "@/widgets/app-shell/ui/AppShell";
 import Button from "@/shared/ui/Button";
 import Badge from "@/shared/ui/Badge";
 import RunFeed from "@/features/overview/components/RunFeed";
@@ -70,7 +69,6 @@ export default function OverviewPage() {
   const sourcesActive = new Set(jobs.filter((j) => j.status === "running").map((j) => j.kind)).size;
 
   return (
-    <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <div className="flex items-center justify-between">
           <div>
@@ -136,7 +134,6 @@ export default function OverviewPage() {
           </div>
         </div>
       </div>
-    </AppShell>
   );
 }
 

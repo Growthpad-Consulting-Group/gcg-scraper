@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import AppShell from "@/widgets/app-shell/ui/AppShell";
 import PageHeader from "@/shared/ui/PageHeader";
 import Badge from "@/shared/ui/Badge";
 import { Icon } from "@iconify/react";
@@ -202,7 +201,7 @@ export default function SchedulerPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
           title="Scheduler"
@@ -245,6 +244,6 @@ export default function SchedulerPage() {
         mode={mode}
       />
       <LogsModal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} logsContent={logsContent} taskName={currentTaskName} />
-    </AppShell>
+    </>
   );
 }

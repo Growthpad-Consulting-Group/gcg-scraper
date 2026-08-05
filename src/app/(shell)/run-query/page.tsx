@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import AppShell from "@/widgets/app-shell/ui/AppShell";
 import PageHeader from "@/shared/ui/PageHeader";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useTheme } from "@/shared/contexts/ThemeContext";
@@ -150,7 +149,7 @@ function RunQueryContent() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
           title="Run Query"
@@ -202,7 +201,7 @@ function RunQueryContent() {
       </div>
 
       <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} summary={summary} mode={mode} scrapeStatus={scrapeStatus} startTime={summary.startTime} taskId={jobId} />
-    </AppShell>
+    </>
   );
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import AppShell from "@/widgets/app-shell/ui/AppShell";
 import PageHeader from "@/shared/ui/PageHeader";
 import KeywordChipEditor from "@/features/keywords/components/KeywordChipEditor";
 import { Icon } from "@iconify/react";
@@ -60,7 +59,6 @@ export default function KeywordManagerPage() {
   }, [fetchWithCache]);
 
   return (
-    <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
           title="Keyword Manager"
@@ -97,6 +95,5 @@ export default function KeywordManagerPage() {
           </div>
         )}
       </div>
-    </AppShell>
   );
 }

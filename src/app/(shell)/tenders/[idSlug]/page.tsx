@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import AppShell from "@/widgets/app-shell/ui/AppShell";
 import Badge from "@/shared/ui/Badge";
 import Button from "@/shared/ui/Button";
 import LogPanel from "@/shared/ui/LogPanel";
@@ -66,7 +65,6 @@ export default function TenderDetailPage() {
   }, [id]);
 
   return (
-    <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <button onClick={() => router.push("/tenders")} className="flex w-fit items-center gap-1 text-sm text-text-lo hover:text-text-hi">
           <Icon icon="solar:arrow-left-broken" width={16} />
@@ -153,6 +151,5 @@ export default function TenderDetailPage() {
           </>
         )}
       </div>
-    </AppShell>
   );
 }

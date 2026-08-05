@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import AppShell from "@/widgets/app-shell/ui/AppShell";
 import PageHeader from "@/shared/ui/PageHeader";
 import Button from "@/shared/ui/Button";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
@@ -382,7 +381,6 @@ function TendersContent() {
   );
 
   return (
-    <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
           title="Tenders"
@@ -456,7 +454,6 @@ function TendersContent() {
           </Button>
         )}
       </div>
-    </AppShell>
   );
 }
 

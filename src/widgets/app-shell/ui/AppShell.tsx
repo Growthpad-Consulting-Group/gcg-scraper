@@ -9,6 +9,7 @@ import useSidebar from "@/shared/hooks/useSidebar";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useNotifications } from "@/shared/contexts/NotificationsContext";
 import { useTheme } from "@/shared/contexts/ThemeContext";
+import { CommandPaletteProvider } from "@/shared/contexts/CommandPaletteContext";
 import { useNavShortcuts } from "@/widgets/app-shell/lib/shortcuts";
 
 /**
@@ -25,36 +26,38 @@ export default function AppShell({ children }: { children: ReactNode }) {
   useNavShortcuts();
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
-      <div className="flex flex-1">
-        <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
+    <CommandPaletteProvider>
+      <div className="flex min-h-screen flex-col bg-canvas">
+        <div className="flex flex-1">
+          <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Header
-            toggleSidebar={toggleSidebar}
-            isSidebarOpen={!!isSidebarOpen}
-            mode={mode}
-            toggleMode={toggleMode}
-            onLogout={handleLogout}
-            user={user}
-            loading={userLoading}
-            notifications={notifications}
-            isLoading={notificationsLoading}
-            onMarkAsRead={markNotificationAsRead}
-            onClearAll={clearAllNotifications}
-          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Header
+              toggleSidebar={toggleSidebar}
+              isSidebarOpen={!!isSidebarOpen}
+              mode={mode}
+              toggleMode={toggleMode}
+              onLogout={handleLogout}
+              user={user}
+              loading={userLoading}
+              notifications={notifications}
+              isLoading={notificationsLoading}
+              onMarkAsRead={markNotificationAsRead}
+              onClearAll={clearAllNotifications}
+            />
 
-          <main className="flex-1 overflow-hidden p-6 transition-all duration-300 md:p-8">
-            <ViewTransition name="page" share="auto" enter="auto" exit="auto">
-              {children}
-            </ViewTransition>
-          </main>
+            <main className="flex-1 overflow-hidden p-6 transition-all duration-300 md:p-8">
+              <ViewTransition name="page" share="auto" enter="auto" exit="auto">
+                {children}
+              </ViewTransition>
+            </main>
 
-          <SimpleFooter />
+            <SimpleFooter />
+          </div>
         </div>
-      </div>
 
-      <CommandPalette />
-    </div>
+        <CommandPalette />
+      </div>
+    </CommandPaletteProvider>
   );
 }
