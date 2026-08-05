@@ -156,3 +156,12 @@ h1, h2, h3, h4, h5, h6, nav {
 .dark-mode-datepicker .rdrDayDisabled .rdrDayNumber span {
   color: #334155 !important;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

@@ -1,8 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
-import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { ReactNode, ViewTransition } from "react";
 import Sidebar from "@/widgets/app-shell/ui/Sidebar";
 import Header from "@/widgets/app-shell/ui/Header";
 import SimpleFooter from "@/shared/ui/SimpleFooter";
@@ -19,7 +17,6 @@ import { useNavShortcuts } from "@/widgets/app-shell/lib/shortcuts";
  * (docs/UI_REDESIGN.md §4). Pages own their own content only.
  */
 export default function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const { resolvedMode: mode, toggleMode } = useTheme();
   const { isSidebarOpen, toggleSidebar } = useSidebar();
   const { user, loading: userLoading, handleLogout } = useUserProfile();
@@ -48,18 +45,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
           />
 
           <main className="flex-1 overflow-hidden p-6 transition-all duration-300 md:p-8">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={pathname}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="h-full"
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
+            <ViewTransition name="page" share="auto" enter="auto" exit="auto">
+              {children}
+            </ViewTransition>
           </main>
 
           <SimpleFooter />

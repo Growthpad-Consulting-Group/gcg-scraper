@@ -386,7 +386,7 @@ function TendersContent() {
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
           title="Tenders"
-          description="Every tender found, with provenance back to the run that scraped it."
+          description="All tenders collected so far — click into any one to see which run found it."
           icon="solar:case-minimalistic-broken"
           actions={[
             {
