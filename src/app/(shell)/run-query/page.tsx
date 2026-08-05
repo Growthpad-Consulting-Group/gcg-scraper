@@ -15,6 +15,7 @@ import RunConsole from "@/features/scraping/components/RunConsole";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 import type { SearchTerm, BaseKeyword, Country } from "@/features/scraping/types";
+import type { ExtractOptions } from "@/features/tenders/api/firecrawlExtract";
 
 function resultsHrefFor(mode: RunMode, jobId: string | null): string | undefined {
   if (!jobId) return undefined;
@@ -38,6 +39,7 @@ function RunQueryContent() {
   const [selectedBaseKeywords, setSelectedBaseKeywords] = useState<string[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [selectedCountry, setSelectedCountry] = useState("Kenya");
+  const [resultsLimit, setResultsLimit] = useState(10);
 
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [websiteName, setWebsiteName] = useState("");
@@ -154,7 +156,7 @@ function RunQueryContent() {
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, resultsLimit }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start scraping");
@@ -167,7 +169,7 @@ function RunQueryContent() {
     }
   };
 
-  const handleRunWebsite = async () => {
+  const handleRunWebsite = async (extractOptions: ExtractOptions) => {
     if (!websiteUrl.trim()) return;
     setIsAddingWebsite(true);
     toast.loading("Adding source and starting scan...", { id: "website-start" });
@@ -181,7 +183,11 @@ function RunQueryContent() {
       const createData = await createRes.json();
       if (!createRes.ok) throw new Error(createData.error || "Failed to add website");
 
-      const scanRes = await fetch(`/api/websites/${createData.website.id}/scan`, { method: "POST" });
+      const scanRes = await fetch(`/api/websites/${createData.website.id}/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extractOptions }),
+      });
       const scanData = await scanRes.json();
       if (!scanRes.ok) throw new Error(scanData.error || "Failed to start scan");
 
@@ -292,6 +298,8 @@ function RunQueryContent() {
                 countries={countries}
                 selectedCountry={selectedCountry}
                 setSelectedCountry={setSelectedCountry}
+                resultsLimit={resultsLimit}
+                setResultsLimit={setResultsLimit}
                 scrapeStatus={scrapeStatus}
                 handleRunQuery={handleRunQuery}
                 handleAddScheduledTask={handleAddScheduledTask}

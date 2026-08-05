@@ -18,7 +18,7 @@ export const runScrapeJob = inngest.createFunction(
   async ({ event, step }) => {
     // `engines` is accepted for backward compatibility with older callers but no longer drives
     // behavior — Firecrawl's /search endpoint replaces per-engine SERP scraping entirely.
-    const { jobId, query } = event.data as { jobId: string; query: string; engines?: string[] };
+    const { jobId, query, resultsLimit } = event.data as { jobId: string; query: string; engines?: string[]; resultsLimit?: number };
 
     const supabase = createServerSupabaseClient();
 
@@ -27,7 +27,7 @@ export const runScrapeJob = inngest.createFunction(
     });
 
     try {
-      const results = await step.run("search", () => searchWeb(query, RESULTS_LIMIT));
+      const results = await step.run("search", () => searchWeb(query, resultsLimit || RESULTS_LIMIT));
 
       await step.run("progress-searched", async () => {
         await supabase.from("scrape_jobs").update({ progress: { visited: 0, total: results.length, stage: "extracting" } }).eq("id", jobId);

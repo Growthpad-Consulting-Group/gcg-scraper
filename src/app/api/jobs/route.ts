@@ -16,10 +16,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { query, taskId } = await req.json();
+  const { query, taskId, resultsLimit } = await req.json();
   if (!query) {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
+
+  const parsedResultsLimit = Number(resultsLimit);
+  const normalizedResultsLimit = Number.isFinite(parsedResultsLimit) && parsedResultsLimit > 0 ? Math.min(parsedResultsLimit, 50) : undefined;
 
   const supabase = createServerSupabaseClient();
   const { data: job, error } = await supabase
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   await inngest.send({
     name: "scrape/job.queued",
-    data: { jobId: job.id, query },
+    data: { jobId: job.id, query, resultsLimit: normalizedResultsLimit },
   });
 
   return NextResponse.json({ jobId: job.id });

@@ -39,6 +39,8 @@ export default function QueryComposer({
   countries,
   selectedCountry,
   setSelectedCountry,
+  resultsLimit,
+  setResultsLimit,
   scrapeStatus,
   handleRunQuery,
   handleAddScheduledTask,
@@ -55,6 +57,8 @@ export default function QueryComposer({
   countries: Country[];
   selectedCountry: string;
   setSelectedCountry: (country: string) => void;
+  resultsLimit: number;
+  setResultsLimit: (n: number) => void;
   scrapeStatus: ScrapeStatus;
   handleRunQuery: () => void;
   handleAddScheduledTask?: () => void;
@@ -86,6 +90,19 @@ export default function QueryComposer({
         >
           <CountrySelector countries={countries} selectedCountry={selectedCountry} setSelectedCountry={setSelectedCountry} mode={mode} />
         </Popover>
+
+        <label className="flex h-8 items-center gap-1.5 rounded-md border border-app-border px-2.5 text-sm text-text-hi">
+          <Icon icon="solar:list-broken" width={15} className="text-text-lo" />
+          Results
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={resultsLimit}
+            onChange={(e) => setResultsLimit(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+            className="w-12 bg-transparent text-sm text-text-hi outline-none"
+          />
+        </label>
 
         <div className="ml-auto flex items-center gap-2">
           {handleAddScheduledTask && (

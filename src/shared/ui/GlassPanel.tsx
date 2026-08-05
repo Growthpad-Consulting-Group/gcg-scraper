@@ -56,8 +56,10 @@ export default function GlassPanel({ mode = "light", className = "", shadow, chi
         {/* Layer 3: specular border */}
         <div
           aria-hidden
-          className={`absolute inset-0 rounded-[inherit] border ring-1 ring-inset ${
-            mode === "dark" ? "border-white/5 ring-white/5" : "border-white/40 ring-white/40"
+          className={`absolute inset-0 rounded-[inherit] ${
+            mode === "dark"
+              ? "border border-white/[0.03] ring-0"
+              : "border ring-1 ring-inset border-white/40 ring-white/40"
           }`}
         />
       </div>

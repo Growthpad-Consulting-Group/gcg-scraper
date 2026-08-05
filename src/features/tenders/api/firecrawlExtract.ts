@@ -47,7 +47,21 @@ const EXTRACTION_SCHEMA = {
   required: ["tenders"],
 };
 
-export async function extractTenders(url: string, prompt: string): Promise<ExtractResult> {
+export type ExtractOptions = {
+  onlyMainContent?: boolean;
+  /** Milliseconds to wait for the page to settle (JS rendering, lazy content) before scraping. */
+  waitFor?: number;
+  /** Milliseconds before Firecrawl gives up on this page. */
+  timeout?: number;
+  /** Serve a cached scrape younger than this many milliseconds instead of re-fetching, if Firecrawl has one. */
+  maxAge?: number;
+  /** CSS selectors to strip from the page before extraction (e.g. "nav", ".cookie-banner"). */
+  excludeTags?: string[];
+  /** CSS selectors to keep — when set, only these parts of the page are considered. */
+  includeTags?: string[];
+};
+
+export async function extractTenders(url: string, prompt: string, options?: ExtractOptions): Promise<ExtractResult> {
   const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
     headers: {
@@ -58,6 +72,12 @@ export async function extractTenders(url: string, prompt: string): Promise<Extra
       url,
       formats: ["markdown", "extract"],
       extract: { schema: EXTRACTION_SCHEMA, prompt },
+      onlyMainContent: options?.onlyMainContent ?? true,
+      ...(options?.waitFor ? { waitFor: options.waitFor } : {}),
+      ...(options?.timeout ? { timeout: options.timeout } : {}),
+      ...(options?.maxAge ? { maxAge: options.maxAge } : {}),
+      ...(options?.excludeTags?.length ? { excludeTags: options.excludeTags } : {}),
+      ...(options?.includeTags?.length ? { includeTags: options.includeTags } : {}),
     }),
   });
 

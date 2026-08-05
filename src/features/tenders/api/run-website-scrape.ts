@@ -1,6 +1,6 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
-import { extractTenders } from "./firecrawlExtract";
+import { extractTenders, type ExtractOptions } from "./firecrawlExtract";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
@@ -17,7 +17,7 @@ const BATCH_SIZE = 15;
 export const runWebsiteScrapeJob = inngest.createFunction(
   { id: "run-website-scrape-job", retries: 0, triggers: { event: "tenders/website.queued" } },
   async ({ event, step }) => {
-    const { jobId, websiteId } = event.data as { jobId: string; websiteId?: number };
+    const { jobId, websiteId, extractOptions } = event.data as { jobId: string; websiteId?: number; extractOptions?: ExtractOptions };
     const supabase = createServerSupabaseClient();
 
     await step.run("mark-running", async () => {
@@ -54,7 +54,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
         (websites || []).map(async (website) => {
           const { tenders: extracted, markdown } = await step.run(`extract-${website.id}`, async () => {
             try {
-              return await extractTenders(website.url, prompt);
+              return await extractTenders(website.url, prompt, extractOptions);
             } catch {
               return { tenders: [], markdown: null };
             }
