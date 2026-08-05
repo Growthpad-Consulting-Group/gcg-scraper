@@ -30,9 +30,7 @@ const FullscreenToggle: FC<FullscreenToggleProps> = ({ mode }) => {
       <button
         onClick={toggleFullscreen}
         aria-label={isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"}
-        className={`relative z-2 p-2 rounded-full transition-all active:scale-95 hover:bg-black/5 dark:hover:bg-white/10 ${
-          mode === "dark" ? "text-gray-100" : "text-gray-700"
-        }`}
+        className="relative z-2 p-2 rounded-full transition-all active:scale-95 hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-100"
       >
         <Icon
           icon={isFullscreen ? "solar:quit-full-screen-broken" : "solar:full-screen-broken"}

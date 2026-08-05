@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
@@ -21,6 +22,7 @@ interface ScheduledTask {
 }
 
 export default function OverviewPage() {
+  const router = useRouter();
   const { fullName, loading: userLoading } = useUserProfile();
 
   const [jobs, setJobs] = useState<RunJob[]>([]);
@@ -92,7 +94,7 @@ export default function OverviewPage() {
           <StatChip label="Scheduled tasks" value={tasks.length} />
         </div>
 
-        <TendersTrendChart points={trendPoints} />
+        <TendersTrendChart points={trendPoints} onSelectDate={(date) => router.push(`/tenders?date=${date}`)} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
           <div>

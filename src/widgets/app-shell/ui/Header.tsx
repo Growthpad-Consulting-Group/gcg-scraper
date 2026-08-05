@@ -82,7 +82,7 @@ export default function Header({
             <div className="flex items-center gap-2">
               <button
                 onClick={toggleSidebar}
-                className="group relative z-2 p-2 rounded-full text-gray-500 dark:text-gray-400 shrink-0 transition-all active:scale-95 hover:bg-black/5 dark:hover:bg-white/10"
+                className="group relative z-2 p-2 rounded-full text-gray-500 dark:text-gray-100 shrink-0 transition-all active:scale-95 hover:bg-black/5 dark:hover:bg-white/10"
                 title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
               >
                 <Icon
@@ -105,7 +105,7 @@ export default function Header({
               >
                 <Icon
                   icon="solar:magnifer-broken"
-                  className={`h-5 w-5 transition-transform duration-300 group-hover:scale-110 ${mode === "dark" ? "text-gray-100" : "text-gray-700"}`}
+                  className="h-5 w-5 transition-transform duration-300 group-hover:scale-110 text-gray-700 dark:text-gray-100"
                 />
               </button>
 
@@ -121,7 +121,7 @@ export default function Header({
                 >
                   <Icon
                     icon="solar:bell-bing-broken"
-                    className={`h-5 w-5 transition-transform duration-300 group-hover:scale-110 ${mode === "dark" ? "text-gray-100" : "text-gray-700"}`}
+                    className="h-5 w-5 transition-transform duration-300 group-hover:scale-110 text-gray-700 dark:text-gray-100"
                   />
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center font-medium border border-white z-10">

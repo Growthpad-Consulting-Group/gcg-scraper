@@ -284,6 +284,7 @@ function TendersContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobFilter = searchParams?.get("job") || null;
+  const dateFilter = searchParams?.get("date") || null;
 
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [total, setTotal] = useState(0);
@@ -340,6 +341,16 @@ function TendersContent() {
       toast.error("Failed to delete tender. Please try again.", { id: loadingToastId });
     }
   };
+
+  // Matches the local-day bucketing TendersTrendChart uses on Overview, so clicking a bar and
+  // landing here shows exactly the tenders that bar counted.
+  const filteredTenders = dateFilter
+    ? tenders.filter((t) => {
+        if (!t.scraped_at) return false;
+        const [y, m, d] = dateFilter.split("-").map(Number);
+        return new Date(t.scraped_at).toDateString() === new Date(y, m - 1, d).toDateString();
+      })
+    : tenders;
 
   const columns = buildColumns(expandedId, setExpandedId);
 
@@ -403,8 +414,23 @@ function TendersContent() {
           />
         )}
 
+        {dateFilter && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-app-border bg-surface px-3 py-2 text-sm">
+            <Badge status="info">Filtered</Badge>
+            <span className="text-text-hi">
+              Tenders scraped on{" "}
+              {new Date(`${dateFilter}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+            </span>
+            <span className="font-mono text-[11px] text-text-lo">{filteredTenders.length} tenders</span>
+            <button onClick={() => router.push("/tenders")} className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
+              <Icon icon="mdi:close" width={12} />
+              Clear filter
+            </button>
+          </div>
+        )}
+
         <GenericTable<Tender>
-          data={tenders}
+          data={filteredTenders}
           columns={columns}
           loading={isLoading}
           title="Tenders"

@@ -5,10 +5,18 @@ import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
 import Popover from "@/shared/ui/Popover";
 import GlassPanel from "@/shared/ui/GlassPanel";
+import useTypewriterPlaceholder from "@/shared/hooks/useTypewriterPlaceholder";
 import type { ExtractOptions } from "@/features/tenders/api/firecrawlExtract";
 
 const inputClass = "h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500";
 const optionInputClass = "h-8 w-28 rounded-md border border-app-border bg-canvas px-2 text-sm text-text-hi outline-none focus:border-brand-500";
+
+const URL_EXAMPLES = [
+  "https://example.gov/tenders",
+  "https://techcrunch.com/procurement",
+  "https://supplier-portal.co.ke/rfps",
+  "https://company.com/opportunities",
+];
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -44,6 +52,7 @@ export default function WebsiteRunForm({
   mode?: "light" | "dark";
 }) {
   const canRun = url.trim().length > 0;
+  const urlPlaceholder = useTypewriterPlaceholder(URL_EXAMPLES, url.length === 0);
 
   const [onlyMainContent, setOnlyMainContent] = useState(true);
   const [waitFor, setWaitFor] = useState("");
@@ -75,7 +84,7 @@ export default function WebsiteRunForm({
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com/tenders"
+          placeholder={urlPlaceholder}
           className={`${inputClass} sm:col-span-2`}
         />
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={inputClass} />

@@ -3,8 +3,12 @@
 import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
 import GlassPanel from "@/shared/ui/GlassPanel";
+import useTypewriterPlaceholder from "@/shared/hooks/useTypewriterPlaceholder";
 
 const inputClass = "h-9 flex-1 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500";
+
+const GMB_EXAMPLES = ["car dealerships", "construction companies", "IT consultancies", "logistics firms"];
+const LINKEDIN_EXAMPLES = ["procurement manager", "supply chain director", "purchasing officer", "category manager"];
 
 export default function LeadRunForm({
   kind,
@@ -30,13 +34,13 @@ export default function LeadRunForm({
   mode?: "light" | "dark";
 }) {
   const canRun = searchTerm.trim().length > 0;
-  const placeholder = kind === "gmb" ? "e.g. car dealerships" : "e.g. procurement manager";
   const locationPlaceholder = kind === "gmb" ? "e.g. Nairobi, Kenya" : "e.g. Kenya";
+  const searchTermPlaceholder = useTypewriterPlaceholder(kind === "gmb" ? GMB_EXAMPLES : LINKEDIN_EXAMPLES, searchTerm.length === 0);
 
   return (
     <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={placeholder} className={inputClass} />
+        <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={searchTermPlaceholder} className={inputClass} />
         <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={locationPlaceholder} className={`${inputClass} sm:max-w-56`} />
       </div>
       <div className="flex items-center justify-between gap-2">

@@ -42,9 +42,7 @@ const HeaderProfileDropdown: FC<HeaderProfileDropdownProps> = ({ mode, user, loa
         ref={buttonRef}
         onClick={handleOpen}
         title={isOpen ? "Close Profile" : "Open Profile"}
-        className={`relative z-2 flex items-center justify-center p-2 rounded-full transition-all active:scale-95 group hover:bg-black/5 dark:hover:bg-white/10 ${
-          mode === "dark" ? "text-gray-100" : "text-gray-700"
-        }`}
+        className="relative z-2 flex items-center justify-center p-2 rounded-full transition-all active:scale-95 group hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-100"
       >
         <Icon icon="solar:user-circle-broken" className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
       </button>
