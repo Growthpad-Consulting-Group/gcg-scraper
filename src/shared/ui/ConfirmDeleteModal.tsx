@@ -92,7 +92,8 @@ const ConfirmDeleteModal: FC<ConfirmDeleteModalProps> = ({
                 ? "solar:archive-minimalistic-bold"
                 : "solar:trash-bin-trash-bold"
             }
-            iconBg="gcg-brown"
+            iconBg={isArchiving ? "amber" : "rose"}
+            variant={isArchiving ? "warning" : "danger"}
           >
             {/* Status Badge */}
             <motion.div

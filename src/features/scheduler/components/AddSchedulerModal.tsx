@@ -12,19 +12,24 @@ export default function AddSchedulerModal({
   mode,
   tenderTypes,
   onTaskAdded,
+  initialSearchTerms,
+  initialTenderType,
 }: {
   isOpen: boolean;
   onClose: () => void;
   mode: "light" | "dark";
   tenderTypes: string[];
   onTaskAdded: (update: any) => void;
+  /** Pre-fills the form when opened from a context that already knows what to search for (e.g. Run Query's Schedule button). */
+  initialSearchTerms?: string[];
+  initialTenderType?: string;
 }) {
   const defaultTask = () => ({
     name: "",
-    tenderType: tenderTypes[0] || "",
+    tenderType: (initialTenderType && tenderTypes.includes(initialTenderType) ? initialTenderType : tenderTypes[0]) || "",
     frequency: "Daily",
     priority: "Medium",
-    searchTerms: [] as string[],
+    searchTerms: initialSearchTerms ?? ([] as string[]),
     emailNotificationsEnabled: false,
     smsNotificationsEnabled: false,
     slackNotificationsEnabled: false,

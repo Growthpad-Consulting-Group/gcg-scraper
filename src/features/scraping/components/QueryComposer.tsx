@@ -3,6 +3,7 @@
 import { Icon } from "@iconify/react";
 import Popover from "@/shared/ui/Popover";
 import Button from "@/shared/ui/Button";
+import GlassPanel from "@/shared/ui/GlassPanel";
 import SearchTermsSelector from "./SearchTermsSelector";
 import BaseKeywordsSelector from "./BaseKeywordsSelector";
 import CountrySelector from "./CountrySelector";
@@ -70,7 +71,7 @@ export default function QueryComposer({
   const canRun = selectedTerms.length > 0 && selectedBaseKeywords.length > 0;
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-app-border bg-surface p-3">
+    <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <div className="rounded-md border border-app-border bg-canvas px-3 py-3 font-mono text-sm text-text-hi">
         {query || <span className="text-text-lo">Pick keywords, terms, and a country to build your query…</span>}
       </div>
@@ -117,6 +118,6 @@ export default function QueryComposer({
           </Button>
         </div>
       </div>
-    </div>
+    </GlassPanel>
   );
 }

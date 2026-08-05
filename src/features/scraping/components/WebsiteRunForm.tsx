@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
 import Popover from "@/shared/ui/Popover";
+import GlassPanel from "@/shared/ui/GlassPanel";
 import type { ExtractOptions } from "@/features/tenders/api/firecrawlExtract";
 
 const inputClass = "h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500";
@@ -30,6 +31,7 @@ export default function WebsiteRunForm({
   setLocation,
   isRunning,
   onRun,
+  mode,
 }: {
   url: string;
   setUrl: (v: string) => void;
@@ -39,6 +41,7 @@ export default function WebsiteRunForm({
   setLocation: (v: string) => void;
   isRunning: boolean;
   onRun: (options: ExtractOptions) => void;
+  mode?: "light" | "dark";
 }) {
   const canRun = url.trim().length > 0;
 
@@ -67,7 +70,7 @@ export default function WebsiteRunForm({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-app-border bg-surface p-3">
+    <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <input
           value={url}
@@ -158,6 +161,6 @@ export default function WebsiteRunForm({
           {isRunning ? "Running…" : "Run"}
         </Button>
       </div>
-    </div>
+    </GlassPanel>
   );
 }

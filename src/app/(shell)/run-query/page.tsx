@@ -13,6 +13,7 @@ import LeadRunForm from "@/features/scraping/components/LeadRunForm";
 import RunModeSwitcher, { isRunMode, type RunMode } from "@/features/scraping/components/RunModeSwitcher";
 import RunConsole from "@/features/scraping/components/RunConsole";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
+import AddSchedulerModal from "@/features/scheduler/components/AddSchedulerModal";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 import type { SearchTerm, BaseKeyword, Country } from "@/features/scraping/types";
 import type { ExtractOptions } from "@/features/tenders/api/firecrawlExtract";
@@ -58,6 +59,8 @@ function RunQueryContent() {
   const [isCanceling, setIsCanceling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tenderTypes, setTenderTypes] = useState<string[]>([]);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   const { scrapeStatus, setScrapeStatus, progress, visitedUrls, totalUrlsToVisit, summary, showSummary, setShowSummary, reset } =
     useRealtimeJob(jobId);
@@ -79,14 +82,17 @@ function RunQueryContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [searchTermsRes, baseKeywordsRes, countriesRes] = await Promise.all([
+        const [searchTermsRes, baseKeywordsRes, countriesRes, tenderTypesRes] = await Promise.all([
           fetch("/api/search-terms"),
           fetch("/api/base-keywords"),
           fetch("/api/countries"),
+          fetch("/api/tender-types"),
         ]);
         const searchTermsData = await searchTermsRes.json();
         const baseKeywordsData = await baseKeywordsRes.json();
         const countriesData: Country[] = await countriesRes.json();
+        const tenderTypesData = await tenderTypesRes.json();
+        setTenderTypes(Array.isArray(tenderTypesData.tenderTypes) ? tenderTypesData.tenderTypes : []);
 
         setSearchTerms(searchTermsData.search_terms || []);
         if (searchTermsData.search_terms?.length > 0) setSelectedTerms([searchTermsData.search_terms[0].term]);
@@ -109,30 +115,12 @@ function RunQueryContent() {
     fetchData();
   }, []);
 
-  const handleAddScheduledTask = async () => {
+  const handleAddScheduledTask = () => {
     if (selectedTerms.length === 0 || selectedBaseKeywords.length === 0) {
       toast.error("Please select at least one search term and base keyword.");
       return;
     }
-
-    try {
-      const res = await fetch("/api/scheduled-tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Scheduled Task",
-          frequency: "Daily",
-          tenderType: "Search Query Tenders",
-          search_terms: selectedTerms,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to schedule task");
-
-      toast.success("Task scheduled successfully! It will run at the next scheduled time.");
-    } catch (err: any) {
-      toast.error("Failed to schedule task: " + err.message);
-    }
+    setIsScheduleModalOpen(true);
   };
 
   const startJob = (id: string, kind: RunMode) => {
@@ -283,7 +271,10 @@ function RunQueryContent() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <RunModeSwitcher mode={runMode} onChange={changeMode} />
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+              <div className="flex justify-center">
+                <RunModeSwitcher mode={runMode} onChange={changeMode} />
+              </div>
 
             {runMode === "search-query" && (
               <QueryComposer
@@ -317,6 +308,7 @@ function RunQueryContent() {
                 setLocation={setWebsiteLocation}
                 isRunning={isAddingWebsite || scrapeStatus === "running"}
                 onRun={handleRunWebsite}
+                mode={mode}
               />
             )}
 
@@ -331,6 +323,7 @@ function RunQueryContent() {
                 setMaxResults={setGmbMaxResults}
                 isRunning={scrapeStatus === "running"}
                 onRun={handleRunGmbLeads}
+                mode={mode}
               />
             )}
 
@@ -345,10 +338,12 @@ function RunQueryContent() {
                 setMaxResults={setLinkedinMaxResults}
                 isRunning={scrapeStatus === "running"}
                 onRun={handleRunLinkedinLeads}
+                mode={mode}
               />
             )}
+            </div>
 
-            <div className="min-h-[500px]">
+            <div className="mx-auto w-full max-w-4xl min-h-[500px]">
               <RunConsole
                 scrapeStatus={scrapeStatus}
                 progress={progress}
@@ -357,6 +352,7 @@ function RunQueryContent() {
                 isCanceling={isCanceling}
                 handleCancelScrape={handleCancelScrape}
                 taskId={jobId}
+                mode={mode}
               />
             </div>
           </div>
@@ -371,6 +367,16 @@ function RunQueryContent() {
         startTime={summary.startTime}
         kind={summaryKind}
         resultsHref={resultsHrefFor(jobKind, jobId)}
+      />
+
+      <AddSchedulerModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        mode={mode}
+        tenderTypes={tenderTypes}
+        initialSearchTerms={selectedTerms}
+        initialTenderType="Search Query Tenders"
+        onTaskAdded={() => {}}
       />
     </>
   );

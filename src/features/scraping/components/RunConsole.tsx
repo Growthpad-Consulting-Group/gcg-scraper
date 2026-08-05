@@ -2,6 +2,7 @@
 
 import Badge from "@/shared/ui/Badge";
 import Button from "@/shared/ui/Button";
+import GlassPanel from "@/shared/ui/GlassPanel";
 import LogPanel, { LogLine } from "@/shared/ui/LogPanel";
 import type { ScrapeStatus } from "@/features/scraping/types";
 
@@ -22,6 +23,7 @@ export default function RunConsole({
   isCanceling,
   handleCancelScrape,
   taskId,
+  mode,
 }: {
   scrapeStatus: ScrapeStatus;
   progress: number;
@@ -30,6 +32,7 @@ export default function RunConsole({
   isCanceling: boolean;
   handleCancelScrape: () => void;
   taskId: string | null;
+  mode?: "light" | "dark";
 }) {
   const lines: LogLine[] = [];
   if (taskId) lines.push({ text: `job ${taskId}`, tone: "info" });
@@ -41,7 +44,7 @@ export default function RunConsole({
   if (scrapeStatus === "canceled") lines.push({ text: "[ CANCELED ]", tone: "warning" });
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <GlassPanel mode={mode} className="flex h-full flex-col gap-3 rounded-lg p-3">
       <div className="flex items-center justify-between">
         <Badge status={STATUS_BADGE[scrapeStatus].status}>{STATUS_BADGE[scrapeStatus].label}</Badge>
         {scrapeStatus === "running" && (
@@ -63,6 +66,6 @@ export default function RunConsole({
       )}
 
       <LogPanel lines={lines} className="flex-1" />
-    </div>
+    </GlassPanel>
   );
 }

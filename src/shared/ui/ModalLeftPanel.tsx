@@ -9,7 +9,9 @@ interface ModalLeftPanelProps {
     /** Icon to display in header */
     icon: string;
     /** Background color for icon (defaults to gcg-brown) */
-    iconBg?: 'gcg-brown' | 'gcg-orange' | 'emerald' | 'amber' | 'blue';
+    iconBg?: 'gcg-brown' | 'gcg-orange' | 'emerald' | 'amber' | 'blue' | 'rose';
+    /** Panel gradient tone — 'brand' for the standard muted orange/brown, 'danger'/'warning' for destructive or cautionary flows */
+    variant?: 'brand' | 'danger' | 'warning';
     /** Theme mode */
     mode?: 'light' | 'dark';
     /** Custom content to render in the panel */
@@ -29,6 +31,7 @@ const ModalLeftPanel: React.FC<ModalLeftPanelProps> = ({
     subtitle,
     icon,
     iconBg = 'gcg-brown',
+    variant = 'brand',
     children,
     footer }) => {
     const iconBgClasses: Record<string, string> = {
@@ -36,14 +39,22 @@ const ModalLeftPanel: React.FC<ModalLeftPanelProps> = ({
         'gcg-orange': 'bg-gcg-orange-dark/10 border-gcg-orange-dark/20 text-gcg-orange-dark',
         emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
         amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-        blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+        blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+        rose: 'bg-rose-500/10 border-rose-500/20 text-rose-400',
     };
 
+    const variantClasses: Record<string, { bg: string; glow: string }> = {
+        brand: { bg: 'bg-gcg-brown', glow: 'bg-gcg-orange/20' },
+        danger: { bg: 'bg-gray-950', glow: 'bg-rose-500/10' },
+        warning: { bg: 'bg-gray-950', glow: 'bg-amber-500/10' },
+    };
+    const { bg, glow } = variantClasses[variant];
+
     return (
-        <div className="hidden md:flex md:col-span-2 flex-col p-8 bg-gradient-to-br from-gcg-orange via-gcg-orange to-gcg-orange-dark text-white relative overflow-hidden border-r border-white/10">
+        <div className={`hidden md:flex md:col-span-2 flex-col p-8 ${bg} text-white relative overflow-hidden border-r border-white/10`}>
             {/* Decorative background elements */}
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-gcg-brown/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+            <div className={`absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 ${glow} rounded-full blur-3xl pointer-events-none`} />
 
             {/* Content */}
             <div className="relative z-10 flex flex-col h-full">

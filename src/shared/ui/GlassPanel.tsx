@@ -59,7 +59,7 @@ export default function GlassPanel({ mode = "light", className = "", shadow, chi
           className={`absolute inset-0 rounded-[inherit] ${
             mode === "dark"
               ? "border border-white/[0.03] ring-0"
-              : "border ring-1 ring-inset border-white/40 ring-white/40"
+              : "border ring-inset border-white/10 ring-white/40"
           }`}
         />
       </div>

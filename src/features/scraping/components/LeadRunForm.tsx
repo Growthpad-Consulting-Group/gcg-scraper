@@ -2,6 +2,7 @@
 
 import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
+import GlassPanel from "@/shared/ui/GlassPanel";
 
 const inputClass = "h-9 flex-1 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500";
 
@@ -15,6 +16,7 @@ export default function LeadRunForm({
   setMaxResults,
   isRunning,
   onRun,
+  mode,
 }: {
   kind: "gmb" | "linkedin";
   searchTerm: string;
@@ -25,13 +27,14 @@ export default function LeadRunForm({
   setMaxResults: (v: number) => void;
   isRunning: boolean;
   onRun: () => void;
+  mode?: "light" | "dark";
 }) {
   const canRun = searchTerm.trim().length > 0;
   const placeholder = kind === "gmb" ? "e.g. car dealerships" : "e.g. procurement manager";
   const locationPlaceholder = kind === "gmb" ? "e.g. Nairobi, Kenya" : "e.g. Kenya";
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-app-border bg-surface p-3">
+    <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <div className="flex flex-col gap-2 sm:flex-row">
         <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={placeholder} className={inputClass} />
         <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={locationPlaceholder} className={`${inputClass} sm:max-w-56`} />
@@ -54,6 +57,6 @@ export default function LeadRunForm({
           {isRunning ? "Running…" : "Find Leads"}
         </Button>
       </div>
-    </div>
+    </GlassPanel>
   );
 }
