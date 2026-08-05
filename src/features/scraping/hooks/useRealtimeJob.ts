@@ -9,7 +9,7 @@ type JobRow = {
   id: string;
   status: "queued" | "running" | "done" | "error" | "canceled";
   progress: { visited?: number; total?: number; current_url?: string } | null;
-  result_summary: { urls_visited?: number; openTenders?: number; closedTenders?: number; totalTenders?: number } | null;
+  result_summary: { urls_visited?: number; openTenders?: number; closedTenders?: number; totalTenders?: number; leadsFound?: number } | null;
 };
 
 const emptySummary: ScrapeSummary = {
@@ -18,6 +18,7 @@ const emptySummary: ScrapeSummary = {
   openTenders: 0,
   closedTenders: 0,
   totalTenders: 0,
+  leadsFound: 0,
   startTime: null,
 };
 
@@ -57,6 +58,7 @@ export default function useRealtimeJob(jobId: string | null) {
           openTenders: row.result_summary?.openTenders ?? 0,
           closedTenders: row.result_summary?.closedTenders ?? 0,
           totalTenders: row.result_summary?.totalTenders ?? 0,
+          leadsFound: row.result_summary?.leadsFound ?? 0,
           startTime: startTimeRef.current,
         });
         setScrapeStatus("complete");

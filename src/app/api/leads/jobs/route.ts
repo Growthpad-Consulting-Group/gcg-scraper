@@ -8,8 +8,11 @@ export async function POST(req: NextRequest) {
   const user = token ? await getUserForSessionToken(token) : null;
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { searchTerm, location } = await req.json();
+  const { searchTerm, location, maxResults } = await req.json();
   if (!searchTerm) return NextResponse.json({ error: "searchTerm is required" }, { status: 400 });
+
+  const parsedMaxResults = Number(maxResults);
+  const normalizedMaxResults = Number.isFinite(parsedMaxResults) && parsedMaxResults > 0 ? Math.min(parsedMaxResults, 200) : undefined;
 
   const supabase = createServerSupabaseClient();
   const { data: job, error } = await supabase
@@ -19,7 +22,7 @@ export async function POST(req: NextRequest) {
     .single();
   if (error || !job) return NextResponse.json({ error: error?.message || "Failed to create job" }, { status: 500 });
 
-  await inngest.send({ name: "leads/gmb.queued", data: { jobId: job.id, searchTerm, location: location || "" } });
+  await inngest.send({ name: "leads/gmb.queued", data: { jobId: job.id, searchTerm, location: location || "", maxResults: normalizedMaxResults } });
 
   return NextResponse.json({ jobId: job.id });
 }

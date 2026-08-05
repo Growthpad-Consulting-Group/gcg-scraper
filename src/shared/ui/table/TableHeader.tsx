@@ -40,12 +40,12 @@ const TableHeader: React.FC<TableHeaderProps> = ({
   const stickyStyle = stickyHeader ? { top: stickyTopOffset } : {};
 
   return (
-    <thead className="bg-gray-50 dark:bg-gray-800 transition-colors duration-500">
+    <thead className="bg-gray-50 dark:bg-zinc-900 transition-colors duration-500">
       <tr>
         {selectable && (
           <th
             key="__select__"
-            className={`${stickyHeader ? 'sticky z-30' : ''} top-0 left-0 w-12 px-1 sm:px-2 py-3 sm:py-4 text-center bg-gray-50 dark:bg-gray-800 border-r border-slate-200/50 dark:border-gray-700 transition-colors duration-500`}
+            className={`${stickyHeader ? 'sticky z-30' : ''} top-0 left-0 w-12 px-1 sm:px-2 py-3 sm:py-4 text-center bg-gray-50 dark:bg-zinc-900 border-r border-slate-200/50 dark:border-zinc-800 transition-colors duration-500`}
             style={{ ...stickyStyle }}
           >
             <input
@@ -57,7 +57,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
                 )
               }
               onChange={table.selectAll}
-              className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600 bg-gray-100 border-gray-300 rounded focus:ring-gray-400/20 focus:ring-4 dark:bg-gray-700 dark:border-gray-600 transition-all cursor-pointer"
+              className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600 bg-gray-100 border-gray-300 rounded focus:ring-gray-400/20 focus:ring-4 dark:bg-zinc-800 dark:border-zinc-700 transition-all cursor-pointer"
             />
           </th>
         )}
@@ -101,8 +101,8 @@ const TableHeader: React.FC<TableHeaderProps> = ({
             <th
               key={`${col.accessor}-${index}`}
               className={`${stickyHeader ? 'sticky z-20' : ''} top-0 px-2 sm:px-4 py-3 sm:py-4 ${col.headerClassName || "text-left"
-                } bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 ${col.sortable !== false
-                  ? `cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-white/5`
+                } bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 ${col.sortable !== false
+                  ? `cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-white/5`
                   : ""
                 } ${col.className || ""} ${stickyClass}`}
               style={{ ...style, ...stickyStyle }}
@@ -163,7 +163,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
         {/* Only render actions column if needed */}
         {(actions.length > 0 || onEdit || onView || onDelete) && (
           <th
-            className={`${stickyHeader ? 'sticky z-20' : ''} top-0 right-0 px-2 sm:px-4 py-3 sm:py-4 text-left bg-gray-50 dark:bg-gray-800 text-slate-500 dark:text-gray-400 shrink-0`}
+            className={`${stickyHeader ? 'sticky z-20' : ''} top-0 right-0 px-2 sm:px-4 py-3 sm:py-4 text-left bg-gray-50 dark:bg-zinc-900 text-slate-500 dark:text-gray-400 shrink-0`}
             style={{ ...stickyStyle }}
           >
             Actions

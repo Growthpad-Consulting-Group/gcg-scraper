@@ -13,14 +13,21 @@ const MAX_POLLS = 40; // ~10 minutes at 15s apart
 export const runLinkedInScrapeJob = inngest.createFunction(
   { id: "run-linkedin-scrape-job", retries: 1, triggers: { event: "leads/linkedin.queued" } },
   async ({ event, step }) => {
-    const { jobId, searchQuery, locations } = event.data as { jobId: string; searchQuery: string; locations: string[] };
+    const { jobId, searchQuery, locations, maxResults } = event.data as {
+      jobId: string;
+      searchQuery: string;
+      locations: string[];
+      maxResults?: number;
+    };
     const supabase = createServerSupabaseClient();
 
     await step.run("mark-running", async () => {
       await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "starting" } }).eq("id", jobId);
     });
 
-    const { runId, datasetId } = await step.run("start-apify-run", () => startLinkedInSearch(searchQuery, locations));
+    const { runId, datasetId } = await step.run("start-apify-run", () =>
+      maxResults ? startLinkedInSearch(searchQuery, locations, maxResults) : startLinkedInSearch(searchQuery, locations)
+    );
 
     let status: string = "RUNNING";
     for (let i = 0; i < MAX_POLLS; i++) {

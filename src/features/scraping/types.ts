@@ -10,5 +10,6 @@ export type ScrapeSummary = {
   openTenders: number;
   closedTenders: number;
   totalTenders: number;
+  leadsFound: number;
   startTime: number | null;
 };

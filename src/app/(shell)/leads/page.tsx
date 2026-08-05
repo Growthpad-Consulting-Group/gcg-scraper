@@ -3,17 +3,12 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Icon } from "@iconify/react";
 import PageHeader from "@/shared/ui/PageHeader";
-import Button from "@/shared/ui/Button";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
 import Badge from "@/shared/ui/Badge";
 import LogPanel from "@/shared/ui/LogPanel";
 import GenericTable, { type Column } from "@/shared/ui/GenericTable";
-import LeadSearchForm from "@/features/leads/components/LeadSearchForm";
-import LinkedInSearchForm from "@/features/leads/components/LinkedInSearchForm";
 import LeadsExportButton from "@/features/leads/components/LeadsExportButton";
-import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 
 interface LeadColumn<T> {
   key: string;
@@ -93,7 +88,7 @@ function LeadsResultsTable<T extends Lead>({
       onRowClick={(row) => setExpandedId(expandedId === row.id ? null : row.id)}
       rowClickable
       customRowRender={customRowRender}
-      emptyMessage="No leads yet — run a search above."
+      emptyMessage="No leads yet — find some from Run Query."
       searchable
       searchPlaceholder="Search leads…"
       selectable={false}
@@ -112,41 +107,9 @@ function LeadsResultsTable<T extends Lead>({
   );
 }
 
-function CancelRunningJob({ jobId }: { jobId: string }) {
-  const [isCanceling, setIsCanceling] = useState(false);
-
-  const handleCancel = async () => {
-    setIsCanceling(true);
-    try {
-      const res = await fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to cancel");
-      toast.success("Canceling — the search will stop shortly.");
-    } catch (err: any) {
-      toast.error("Failed to cancel: " + err.message);
-    } finally {
-      setIsCanceling(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between rounded-md border border-app-border bg-surface px-3 py-2 text-sm text-text-lo">
-      <span className="flex items-center gap-2">
-        <Icon icon="mdi:loading" width={14} className="animate-spin text-brand-500" />
-        Search running…
-      </span>
-      <Button size="sm" variant="danger" onClick={handleCancel} disabled={isCanceling}>
-        {isCanceling ? "Canceling…" : "Cancel"}
-      </Button>
-    </div>
-  );
-}
-
 function GmbTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClearFilter: () => void }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const { scrapeStatus, setScrapeStatus } = useRealtimeJob(jobId);
 
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
@@ -166,41 +129,6 @@ function GmbTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClea
     fetchLeads();
   }, [fetchLeads]);
 
-  useEffect(() => {
-    if (scrapeStatus === "complete") {
-      toast.success("Lead search complete!");
-      fetchLeads();
-      setJobId(null);
-      setScrapeStatus("idle");
-    } else if (scrapeStatus === "error") {
-      toast.error("Lead search failed.");
-      setJobId(null);
-      setScrapeStatus("idle");
-    } else if (scrapeStatus === "canceled") {
-      toast.success("Search canceled.");
-      fetchLeads();
-      setJobId(null);
-      setScrapeStatus("idle");
-    }
-  }, [scrapeStatus, fetchLeads, setScrapeStatus]);
-
-  const handleSearch = async (searchTerm: string, location: string) => {
-    const toastId = toast.loading("Starting lead search...");
-    try {
-      const res = await fetch("/api/leads/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ searchTerm, location }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to start search");
-      setJobId(data.jobId);
-      toast.success("Searching Google Maps... this can take a minute.", { id: toastId, duration: 4000 });
-    } catch (err: any) {
-      toast.error("Failed to start search: " + err.message, { id: toastId });
-    }
-  };
-
   const handleDelete = async (id: string | number) => {
     const previous = leads;
     setLeads((prev) => prev.filter((l) => l.id !== id));
@@ -215,8 +143,6 @@ function GmbTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClea
 
   return (
     <div className="flex flex-col gap-4">
-      <LeadSearchForm isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
-      {scrapeStatus === "running" && jobId && <CancelRunningJob jobId={jobId} />}
       {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
       {!isLoading && leads.length > 0 && (
         <div className="flex justify-end">
@@ -235,8 +161,6 @@ function GmbTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClea
 function LinkedInTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClearFilter: () => void }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const { scrapeStatus, setScrapeStatus } = useRealtimeJob(jobId);
 
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
@@ -256,41 +180,6 @@ function LinkedInTab({ jobFilter, onClearFilter }: { jobFilter: string | null; o
     fetchLeads();
   }, [fetchLeads]);
 
-  useEffect(() => {
-    if (scrapeStatus === "complete") {
-      toast.success("LinkedIn search complete!");
-      fetchLeads();
-      setJobId(null);
-      setScrapeStatus("idle");
-    } else if (scrapeStatus === "error") {
-      toast.error("LinkedIn search failed.");
-      setJobId(null);
-      setScrapeStatus("idle");
-    } else if (scrapeStatus === "canceled") {
-      toast.success("Search canceled.");
-      fetchLeads();
-      setJobId(null);
-      setScrapeStatus("idle");
-    }
-  }, [scrapeStatus, fetchLeads, setScrapeStatus]);
-
-  const handleSearch = async (searchQuery: string, location: string) => {
-    const toastId = toast.loading("Starting LinkedIn search...");
-    try {
-      const res = await fetch("/api/linkedin-leads/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ searchQuery, location }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to start search");
-      setJobId(data.jobId);
-      toast.success("Searching LinkedIn... this can take a minute.", { id: toastId, duration: 4000 });
-    } catch (err: any) {
-      toast.error("Failed to start search: " + err.message, { id: toastId });
-    }
-  };
-
   const handleDelete = async (id: string | number) => {
     const previous = leads;
     setLeads((prev) => prev.filter((l) => l.id !== id));
@@ -305,8 +194,6 @@ function LinkedInTab({ jobFilter, onClearFilter }: { jobFilter: string | null; o
 
   return (
     <div className="flex flex-col gap-4">
-      <LinkedInSearchForm isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
-      {scrapeStatus === "running" && jobId && <CancelRunningJob jobId={jobId} />}
       {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
       {!isLoading && leads.length > 0 && (
         <div className="flex justify-end">
@@ -346,6 +233,14 @@ function LeadsContent() {
           title="Leads"
           description="Business and people leads from Google Maps and LinkedIn."
           icon="solar:map-point-broken"
+          actions={[
+            {
+              label: "Find Leads",
+              icon: "solar:play-circle-broken",
+              variant: "primary",
+              onClick: () => router.push(`/run-query?mode=${activeTab === "gmb" ? "gmb-leads" : "linkedin-leads"}`),
+            },
+          ]}
         />
 
         <div className="flex w-fit gap-1 rounded-md border border-app-border bg-surface p-1">

@@ -8,7 +8,7 @@ const MAX_POLLS = 40; // ~10 minutes at 15s apart, generous for an Apify Google 
 export const runGmbScrapeJob = inngest.createFunction(
   { id: "run-gmb-scrape-job", retries: 1, triggers: { event: "leads/gmb.queued" } },
   async ({ event, step }) => {
-    const { jobId, searchTerm, location } = event.data as { jobId: string; searchTerm: string; location: string };
+    const { jobId, searchTerm, location, maxResults } = event.data as { jobId: string; searchTerm: string; location: string; maxResults?: number };
     const supabase = createServerSupabaseClient();
     const searchString = location ? `${searchTerm} in ${location}` : searchTerm;
 
@@ -16,7 +16,9 @@ export const runGmbScrapeJob = inngest.createFunction(
       await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "starting" } }).eq("id", jobId);
     });
 
-    const { runId, datasetId } = await step.run("start-apify-run", () => startGoogleMapsRun(searchString));
+    const { runId, datasetId } = await step.run("start-apify-run", () =>
+      maxResults ? startGoogleMapsRun(searchString, maxResults) : startGoogleMapsRun(searchString)
+    );
 
     let status: string = "RUNNING";
     for (let i = 0; i < MAX_POLLS; i++) {

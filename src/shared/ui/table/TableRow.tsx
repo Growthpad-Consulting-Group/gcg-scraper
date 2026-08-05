@@ -99,8 +99,8 @@ const TableRow = <T extends Record<string, any> = any>({
       <>
         {selectable && (
           <td className={`sticky left-0 z-10 w-12 px-1 sm:px-2 py-3 sm:py-4 text-center border-r border-slate-200/50 dark:border-slate-800/70 transition-colors duration-200 ${index % 2 === 0
-            ? 'bg-white/90 dark:bg-slate-900/40'
-            : 'bg-slate-50/90 dark:bg-slate-800/40'
+            ? 'bg-white/90 dark:bg-zinc-900/60'
+            : 'bg-slate-50/90 dark:bg-zinc-800/50'
             } group-hover:bg-[#e8e9ed]! dark:group-hover:bg-gcg-orange/10!`}>
             <input
               type="checkbox"
@@ -132,8 +132,8 @@ const TableRow = <T extends Record<string, any> = any>({
 
           const stickyClass = isSticky
             ? `sticky ${stickySide === 'left' ? 'z-10' : 'z-10'} transition-colors duration-200 ${index % 2 === 0
-              ? 'bg-white/90 dark:bg-slate-900/40'
-              : 'bg-slate-50/90 dark:bg-slate-800/40'
+              ? 'bg-white/90 dark:bg-zinc-900/60'
+              : 'bg-slate-50/90 dark:bg-zinc-800/50'
             } group-hover:bg-[#e8e9ed]! dark:group-hover:bg-gcg-orange/10!`
             : "";
 
@@ -188,8 +188,8 @@ const TableRow = <T extends Record<string, any> = any>({
         })}
         {(actions.length > 0 || onEdit || onView || onDelete) && (
           <td className={`sticky right-0 z-10 px-2 sm:px-4 py-3 sm:py-4 transition-colors duration-200 ${index % 2 === 0
-            ? 'bg-white/90 dark:bg-slate-900/40'
-            : 'bg-slate-50/90 dark:bg-slate-800/40'
+            ? 'bg-white/90 dark:bg-zinc-900/60'
+            : 'bg-slate-50/90 dark:bg-zinc-800/50'
             } group-hover:bg-[#e8e9ed]! dark:group-hover:bg-gcg-orange/10!`}>
             <div className="flex items-center gap-1 sm:gap-2">
               {/* Custom actions */}
@@ -492,8 +492,8 @@ const TableRow = <T extends Record<string, any> = any>({
   return (
     <tr
       className={`group transition-all duration-200 border-b border-slate-100 dark:border-slate-800/60 ${index % 2 === 0
-        ? 'bg-white/50 dark:bg-slate-900/20'
-        : 'bg-slate-100/40 dark:bg-slate-800/30'
+        ? 'bg-white/50 dark:bg-zinc-900/40'
+        : 'bg-slate-100/40 dark:bg-zinc-800/40'
         } hover:bg-gcg-orange/10 dark:hover:bg-gcg-orange/10 ${rowClickable ? "cursor-pointer" : ""} ${getRowClassName ? getRowClassName(row) : ""} ${showDropdown ? "relative z-60" : ""}`}
       onClick={handleRowClick}
     >

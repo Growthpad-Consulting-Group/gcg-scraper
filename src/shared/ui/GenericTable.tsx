@@ -735,7 +735,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
                       }}
                       className={`pl-10 py-2 w-full border rounded-lg outline-none transition-all duration-300 ${isSearchExpanded || table.searchTerm
                           ? "pr-8 cursor-text border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 focus:border-gray-400 dark:focus:border-gray-500"
-                          : "pr-0 cursor-pointer border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-700/60 text-transparent hover:bg-gray-100 dark:hover:bg-slate-700 hover:shadow-sm"
+                          : "pr-0 cursor-pointer border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-zinc-800/60 text-transparent hover:bg-gray-100 dark:hover:bg-zinc-800 hover:shadow-sm"
                         }`}
                     />
                     {(isSearchExpanded || table.searchTerm || serverSearchValue) && (table.searchTerm || serverSearchValue) && (

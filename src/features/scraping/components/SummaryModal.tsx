@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import Button from "@/shared/ui/Button";
 import type { ScrapeStatus, ScrapeSummary } from "@/features/scraping/types";
 
 function getTimeDifference(startTimeValue: number | null) {
@@ -56,19 +57,23 @@ export default function SummaryModal({
   isOpen,
   onClose,
   summary,
-  mode,
   scrapeStatus,
   startTime,
+  kind = "tenders",
+  resultsHref,
 }: {
   isOpen: boolean;
   onClose: () => void;
   summary: ScrapeSummary;
-  mode: "light" | "dark";
+  mode?: "light" | "dark";
   scrapeStatus: ScrapeStatus;
   startTime: number | null;
   taskId?: string | number | null;
+  /** Which result stats to show — tender scrapes report open/closed/total tenders, lead searches just report a count. */
+  kind?: "tenders" | "leads";
+  /** Where "View results" should send you — omitted when there's nothing worth viewing. */
+  resultsHref?: string;
 }) {
-  const isDark = mode === "dark";
   const [timeDifference, setTimeDifference] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,65 +86,72 @@ export default function SummaryModal({
 
   if (!isOpen) return null;
 
+  const hasResults = kind === "leads" ? summary.leadsFound > 0 : summary.openTenders > 0;
+
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 backdrop-blur-md flex items-center justify-center transition-opacity duration-200">
-      <div className={`p-6 rounded-xl shadow-xl max-w-2xl w-[90%] transform transition-all duration-300 ${isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
-        <div className="flex items-center justify-between mb-6 border-b pb-3 border-gray-300 dark:border-gray-700">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md transition-opacity duration-200">
+      <div className="w-[90%] max-w-2xl rounded-xl border border-app-border bg-surface p-6 shadow-xl">
+        <div className="mb-6 flex items-center justify-between border-b border-app-border pb-3">
           <div className="flex items-center gap-2">
             <Icon
-              icon={scrapeStatus === "canceled" ? "mdi:cancel" : "mdi:information-outline"}
-              width="24"
-              height="24"
-              className={scrapeStatus === "canceled" ? "text-[#231812]" : "text-[#f05d23]"}
+              icon={scrapeStatus === "canceled" ? "solar:close-circle-broken" : "solar:info-circle-broken"}
+              width={22}
+              height={22}
+              className={scrapeStatus === "canceled" ? "text-text-lo" : "text-brand-500"}
             />
-            <h3 className="text-xl font-bold">{scrapeStatus === "canceled" ? "Scan Canceled" : "Search Summary"}</h3>
+            <h3 className="text-lg font-semibold text-text-hi">{scrapeStatus === "canceled" ? "Scan Canceled" : "Run Summary"}</h3>
             {scrapeStatus === "complete" && (
-              <span className="flex items-center gap-1 text-sm text-gray-500 ml-2">
+              <span className="ml-2 flex items-center gap-1 text-sm text-text-lo">
                 <p>{timeDifference || "Just now"}</p>
                 <p className="text-xs">{`(${formatScanDate(startTime)})`}</p>
               </span>
             )}
           </div>
 
-          <button onClick={onClose} aria-label="Close modal" className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-            <Icon icon="mdi:close" width="24" height="24" />
+          <button onClick={onClose} aria-label="Close modal" className="text-text-lo hover:text-text-hi">
+            <Icon icon="solar:close-circle-broken" width={22} height={22} />
           </button>
         </div>
 
         {scrapeStatus === "canceled" ? (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">The scan was interrupted by the user.</p>
-            <SummaryItem mode={mode} icon="mdi:clock-outline" label="Time Taken" value={formatTimeTaken(summary.timeTaken)} />
+            <p className="text-sm text-text-lo">The scan was interrupted by the user.</p>
+            <SummaryItem icon="solar:clock-circle-broken" label="Time Taken" value={formatTimeTaken(summary.timeTaken)} />
+          </div>
+        ) : kind === "leads" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SummaryItem icon="solar:users-group-rounded-broken" label="Leads Found" value={summary.leadsFound} iconColor="text-status-success" />
+            <SummaryItem icon="solar:clock-circle-broken" label="Time Taken" value={formatTimeTaken(summary.timeTaken)} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <SummaryItem mode={mode} icon="mdi:link" label="URLs Visited" value={summary.urlsVisited} />
-            <SummaryItem mode={mode} icon="mdi:clock-outline" label="Time Taken" value={formatTimeTaken(summary.timeTaken)} />
-            <SummaryItem mode={mode} icon="mdi:check-circle-outline" label="Open Tenders" value={summary.openTenders} iconColor="text-green-500" />
-            <SummaryItem mode={mode} icon="mdi:close-circle-outline" label="Closed Tenders" value={summary.closedTenders} iconColor="text-red-500" />
-            <SummaryItem mode={mode} icon="mdi:folder-outline" label="Total Tenders" value={summary.totalTenders} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <SummaryItem icon="solar:link-broken" label="URLs Visited" value={summary.urlsVisited} />
+            <SummaryItem icon="solar:clock-circle-broken" label="Time Taken" value={formatTimeTaken(summary.timeTaken)} />
+            <SummaryItem icon="solar:check-circle-broken" label="Open Tenders" value={summary.openTenders} iconColor="text-status-success" />
+            <SummaryItem icon="solar:close-circle-broken" label="Closed Tenders" value={summary.closedTenders} iconColor="text-status-danger" />
+            <SummaryItem icon="solar:folder-broken" label="Total Tenders" value={summary.totalTenders} />
           </div>
         )}
 
-        <div className="flex justify-center gap-6 py-2">
-          {summary.openTenders > 0 ? (
+        <div className="flex justify-center gap-3 pt-2">
+          {hasResults && resultsHref ? (
             <>
-              <Link href="/tenders" className="w-full">
-                <button className="mt-6 w-full py-2 flex items-center justify-center gap-2 text-center rounded-lg bg-gray-400 text-white font-medium hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f05d23]">
-                  <Icon icon="mdi:table" width="20" height="20" />
-                  View Tenders
-                </button>
+              <Link href={resultsHref} className="w-full">
+                <Button variant="secondary" className="mt-6 w-full">
+                  <Icon icon="solar:widget-2-broken" width={18} />
+                  View {kind === "leads" ? "Leads" : "Tenders"}
+                </Button>
               </Link>
-              <button onClick={onClose} className="mt-6 w-full py-2 flex items-center justify-center gap-2 text-center rounded-lg bg-[#f05d23] text-white font-medium hover:bg-[#d04e1e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f05d23]">
-                <Icon icon="mdi:close-circle-outline" width="20" height="20" />
+              <Button onClick={onClose} className="mt-6 w-full">
+                <Icon icon="solar:close-circle-broken" width={18} />
                 Close
-              </button>
+              </Button>
             </>
           ) : (
-            <button onClick={onClose} className="mt-6 w-full py-2 flex items-center justify-center gap-2 text-center rounded-lg bg-[#f05d23] text-white font-medium hover:bg-[#d04e1e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f05d23]">
-              <Icon icon="mdi:close-circle-outline" width="20" height="20" />
+            <Button onClick={onClose} className="mt-6 w-full">
+              <Icon icon="solar:close-circle-broken" width={18} />
               Close
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -151,21 +163,18 @@ function SummaryItem({
   icon,
   label,
   value,
-  iconColor = "text-[#f05d23]",
-  mode,
+  iconColor = "text-brand-500",
 }: {
   icon: string;
   label: string;
   value: string | number;
   iconColor?: string;
-  mode: "light" | "dark";
 }) {
-  const isDark = mode === "dark";
   return (
-    <div className={`flex flex-col items-center justify-center p-4 rounded-lg text-center shadow-sm transform transition-all duration-500 hover:shadow-lg hover:-translate-y-1 ${isDark ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-900"}`}>
-      <Icon icon={icon} width="40" height="40" className={`mb-2 ${iconColor}`} />
-      <p className={`text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>{label}</p>
-      <p className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{value}</p>
+    <div className="flex flex-col items-center justify-center rounded-lg bg-surface-2 p-4 text-center transition-all duration-300 hover:-translate-y-1">
+      <Icon icon={icon} width={32} height={32} className={`mb-2 ${iconColor}`} />
+      <p className="text-sm font-medium text-text-lo">{label}</p>
+      <p className="text-lg font-bold text-text-hi">{value}</p>
     </div>
   );
 }

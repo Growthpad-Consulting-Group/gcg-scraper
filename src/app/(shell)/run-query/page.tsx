@@ -1,22 +1,36 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import PageHeader from "@/shared/ui/PageHeader";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import QueryComposer from "@/features/scraping/components/QueryComposer";
+import WebsiteRunForm from "@/features/scraping/components/WebsiteRunForm";
+import LeadRunForm from "@/features/scraping/components/LeadRunForm";
+import RunModeSwitcher, { isRunMode, type RunMode } from "@/features/scraping/components/RunModeSwitcher";
 import RunConsole from "@/features/scraping/components/RunConsole";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 import type { SearchTerm, BaseKeyword, Country } from "@/features/scraping/types";
 
+function resultsHrefFor(mode: RunMode, jobId: string | null): string | undefined {
+  if (!jobId) return undefined;
+  if (mode === "gmb-leads") return `/leads?job=${jobId}&tab=gmb`;
+  if (mode === "linkedin-leads") return `/leads?job=${jobId}&tab=linkedin`;
+  return `/tenders?job=${jobId}`;
+}
+
 function RunQueryContent() {
   const { resolvedMode: mode } = useTheme();
   const { loading: userLoading } = useUserProfile();
   const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const urlMode = searchParams?.get("mode") ?? null;
+  const [runMode, setRunMode] = useState<RunMode>(isRunMode(urlMode) ? urlMode : "search-query");
 
   const [searchTerms, setSearchTerms] = useState<SearchTerm[]>([]);
   const [selectedTerms, setSelectedTerms] = useState<string[]>([]);
@@ -24,7 +38,21 @@ function RunQueryContent() {
   const [selectedBaseKeywords, setSelectedBaseKeywords] = useState<string[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [selectedCountry, setSelectedCountry] = useState("Kenya");
+
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [websiteName, setWebsiteName] = useState("");
+  const [websiteLocation, setWebsiteLocation] = useState("");
+  const [isAddingWebsite, setIsAddingWebsite] = useState(false);
+
+  const [gmbSearchTerm, setGmbSearchTerm] = useState("");
+  const [gmbLocation, setGmbLocation] = useState("");
+  const [gmbMaxResults, setGmbMaxResults] = useState(30);
+  const [linkedinSearchQuery, setLinkedinSearchQuery] = useState("");
+  const [linkedinLocation, setLinkedinLocation] = useState("");
+  const [linkedinMaxResults, setLinkedinMaxResults] = useState(25);
+
   const [jobId, setJobId] = useState<string | null>(null);
+  const [jobKind, setJobKind] = useState<RunMode>("search-query");
   const [isCanceling, setIsCanceling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +64,14 @@ function RunQueryContent() {
     const urlTaskId = searchParams?.get("taskId");
     if (urlTaskId) setJobId(urlTaskId);
   }, [searchParams]);
+
+  const changeMode = (next: RunMode) => {
+    setRunMode(next);
+    const params = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
+    params.set("mode", next);
+    params.delete("taskId");
+    router.replace(`/run-query?${params.toString()}`);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -97,16 +133,20 @@ function RunQueryContent() {
     }
   };
 
+  const startJob = (id: string, kind: RunMode) => {
+    reset();
+    setJobKind(kind);
+    setScrapeStatus("running");
+    setJobId(id);
+  };
+
   const handleRunQuery = async () => {
     if (selectedTerms.length === 0 || selectedBaseKeywords.length === 0) {
       toast.error("Please select at least one search term and base keyword.");
       return;
     }
 
-    reset();
-    setScrapeStatus("running");
     toast.loading("Scraping started...", { id: "scrape-start" });
-
     const currentYear = new Date().getFullYear();
     const query = `${currentYear} ${selectedBaseKeywords.join(" ")} ${selectedTerms.join(" ")} ${selectedCountry}`.trim();
 
@@ -119,12 +159,79 @@ function RunQueryContent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start scraping");
 
-      setJobId(data.jobId);
+      startJob(data.jobId, "search-query");
       toast.dismiss("scrape-start");
     } catch (err: any) {
       setScrapeStatus("error");
-      setJobId(null);
       toast.error("Failed to start scraping: " + err.message, { id: "scrape-start" });
+    }
+  };
+
+  const handleRunWebsite = async () => {
+    if (!websiteUrl.trim()) return;
+    setIsAddingWebsite(true);
+    toast.loading("Adding source and starting scan...", { id: "website-start" });
+
+    try {
+      const createRes = await fetch("/api/websites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: websiteUrl.trim(), name: websiteName.trim() || undefined, location: websiteLocation.trim() || undefined }),
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok) throw new Error(createData.error || "Failed to add website");
+
+      const scanRes = await fetch(`/api/websites/${createData.website.id}/scan`, { method: "POST" });
+      const scanData = await scanRes.json();
+      if (!scanRes.ok) throw new Error(scanData.error || "Failed to start scan");
+
+      startJob(scanData.jobId, "website");
+      setWebsiteUrl("");
+      setWebsiteName("");
+      setWebsiteLocation("");
+      toast.dismiss("website-start");
+    } catch (err: any) {
+      toast.error("Failed to run website scrape: " + err.message, { id: "website-start" });
+    } finally {
+      setIsAddingWebsite(false);
+    }
+  };
+
+  const handleRunGmbLeads = async () => {
+    if (!gmbSearchTerm.trim()) return;
+    toast.loading("Starting lead search...", { id: "gmb-start" });
+    try {
+      const res = await fetch("/api/leads/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ searchTerm: gmbSearchTerm.trim(), location: gmbLocation.trim(), maxResults: gmbMaxResults }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start search");
+
+      startJob(data.jobId, "gmb-leads");
+      toast.success("Searching Google Maps... this can take a minute.", { id: "gmb-start", duration: 4000 });
+    } catch (err: any) {
+      toast.error("Failed to start search: " + err.message, { id: "gmb-start" });
+    }
+  };
+
+  const handleRunLinkedinLeads = async () => {
+    if (!linkedinSearchQuery.trim()) return;
+    toast.loading("Starting LinkedIn search...", { id: "linkedin-start" });
+    try {
+      const res = await fetch("/api/linkedin-leads/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ searchQuery: linkedinSearchQuery.trim(), location: linkedinLocation.trim(), maxResults: linkedinMaxResults }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start search");
+
+      startJob(data.jobId, "linkedin-leads");
+      toast.success("Searching LinkedIn... this can take a minute.", { id: "linkedin-start", duration: 4000 });
+    } catch (err: any) {
+      toast.error("Failed to start search: " + err.message, { id: "linkedin-start" });
     }
   };
 
@@ -148,12 +255,14 @@ function RunQueryContent() {
     }
   };
 
+  const summaryKind = jobKind === "gmb-leads" || jobKind === "linkedin-leads" ? "leads" : "tenders";
+
   return (
     <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
           title="Run Query"
-          description="Search and scrape tenders from configured sources."
+          description="Search, scrape, and find leads from one place — pick a mode below to get started."
           icon="solar:database-broken"
         />
 
@@ -168,23 +277,69 @@ function RunQueryContent() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <QueryComposer
-              searchTerms={searchTerms}
-              setSearchTerms={setSearchTerms}
-              selectedTerms={selectedTerms}
-              setSelectedTerms={setSelectedTerms}
-              baseKeywords={baseKeywords}
-              setBaseKeywords={setBaseKeywords}
-              selectedBaseKeywords={selectedBaseKeywords}
-              setSelectedBaseKeywords={setSelectedBaseKeywords}
-              countries={countries}
-              selectedCountry={selectedCountry}
-              setSelectedCountry={setSelectedCountry}
-              scrapeStatus={scrapeStatus}
-              handleRunQuery={handleRunQuery}
-              handleAddScheduledTask={handleAddScheduledTask}
-              mode={mode}
-            />
+            <RunModeSwitcher mode={runMode} onChange={changeMode} />
+
+            {runMode === "search-query" && (
+              <QueryComposer
+                searchTerms={searchTerms}
+                setSearchTerms={setSearchTerms}
+                selectedTerms={selectedTerms}
+                setSelectedTerms={setSelectedTerms}
+                baseKeywords={baseKeywords}
+                setBaseKeywords={setBaseKeywords}
+                selectedBaseKeywords={selectedBaseKeywords}
+                setSelectedBaseKeywords={setSelectedBaseKeywords}
+                countries={countries}
+                selectedCountry={selectedCountry}
+                setSelectedCountry={setSelectedCountry}
+                scrapeStatus={scrapeStatus}
+                handleRunQuery={handleRunQuery}
+                handleAddScheduledTask={handleAddScheduledTask}
+                mode={mode}
+              />
+            )}
+
+            {runMode === "website" && (
+              <WebsiteRunForm
+                url={websiteUrl}
+                setUrl={setWebsiteUrl}
+                name={websiteName}
+                setName={setWebsiteName}
+                location={websiteLocation}
+                setLocation={setWebsiteLocation}
+                isRunning={isAddingWebsite || scrapeStatus === "running"}
+                onRun={handleRunWebsite}
+              />
+            )}
+
+            {runMode === "gmb-leads" && (
+              <LeadRunForm
+                kind="gmb"
+                searchTerm={gmbSearchTerm}
+                setSearchTerm={setGmbSearchTerm}
+                location={gmbLocation}
+                setLocation={setGmbLocation}
+                maxResults={gmbMaxResults}
+                setMaxResults={setGmbMaxResults}
+                isRunning={scrapeStatus === "running"}
+                onRun={handleRunGmbLeads}
+              />
+            )}
+
+            {runMode === "linkedin-leads" && (
+              <LeadRunForm
+                kind="linkedin"
+                searchTerm={linkedinSearchQuery}
+                setSearchTerm={setLinkedinSearchQuery}
+                location={linkedinLocation}
+                setLocation={setLinkedinLocation}
+                maxResults={linkedinMaxResults}
+                setMaxResults={setLinkedinMaxResults}
+                isRunning={scrapeStatus === "running"}
+                onRun={handleRunLinkedinLeads}
+              />
+            )}
+
             <div className="min-h-[500px]">
               <RunConsole
                 scrapeStatus={scrapeStatus}
@@ -200,7 +355,15 @@ function RunQueryContent() {
         )}
       </div>
 
-      <SummaryModal isOpen={showSummary} onClose={() => setShowSummary(false)} summary={summary} mode={mode} scrapeStatus={scrapeStatus} startTime={summary.startTime} taskId={jobId} />
+      <SummaryModal
+        isOpen={showSummary}
+        onClose={() => setShowSummary(false)}
+        summary={summary}
+        scrapeStatus={scrapeStatus}
+        startTime={summary.startTime}
+        kind={summaryKind}
+        resultsHref={resultsHrefFor(jobKind, jobId)}
+      />
     </>
   );
 }

@@ -94,9 +94,9 @@ const TabletCard: React.FC<TabletCardProps> = ({
   return (
     <div
       key={row.id || index}
-      className={`px-5 py-4 border-b border-slate-200/60 dark:border-slate-700/40 transition-all duration-200 ${index % 2 === 0
-        ? 'bg-white/50 dark:bg-slate-900/20'
-        : 'bg-slate-100/40 dark:bg-slate-800/30'
+      className={`px-5 py-4 border-b border-gray-200/60 dark:border-gray-700/40 transition-all duration-200 ${index % 2 === 0
+        ? 'bg-white/50 dark:bg-zinc-900/40'
+        : 'bg-slate-100/40 dark:bg-zinc-800/40'
         } hover:bg-gcg-orange/10 dark:hover:bg-gcg-orange/20 ${rowClickable ? "cursor-pointer" : ""
         }`}
       onClick={handleCardClick}
@@ -110,7 +110,7 @@ const TabletCard: React.FC<TabletCardProps> = ({
                 type="checkbox"
                 checked={table.selected.includes(row.id)}
                 onChange={() => table.toggleSelect(row.id)}
-                className="w-4.5 h-4.5 text-gcg-orange bg-gray-100 border-gray-300 rounded-md focus:ring-gcg-orange focus:ring-2 dark:bg-gray-700 dark:border-slate-600 transition-all cursor-pointer"
+                className="w-4.5 h-4.5 text-gcg-orange bg-gray-100 border-gray-300 rounded-md focus:ring-gcg-orange focus:ring-2 dark:bg-gray-700 dark:border-gray-600 transition-all cursor-pointer"
               />
             </div>
           )}
@@ -260,7 +260,7 @@ const TabletCard: React.FC<TabletCardProps> = ({
                       className="text-slate-400 dark:text-slate-300"
                     />
                     {showDropdown && (
-                      <div className="absolute right-0 top-10 z-[100] min-w-[200px] rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 animate-in fade-in zoom-in duration-200 overflow-hidden">
+                      <div className="absolute right-0 top-10 z-[100] min-w-[200px] rounded-2xl shadow-2xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-1.5 animate-in fade-in zoom-in duration-200 overflow-hidden">
                         {overflowActions.map((action, i) => {
                           const label = typeof action.label === "function" ? action.label(row) : action.label;
                           const icon = typeof action.icon === "function" ? action.icon(row) : action.icon;
@@ -276,7 +276,7 @@ const TabletCard: React.FC<TabletCardProps> = ({
                                 setShowDropdown(false);
                               }}
                               disabled={isDisabled}
-                              className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${isDisabled ? "opacity-40" : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                              className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${isDisabled ? "opacity-40" : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
                                 }`}
                             >
                               <Icon icon={icon || "solar:question-circle-broken"} className="w-5 h-5 opacity-70" />

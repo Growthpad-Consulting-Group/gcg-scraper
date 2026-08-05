@@ -110,7 +110,7 @@ function TenderDetail({ tender }: { tender: Tender }) {
       </div>
 
       {view === "parsed" ? (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 p-4 text-sm md:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 text-sm md:grid-cols-3">
           {([
             ["Organization", tender.organization],
             ["Category", tender.category],
@@ -368,7 +368,7 @@ function TendersContent() {
     <Fragment key={row.id}>
       {defaultRow}
       {expandedId === row.id && (
-        <tr className="bg-gray-50/80 dark:bg-slate-800/40">
+        <tr className="bg-gray-50/80 dark:bg-gray-800/40">
           <td
             colSpan={columns.length + 2} // +2 for checkbox + actions cols
             className="border-b border-slate-100 dark:border-slate-800/60 p-0"

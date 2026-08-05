@@ -65,7 +65,7 @@ const TablePagination: React.FC<TablePaginationProps> = ({
   };
 
   return (
-    <div className="px-3 sm:px-6 py-4 border shadow-xl shadow-slate-200/50 dark:shadow-black/20 bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700">
+    <div className="px-3 sm:px-6 py-4 border shadow-xl shadow-slate-200/50 dark:shadow-black/20 bg-gray-50 dark:bg-zinc-900 border-gray-100 dark:border-zinc-800">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div
           className={`flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm ${
@@ -153,7 +153,7 @@ const TablePagination: React.FC<TablePaginationProps> = ({
           <button
             onClick={() => handlePageChange(activePage - 1)}
             disabled={activePage === 1}
-            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
           >
             <Icon
               icon="solar:alt-arrow-left-broken"
@@ -188,7 +188,7 @@ const TablePagination: React.FC<TablePaginationProps> = ({
           <button
             onClick={() => handlePageChange(activePage + 1)}
             disabled={activePage === activeTotalPages}
-            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700"
           >
             <span className="hidden sm:inline">Next</span>
             <Icon
