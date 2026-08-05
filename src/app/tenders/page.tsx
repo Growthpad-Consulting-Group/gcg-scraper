@@ -1,18 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
+import PageHeader from "@/shared/ui/PageHeader";
 import Button from "@/shared/ui/Button";
-import TenderTableV2 from "@/features/tenders/components/TenderTableV2";
-import { useTheme } from "@/shared/contexts/ThemeContext";
+import RunFilterBanner from "@/shared/ui/RunFilterBanner";
+import TendersTable from "@/features/tenders/components/TendersTable";
 
 const PAGE_SIZE = 500;
 
-export default function TendersPage() {
-  const { resolvedMode: mode } = useTheme();
+function TendersContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const jobFilter = searchParams?.get("job") || null;
+
   const [tenders, setTenders] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +25,8 @@ export default function TendersPage() {
   const fetchTenders = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=0`);
+      const jobParam = jobFilter ? `&job=${jobFilter}` : "";
+      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=0${jobParam}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch tenders");
       setTenders(data.tenders || []);
@@ -32,12 +37,13 @@ export default function TendersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [jobFilter]);
 
   const loadMore = useCallback(async () => {
     setIsLoadingMore(true);
     try {
-      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=${tenders.length}`);
+      const jobParam = jobFilter ? `&job=${jobFilter}` : "";
+      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=${tenders.length}${jobParam}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch tenders");
       setTenders((prev) => [...prev, ...(data.tenders || [])]);
@@ -46,7 +52,7 @@ export default function TendersPage() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [tenders.length]);
+  }, [tenders.length, jobFilter]);
 
   useEffect(() => {
     fetchTenders();
@@ -69,26 +75,59 @@ export default function TendersPage() {
   return (
     <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-xl font-semibold text-text-hi">Tenders</h1>
-            <p className="mt-0.5 text-sm text-text-lo">Every tender found, with provenance back to the run that scraped it.</p>
-          </div>
-          <Link href="/upload-website">
-            <Button size="sm" variant="secondary">
-              <Icon icon="solar:upload-broken" width={16} />
-              Add Source
-            </Button>
-          </Link>
-        </div>
-        <TenderTableV2 tenders={tenders} isLoading={isLoading} mode={mode} onDeleteTender={handleDeleteTender} />
+        <PageHeader
+          title="Tenders"
+          description="Every tender found, with provenance back to the run that scraped it."
+          icon="solar:case-minimalistic-broken"
+          actions={[
+            {
+              label: "Add Source",
+              icon: "solar:upload-broken",
+              onClick: () => router.push("/upload-website"),
+            },
+          ]}
+        />
+
+        {jobFilter && (
+          <RunFilterBanner
+            jobId={jobFilter}
+            onClear={() => router.push("/tenders")}
+            resultsNoun="tenders"
+          />
+        )}
+
+        <TendersTable
+          tenders={tenders}
+          isLoading={isLoading}
+          onDeleteTender={handleDeleteTender}
+          onRefresh={fetchTenders}
+        />
+
         {!isLoading && tenders.length < total && (
-          <Button size="sm" variant="secondary" onClick={loadMore} disabled={isLoadingMore} className="self-center">
-            <Icon icon={isLoadingMore ? "mdi:loading" : "mdi:chevron-down"} width={16} className={isLoadingMore ? "animate-spin" : ""} />
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="self-center"
+          >
+            <Icon
+              icon={isLoadingMore ? "mdi:loading" : "mdi:chevron-down"}
+              width={16}
+              className={isLoadingMore ? "animate-spin" : ""}
+            />
             Load more ({tenders.length} of {total})
           </Button>
         )}
       </div>
     </AppShell>
+  );
+}
+
+export default function TendersPage() {
+  return (
+    <Suspense fallback={null}>
+      <TendersContent />
+    </Suspense>
   );
 }

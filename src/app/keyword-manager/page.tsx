@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
+import PageHeader from "@/shared/ui/PageHeader";
 import KeywordChipEditor from "@/features/keywords/components/KeywordChipEditor";
 import { Icon } from "@iconify/react";
 
@@ -61,12 +62,11 @@ export default function KeywordManagerPage() {
   return (
     <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <div>
-          <h1 className="font-display text-xl font-semibold text-text-hi">Keyword Manager</h1>
-          <p className="mt-0.5 text-sm text-text-lo">
-            Filters applied after scraping — relevance and closing-date detection. Base keywords and search terms now live in Run Query.
-          </p>
-        </div>
+        <PageHeader
+          title="Keyword Manager"
+          description="Filters applied after scraping — relevance and closing-date detection. Base keywords and search terms now live in Run Query."
+          icon="solar:tag-broken"
+        />
 
         {error && <div className="rounded-md bg-status-danger/10 p-4 text-sm text-status-danger">{error}</div>}
 

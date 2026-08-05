@@ -38,7 +38,6 @@ interface GlassPanelProps {
  * Apple-style liquid glass panel.
  * Renders 3 stacked layers (distortion warp, tint, specular ring) behind children.
  * The SVG filter is injected into <body> once and shared across all instances.
- * Ported from bflowpos's shared/ui/GlassPanel.
  */
 export default function GlassPanel({ mode = "light", className = "", shadow, children }: GlassPanelProps) {
   useGlassFilter();

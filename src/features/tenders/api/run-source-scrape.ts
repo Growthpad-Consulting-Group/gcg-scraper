@@ -27,7 +27,7 @@ export const runSourceScrapeJob = inngest.createFunction(
     try {
       const { tenders: extracted, markdown } = await step.run("extract", () => extractTenders(config.url, config.prompt));
 
-      const { inserted, open: openCount, closed: closedCount } = await step.run("save-tenders", async () => {
+      const { inserted, open: openCount, closed: closedCount, rows: insertedTenders } = await step.run("save-tenders", async () => {
         const rows = extracted
           .filter((t) => t.source_url)
           .map((t) => ({
@@ -40,6 +40,7 @@ export const runSourceScrapeJob = inngest.createFunction(
             format: t.source_url?.toLowerCase().endsWith(".pdf") ? "PDF" : t.source_url?.toLowerCase().endsWith(".docx") ? "DOCX" : "HTML",
             scraped_at: new Date().toISOString(),
             raw_content: markdown,
+            job_id: jobId,
             ...resolveOptionalFields(t),
           }));
 
@@ -58,7 +59,7 @@ export const runSourceScrapeJob = inngest.createFunction(
           .neq("status", "canceled");
       });
 
-      await step.run("notify", () => notifyTaskOwner(supabase, jobId, inserted));
+      await step.run("notify", () => notifyTaskOwner(supabase, jobId, inserted, insertedTenders));
       await step.run("log-done", () => logJobOutcome(supabase, jobId, `Run finished: ${inserted} tender(s) found.`));
 
       return { jobId, tendersFound: inserted };

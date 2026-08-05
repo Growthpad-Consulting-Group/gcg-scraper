@@ -68,28 +68,24 @@ export default function Header({
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const pillButtonClasses = `transition-all shrink-0 active:scale-95 backdrop-blur-md border ring-1 ring-inset ring-white/20 shadow-sm hover:shadow-md rounded-xl ${
-    mode === "dark" ? "bg-gray-700/50 border-white/10 hover:bg-gray-600/60" : "bg-white/60 border-white/50 hover:bg-white/80"
-  }`;
-
   return (
     <header ref={headerRef} className="sticky top-0 z-40">
       <GlassPanel
         mode={mode}
         className={`transition-all duration-300 animate-header-slide-in m-1 md:mx-8 md:mt-4 rounded-2xl`}
       >
-        <div className="p-1 md:p-2 transition-all duration-300">
+        <div className="px-2 py-1 transition-all duration-300">
           <div className="flex items-center justify-between">
             {/* Left: Sidebar toggle */}
             <div className="flex items-center gap-2">
               <button
                 onClick={toggleSidebar}
-                className={`text-gray-500 dark:text-gray-400 p-3 md:p-1 ${pillButtonClasses}`}
+                className="group relative z-2 p-2 rounded-full text-gray-500 dark:text-gray-400 shrink-0 transition-all active:scale-95 hover:bg-black/5 dark:hover:bg-white/10"
                 title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
               >
                 <Icon
                   icon={isSidebarOpen ? "solar:double-alt-arrow-left-broken" : "solar:double-alt-arrow-right-broken"}
-                  className="w-6 h-6"
+                  className="w-5 h-5 transition-transform duration-300 group-hover:scale-110"
                 />
               </button>
             </div>
@@ -108,9 +104,12 @@ export default function Header({
                 <button
                   onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                   title="Notifications"
-                  className="relative group z-2 p-2 rounded-full focus:outline-none cursor-pointer"
+                  className="relative group z-2 p-2 rounded-full transition-all active:scale-95 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
                 >
-                  <Icon icon="solar:bell-bing-broken" className={`h-5 w-5 ${mode === "dark" ? "text-gray-100" : "text-gray-700"}`} />
+                  <Icon
+                    icon="solar:bell-bing-broken"
+                    className={`h-5 w-5 transition-transform duration-300 group-hover:scale-110 ${mode === "dark" ? "text-gray-100" : "text-gray-700"}`}
+                  />
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center font-medium border border-white z-10">
                       {unreadCount > 99 ? "99+" : unreadCount}

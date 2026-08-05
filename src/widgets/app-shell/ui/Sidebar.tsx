@@ -119,11 +119,8 @@ export default function Sidebar({
                   className="flex items-center justify-between px-3 py-2 cursor-pointer group transition-all duration-200"
                   onClick={() => toggleCategory(group.category)}
                 >
-                  <span className="flex items-center gap-2">
-                    <Icon icon={group.icon} className="h-4 w-4 text-gray-400 group-hover:text-[#f05d23] transition-colors" />
-                    <span className="text-md font-semibold capitalize text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
-                      {group.category}
-                    </span>
+                  <span className="text-xs font-semibold uppercase text-gray-400 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+                    {group.category}
                   </span>
                   <Icon
                     icon="solar:alt-arrow-right-broken"
@@ -175,19 +172,19 @@ export default function Sidebar({
                               whileTap={{ scale: 0.98 }}
                               className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-all duration-300 ${
                                 active
-                                  ? "bg-[#f05d23] text-white shadow-lg shadow-[#f05d23]/20"
+                                  ? "bg-[#f05d23]/10 text-[#f05d23]"
                                   : mode === "dark"
                                     ? "text-gray-400 hover:bg-white/5 hover:text-white"
                                     : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                               } ${!isOpen ? "justify-center" : ""}`}
                             >
-                              {active && <div className="absolute left-0 w-1 h-1/2 bg-white/60 rounded-r-full" />}
-                              <Icon icon={icon} className={`h-5 w-5 shrink-0 transition-all duration-300 ${active ? "scale-105" : "group-hover:scale-110"}`} />
+                              {active && <div className="absolute left-0 w-1 h-1/2 bg-[#f05d23] rounded-r-full" />}
+                              <Icon icon={icon} className={`h-4 w-4 shrink-0 transition-all duration-300 ${active ? "scale-105" : "group-hover:scale-110"}`} />
                               {isOpen && <span className="flex-1 truncate">{label}</span>}
                               {isOpen && NAV_SHORTCUTS[href] && (
                                 <span
                                   className={`hidden font-mono text-[10px] uppercase tracking-wide group-hover:inline ${
-                                    active ? "text-white/70" : "text-gray-400 dark:text-gray-500"
+                                    active ? "text-[#f05d23]/70" : "text-gray-400 dark:text-gray-500"
                                   }`}
                                 >
                                   G {NAV_SHORTCUTS[href]}

@@ -8,6 +8,7 @@ import AppShell from "@/widgets/app-shell/ui/AppShell";
 import Badge from "@/shared/ui/Badge";
 import Button from "@/shared/ui/Button";
 import LogPanel from "@/shared/ui/LogPanel";
+import { parseTenderIdFromSegment } from "@/shared/lib/slug";
 import type { BadgeStatus } from "@/shared/ui/Badge";
 
 interface Tender {
@@ -40,7 +41,8 @@ function formatBudget(budget?: number | null): string | null {
 }
 
 export default function TenderDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { idSlug } = useParams<{ idSlug: string }>();
+  const id = parseTenderIdFromSegment(idSlug);
   const router = useRouter();
   const [tender, setTender] = useState<Tender | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,7 +67,7 @@ export default function TenderDetailPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex max-w-4xl flex-col gap-4">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <button onClick={() => router.push("/tenders")} className="flex w-fit items-center gap-1 text-sm text-text-lo hover:text-text-hi">
           <Icon icon="solar:arrow-left-broken" width={16} />
           Back to Tenders
@@ -113,8 +115,8 @@ export default function TenderDetailPage() {
                     </Button>
                   </a>
                 )}
-                {tender.document_url && (
-                  <a href={tender.document_url} target="_blank" rel="noopener noreferrer">
+                {(tender.document_url || (tender.format && tender.format !== "HTML" && tender.source_url)) && (
+                  <a href={(tender.document_url || tender.source_url) as string} target="_blank" rel="noopener noreferrer">
                     <Button size="sm" variant="secondary">
                       <Icon icon="solar:document-broken" width={14} />
                       Document

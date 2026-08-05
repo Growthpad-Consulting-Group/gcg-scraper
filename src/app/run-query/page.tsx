@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
+import PageHeader from "@/shared/ui/PageHeader";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import QueryComposer from "@/features/scraping/components/QueryComposer";
@@ -151,10 +152,11 @@ function RunQueryContent() {
   return (
     <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <div>
-          <h1 className="font-display text-xl font-semibold text-text-hi">Run Query</h1>
-          <p className="mt-0.5 text-sm text-text-lo">Search and scrape tenders from configured sources.</p>
-        </div>
+        <PageHeader
+          title="Run Query"
+          description="Search and scrape tenders from configured sources."
+          icon="solar:database-broken"
+        />
 
         {error && <div className="rounded-md bg-status-danger/10 p-4 text-sm text-status-danger">{error}</div>}
 

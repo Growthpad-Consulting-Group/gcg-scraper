@@ -3,11 +3,15 @@ import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("query")?.trim();
+  const jobId = req.nextUrl.searchParams.get("job")?.trim();
   const supabase = createServerSupabaseClient();
 
   let request = supabase.from("linkedin_leads").select("*").order("created_at", { ascending: false });
   if (query) {
     request = request.or(`full_name.ilike.%${query}%,headline.ilike.%${query}%,current_company.ilike.%${query}%`);
+  }
+  if (jobId) {
+    request = request.eq("job_id", jobId);
   }
 
   const { data: leads, error } = await request;

@@ -15,6 +15,8 @@
   --border: #e4e4e7;
   --text-hi: #18181b;
   --text-lo: #71717a;
+  /* Used by GenericTable to compute internal scroll height */
+  --header-height: 72px;
 }
 
 :root.dark {
@@ -56,10 +58,101 @@ h1, h2, h3, h4, h5, h6, nav {
   font-family: var(--font-clover-display), sans-serif;
 }
 
-.font-orange {
-  color: #ff930a;
+/* ─── react-date-range dark mode overrides ────────────────────────────────────
+   Applied via .dark-mode-datepicker on the wrapper div in DateRangePicker.tsx
+   and DateFilter.tsx. Overrides the library's hardcoded white/light styles.
+   ─────────────────────────────────────────────────────────────────────────── */
+.dark-mode-datepicker .rdrCalendarWrapper,
+.dark-mode-datepicker .rdrDateRangeWrapper,
+.dark-mode-datepicker .rdrDateDisplayWrapper {
+  background-color: transparent !important;
 }
 
-.font-teal {
-  color: #0cb4ab;
+.dark-mode-datepicker .rdrMonth,
+.dark-mode-datepicker .rdrMonthAndYearPickers {
+  background-color: transparent !important;
+  color: #f1f5f9 !important;
+}
+
+.dark-mode-datepicker .rdrMonthAndYearPickers select {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode-datepicker .rdrWeekDay {
+  color: #64748b !important;
+}
+
+.dark-mode-datepicker .rdrDay:not(.rdrDayPassive) .rdrDayNumber span {
+  color: #f1f5f9 !important;
+}
+
+.dark-mode-datepicker .rdrDayPassive .rdrDayNumber span {
+  color: #475569 !important;
+}
+
+.dark-mode-datepicker .rdrDayToday .rdrDayNumber span:after {
+  background: #3b82f6 !important;
+}
+
+.dark-mode-datepicker .rdrDayHovered .rdrDayNumber:after,
+.dark-mode-datepicker .rdrDay:not(.rdrDayPassive):hover .rdrDayStartPreview,
+.dark-mode-datepicker .rdrDay:not(.rdrDayPassive):hover .rdrDayEndPreview,
+.dark-mode-datepicker .rdrDay:not(.rdrDayPassive):hover .rdrDayInPreview {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.dark-mode-datepicker .rdrStartEdge,
+.dark-mode-datepicker .rdrEndEdge {
+  background: #1b234f !important;
+}
+
+.dark-mode-datepicker .rdrInRange {
+  background: rgba(27, 35, 79, 0.5) !important;
+}
+
+.dark-mode-datepicker .rdrDayStartPreview,
+.dark-mode-datepicker .rdrDayEndPreview,
+.dark-mode-datepicker .rdrDayInPreview {
+  border-color: #1b234f !important;
+  background: rgba(27, 35, 79, 0.25) !important;
+}
+
+.dark-mode-datepicker .rdrDateDisplayItem {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode-datepicker .rdrDateDisplayItem input {
+  color: #f1f5f9 !important;
+}
+
+.dark-mode-datepicker .rdrNextPrevButton {
+  background-color: #1e293b !important;
+}
+
+.dark-mode-datepicker .rdrNextPrevButton:hover {
+  background-color: #334155 !important;
+}
+
+.dark-mode-datepicker .rdrPprevButton i {
+  border-color: transparent #f1f5f9 transparent transparent !important;
+}
+
+.dark-mode-datepicker .rdrNextButton i {
+  border-color: transparent transparent transparent #f1f5f9 !important;
+}
+
+.dark-mode-datepicker .rdrMonthName {
+  color: #94a3b8 !important;
+}
+
+/* Future / out-of-range dates (rdrDayDisabled) */
+.dark-mode-datepicker .rdrDayDisabled {
+  background-color: transparent !important;
+}
+
+.dark-mode-datepicker .rdrDayDisabled .rdrDayNumber span {
+  color: #334155 !important;
 }

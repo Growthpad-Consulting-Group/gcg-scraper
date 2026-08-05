@@ -16,6 +16,7 @@
     "@heroicons/react": "^2.2.0",
     "@iconify/react": "^5.2.0",
     "@supabase/supabase-js": "^2.49.1",
+    "@types/react-date-range": "^1.4.10",
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.3",
@@ -46,7 +47,8 @@
     "react-select": "^5.10.1",
     "socket.io-client": "^4.8.1",
     "swiper": "^11.2.4",
-    "ua-parser-js": "^2.0.2"
+    "ua-parser-js": "^2.0.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

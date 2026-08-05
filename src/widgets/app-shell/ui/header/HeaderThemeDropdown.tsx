@@ -45,8 +45,8 @@ const HeaderThemeDropdown: FC<HeaderThemeDropdownProps> = ({ mode, resolvedMode 
         ref={buttonRef}
         onClick={handleOpen}
         title={`Theme: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`}
-        className={`flex items-center justify-center p-2 min-h-[40px] min-w-[40px] rounded-xl transition-all duration-300 backdrop-blur-md border ring-1 ring-inset ring-white/20 shadow-sm hover:shadow-md active:scale-95 group ${
-          resolvedMode === "dark" ? "bg-gray-700/50 border-white/10 text-gray-100 hover:bg-gray-600/60" : "bg-white/60 border-white/50 text-gray-700 hover:bg-white/80"
+        className={`relative z-2 flex items-center justify-center p-2 rounded-full transition-all active:scale-95 group hover:bg-black/5 dark:hover:bg-white/10 ${
+          resolvedMode === "dark" ? "text-gray-100" : "text-gray-700"
         }`}
       >
         <Icon

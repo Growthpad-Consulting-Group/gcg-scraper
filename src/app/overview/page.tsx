@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
@@ -26,9 +26,12 @@ export default function OverviewPage() {
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [openTendersToday, setOpenTendersToday] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
+    // Only show the full loading state on the very first fetch — the 15s background poll should
+    // refresh data silently, not wipe the run feed back to a loading placeholder every time.
+    if (!hasLoadedOnce.current) setIsLoading(true);
     try {
       const [jobsRes, tasksRes, tendersRes] = await Promise.all([
         fetch("/api/jobs?limit=20"),
@@ -48,6 +51,7 @@ export default function OverviewPage() {
     } catch (err: any) {
       toast.error("Error loading run feed: " + err.message);
     } finally {
+      hasLoadedOnce.current = true;
       setIsLoading(false);
     }
   }, []);
@@ -89,7 +93,7 @@ export default function OverviewPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
           <div>
             <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Run feed</h2>
-            <RunFeed jobs={jobs} isLoading={isLoading} />
+            <RunFeed jobs={jobs} isLoading={isLoading} onRefresh={fetchData} />
           </div>
 
           <div className="flex flex-col gap-6">

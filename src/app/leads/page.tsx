@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
+import PageHeader from "@/shared/ui/PageHeader";
 import Button from "@/shared/ui/Button";
+import RunFilterBanner from "@/shared/ui/RunFilterBanner";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import LeadSearchForm from "@/features/leads/components/LeadSearchForm";
 import LinkedInSearchForm from "@/features/leads/components/LinkedInSearchForm";
@@ -57,7 +60,7 @@ function CancelRunningJob({ jobId }: { jobId: string }) {
   );
 }
 
-function GmbTab({ mode }: { mode: "light" | "dark" }) {
+function GmbTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark"; jobFilter: string | null; onClearFilter: () => void }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -66,7 +69,7 @@ function GmbTab({ mode }: { mode: "light" | "dark" }) {
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/leads");
+      const res = await fetch(`/api/leads${jobFilter ? `?job=${jobFilter}` : ""}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch leads");
       setLeads(data.leads || []);
@@ -75,7 +78,7 @@ function GmbTab({ mode }: { mode: "light" | "dark" }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [jobFilter]);
 
   useEffect(() => {
     fetchLeads();
@@ -132,6 +135,7 @@ function GmbTab({ mode }: { mode: "light" | "dark" }) {
     <div className="flex flex-col gap-4">
       <LeadSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
       {scrapeStatus === "running" && jobId && <CancelRunningJob jobId={jobId} />}
+      {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
       {!isLoading && leads.length > 0 && (
         <div className="flex justify-end">
           <LeadsExportButton leads={leads} filename="gmb_leads.csv" />
@@ -146,7 +150,7 @@ function GmbTab({ mode }: { mode: "light" | "dark" }) {
   );
 }
 
-function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
+function LinkedInTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark"; jobFilter: string | null; onClearFilter: () => void }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -155,7 +159,7 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/linkedin-leads");
+      const res = await fetch(`/api/linkedin-leads${jobFilter ? `?job=${jobFilter}` : ""}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch leads");
       setLeads(data.leads || []);
@@ -164,7 +168,7 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [jobFilter]);
 
   useEffect(() => {
     fetchLeads();
@@ -178,6 +182,11 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
       setScrapeStatus("idle");
     } else if (scrapeStatus === "error") {
       toast.error("LinkedIn search failed.");
+      setJobId(null);
+      setScrapeStatus("idle");
+    } else if (scrapeStatus === "canceled") {
+      toast.success("Search canceled.");
+      fetchLeads();
       setJobId(null);
       setScrapeStatus("idle");
     }
@@ -216,6 +225,7 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
     <div className="flex flex-col gap-4">
       <LinkedInSearchForm mode={mode} isRunning={scrapeStatus === "running"} onSubmit={handleSearch} />
       {scrapeStatus === "running" && jobId && <CancelRunningJob jobId={jobId} />}
+      {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
       {!isLoading && leads.length > 0 && (
         <div className="flex justify-end">
           <LeadsExportButton leads={leads} filename="linkedin_leads.csv" />
@@ -230,28 +240,42 @@ function LinkedInTab({ mode }: { mode: "light" | "dark" }) {
   );
 }
 
-export default function LeadsPage() {
+function LeadsContent() {
   const { resolvedMode: mode } = useTheme();
-  const [activeTab, setActiveTab] = useState<"gmb" | "linkedin">("gmb");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const jobFilter = searchParams?.get("job") || null;
+  const tabParam = searchParams?.get("tab");
+  const [activeTab, setActiveTab] = useState<"gmb" | "linkedin">(tabParam === "linkedin" ? "linkedin" : "gmb");
+
+  useEffect(() => {
+    if (tabParam === "linkedin" || tabParam === "gmb") setActiveTab(tabParam);
+  }, [tabParam]);
 
   const tabs = [
     { id: "gmb" as const, label: "Google Maps" },
     { id: "linkedin" as const, label: "LinkedIn" },
   ];
 
+  const clearFilter = () => router.push("/leads");
+
   return (
     <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <div>
-          <h1 className="font-display text-xl font-semibold text-text-hi">Leads</h1>
-          <p className="mt-0.5 text-sm text-text-lo">Business and people leads from Google Maps and LinkedIn.</p>
-        </div>
+        <PageHeader
+          title="Leads"
+          description="Business and people leads from Google Maps and LinkedIn."
+          icon="solar:map-point-broken"
+        />
 
         <div className="flex w-fit gap-1 rounded-md border border-app-border bg-surface p-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (jobFilter) router.push("/leads");
+              }}
               className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
                 activeTab === tab.id ? "bg-brand-500/10 text-brand-500" : "text-text-lo hover:text-text-hi"
               }`}
@@ -261,8 +285,20 @@ export default function LeadsPage() {
           ))}
         </div>
 
-        {activeTab === "gmb" ? <GmbTab mode={mode} /> : <LinkedInTab mode={mode} />}
+        {activeTab === "gmb" ? (
+          <GmbTab mode={mode} jobFilter={jobFilter} onClearFilter={clearFilter} />
+        ) : (
+          <LinkedInTab mode={mode} jobFilter={jobFilter} onClearFilter={clearFilter} />
+        )}
       </div>
     </AppShell>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense fallback={null}>
+      <LeadsContent />
+    </Suspense>
   );
 }

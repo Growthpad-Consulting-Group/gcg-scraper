@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
+import PageHeader from "@/shared/ui/PageHeader";
 import Badge from "@/shared/ui/Badge";
 import Button from "@/shared/ui/Button";
 import { Table, TableHead, TableBody, TableRow, TableTh, TableTd } from "@/shared/ui/Table";
@@ -99,13 +100,12 @@ export default function UploadWebsitePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex max-w-4xl flex-col gap-4">
-        <div>
-          <h1 className="font-display text-xl font-semibold text-text-hi">Upload Website</h1>
-          <p className="mt-0.5 text-sm text-text-lo">
-            Add a website as a tracked source. Every scheduled run checks it for tenders — click Scan Now to check it immediately.
-          </p>
-        </div>
+      <div className="mx-auto flex max-w-7xl flex-col gap-4">
+        <PageHeader
+          title="Upload Website"
+          description="Add a website as a tracked source. Every scheduled run checks it for tenders — click Scan Now to check it immediately."
+          icon="solar:cloud-upload-broken"
+        />
 
         <div className="flex flex-col gap-3 rounded-lg border border-app-border bg-surface p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

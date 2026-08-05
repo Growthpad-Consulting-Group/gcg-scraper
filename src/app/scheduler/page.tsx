@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
+import PageHeader from "@/shared/ui/PageHeader";
 import Button from "@/shared/ui/Button";
 import { Icon } from "@iconify/react";
 import SchedulerListV2 from "@/features/scheduler/components/SchedulerListV2";
@@ -138,16 +139,19 @@ export default function SchedulerPage() {
   return (
     <AppShell>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-xl font-semibold text-text-hi">Scheduler</h1>
-            <p className="mt-0.5 text-sm text-text-lo">Automated scraping schedules and run history.</p>
-          </div>
-          <Button size="sm" onClick={() => setIsAddModalOpen(true)}>
-            <Icon icon="mdi:plus" width={16} height={16} />
-            Add Scheduler
-          </Button>
-        </div>
+        <PageHeader
+          title="Scheduler"
+          description="Automated scraping schedules and run history."
+          icon="solar:calendar-broken"
+          actions={[
+            {
+              label: "Add Scheduler",
+              icon: "mdi:plus",
+              variant: "primary",
+              onClick: () => setIsAddModalOpen(true),
+            },
+          ]}
+        />
 
         {isLoading ? (
           <div className="flex h-64 items-center justify-center rounded-lg border border-app-border bg-surface">

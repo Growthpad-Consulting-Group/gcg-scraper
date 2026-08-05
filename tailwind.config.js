@@ -23,6 +23,11 @@ module.exports = {
           500: "#f05d23",
           600: "#d94f1e",
         },
+
+        // GCG brand colors
+        "gcg-orange":      "#f05d23",  // primary — burnt orange
+        "gcg-orange-dark": "#d94f1e",  // hover / gradient end
+        "gcg-brown":       "#231812",  // dark secondary
         status: {
           success: "#22c55e",
           warning: "#eab308",

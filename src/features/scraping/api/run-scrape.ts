@@ -2,7 +2,7 @@ import { inngest } from "./inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { searchWeb } from "./firecrawlSearch";
 import { extractTenders } from "@/features/tenders/api/firecrawlExtract";
-import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "@/features/tenders/api/tenderRow";
+import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
 import { isJobCanceled } from "./jobStatus";
 import { notifyTaskOwner } from "./notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
@@ -43,6 +43,7 @@ export const runScrapeJob = inngest.createFunction(
       let totalInserted = 0;
       let openCount = 0;
       let closedCount = 0;
+      const insertedTenders: InsertedTenderSummary[] = [];
 
       // Extracted concurrently instead of one-at-a-time — this was the single biggest latency
       // cost in the whole pipeline (up to ~60s × 10 results run sequentially before).
@@ -56,7 +57,7 @@ export const runScrapeJob = inngest.createFunction(
             }
           });
 
-          const { inserted, open, closed } = await step.run(`save-${result.url}`, async () => {
+          const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${result.url}`, async () => {
             const rows = extracted
               .filter((t) => t.source_url || result.url)
               .map((t) => ({
@@ -69,6 +70,7 @@ export const runScrapeJob = inngest.createFunction(
                 format: (t.source_url || result.url).toLowerCase().endsWith(".pdf") ? "PDF" : "HTML",
                 scraped_at: new Date().toISOString(),
                 raw_content: markdown,
+                job_id: jobId,
                 ...resolveOptionalFields(t),
               }));
 
@@ -79,6 +81,7 @@ export const runScrapeJob = inngest.createFunction(
           totalInserted += inserted;
           openCount += open;
           closedCount += closed;
+          insertedTenders.push(...insertedRows);
 
           await step.run(`progress-${result.url}`, async () => {
             await supabase
@@ -102,7 +105,7 @@ export const runScrapeJob = inngest.createFunction(
           .neq("status", "canceled");
       });
 
-      await step.run("notify", () => notifyTaskOwner(supabase, jobId, totalInserted));
+      await step.run("notify", () => notifyTaskOwner(supabase, jobId, totalInserted, insertedTenders));
       await step.run("log-done", () => logJobOutcome(supabase, jobId, `Run finished: ${totalInserted} tender(s) found.`));
 
       return { jobId, visited, tendersFound: totalInserted };

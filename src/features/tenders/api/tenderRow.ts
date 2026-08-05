@@ -22,6 +22,7 @@ export interface TenderRow {
   budget: number | null;
   document_url: string | null;
   raw_content: string | null;
+  job_id: string | null;
 }
 
 /** `tenders.location` is varchar(100); `budget` is numeric — guard both against malformed
@@ -53,17 +54,24 @@ function normalizeTitle(title: string): string {
  * aggregator — by normalized title + closing_date, since source_url uniqueness alone doesn't
  * catch that case.
  */
+export interface InsertedTenderSummary {
+  title: string;
+  closing_date: string;
+}
+
 export interface InsertResult {
   inserted: number;
   open: number;
   closed: number;
+  /** Title + closing_date only, for building a Slack/email summary without a second query. */
+  rows: InsertedTenderSummary[];
 }
 
 // Callers previously computed open/closed counts themselves from the pre-filter row list, which
 // silently drifted from reality once near-duplicate filtering could drop rows here — the returned
 // counts are now always derived from what was actually attempted post-filter.
 export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow[]): Promise<InsertResult> {
-  if (rows.length === 0) return { inserted: 0, open: 0, closed: 0 };
+  if (rows.length === 0) return { inserted: 0, open: 0, closed: 0, rows: [] };
 
   const seen = new Set<string>();
   let deduped = rows.filter((r) => (seen.has(r.source_url) ? false : (seen.add(r.source_url), true)));
@@ -73,7 +81,7 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
   const existingKeys = new Set((existing || []).map((e: any) => `${normalizeTitle(e.title)}|${e.closing_date}`));
   deduped = deduped.filter((r) => !existingKeys.has(`${normalizeTitle(r.title)}|${r.closing_date}`));
 
-  if (deduped.length === 0) return { inserted: 0, open: 0, closed: 0 };
+  if (deduped.length === 0) return { inserted: 0, open: 0, closed: 0, rows: [] };
 
   const { error } = await supabase.from("tenders").upsert(deduped, { onConflict: "source_url", ignoreDuplicates: true });
   if (error) throw error;
@@ -82,6 +90,7 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
     inserted: deduped.length,
     open: deduped.filter((r) => r.status === "open").length,
     closed: deduped.filter((r) => r.status === "closed").length,
+    rows: deduped.map((r) => ({ title: r.title, closing_date: r.closing_date })),
   };
 }
 

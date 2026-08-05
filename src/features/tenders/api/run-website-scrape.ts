@@ -1,7 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
-import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
+import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
@@ -47,6 +47,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       let processed = 0;
       let openCount = 0;
       let closedCount = 0;
+      const insertedTenders: InsertedTenderSummary[] = [];
 
       // Extracted concurrently instead of one site at a time.
       await Promise.all(
@@ -59,7 +60,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
             }
           });
 
-          const { inserted, open, closed } = await step.run(`save-${website.id}`, async () => {
+          const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${website.id}`, async () => {
             const rows = extracted
               .filter((t) => t.source_url || website.url)
               .map((t) => ({
@@ -72,6 +73,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
                 format: "HTML",
                 scraped_at: new Date().toISOString(),
                 raw_content: markdown,
+                job_id: jobId,
                 ...resolveOptionalFields(t),
               }));
 
@@ -82,6 +84,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
           totalInserted += inserted;
           openCount += open;
           closedCount += closed;
+          insertedTenders.push(...insertedRows);
 
           await step.run(`progress-${website.id}`, async () => {
             await Promise.all([
@@ -104,7 +107,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
           .neq("status", "canceled");
       });
 
-      await step.run("notify", () => notifyTaskOwner(supabase, jobId, totalInserted));
+      await step.run("notify", () => notifyTaskOwner(supabase, jobId, totalInserted, insertedTenders));
       await step.run("log-done", () => logJobOutcome(supabase, jobId, `Run finished: ${totalInserted} tender(s) found across ${processed} site(s).`));
 
       return { jobId, tendersFound: totalInserted };

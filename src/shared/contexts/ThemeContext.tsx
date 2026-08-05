@@ -17,25 +17,37 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const getSystemPreference = (): DisplayMode =>
-  typeof window === "undefined" ? "light" : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  typeof window === "undefined"
+    ? "light"
+    : window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 
-const resolveTheme = (theme: Theme): DisplayMode => (theme === "system" ? getSystemPreference() : theme);
+const resolveTheme = (theme: Theme): DisplayMode =>
+  theme === "system" ? getSystemPreference() : theme;
+
+function readSavedTheme(): Theme {
+  if (typeof window === "undefined") return "system";
+  const saved = localStorage.getItem("theme");
+  if (saved === "light" || saved === "dark" || saved === "system") return saved;
+  return "system";
+}
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<Theme>("system");
-  const [resolvedMode, setResolvedMode] = useState<DisplayMode>("light");
+  // Initialise directly from localStorage — no flash, no revert on refresh.
+  const [mode, setMode] = useState<Theme>(readSavedTheme);
+  const [resolvedMode, setResolvedMode] = useState<DisplayMode>(() =>
+    resolveTheme(readSavedTheme())
+  );
 
-  // Load theme from localStorage on mount
+  // Apply the dark class immediately on mount (covers SSR hydration gap)
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
-      setMode(savedTheme);
-    } else {
-      setMode("system");
-    }
+    const resolved = resolveTheme(mode);
+    document.documentElement.classList.toggle("dark", resolved === "dark");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Resolve + apply whenever the raw mode changes
+  // Resolve + apply + persist whenever mode changes
   useEffect(() => {
     const resolved = resolveTheme(mode);
     setResolvedMode(resolved);
@@ -43,17 +55,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("theme", mode);
   }, [mode]);
 
-  // Track system preference changes while in "system" mode
+  // Track OS preference changes while in "system" mode
   useEffect(() => {
-    if (mode !== "system") return undefined;
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mode !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
       const resolved = resolveTheme("system");
       setResolvedMode(resolved);
       document.documentElement.classList.toggle("dark", resolved === "dark");
     };
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+    mq.addEventListener("change", handleChange);
+    return () => mq.removeEventListener("change", handleChange);
   }, [mode]);
 
   const toggleMode = () => {
@@ -64,7 +76,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  return <ThemeContext.Provider value={{ mode, resolvedMode, setMode, toggleMode }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ mode, resolvedMode, setMode, toggleMode }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {
