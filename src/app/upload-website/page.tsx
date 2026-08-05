@@ -1,22 +1,28 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
-import { Icon } from "@iconify/react";
-import AppShell from "@/widgets/app-shell/ui/AppShell";
-import PageHeader from "@/shared/ui/PageHeader";
-import Badge from "@/shared/ui/Badge";
-import Button from "@/shared/ui/Button";
-import { Table, TableHead, TableBody, TableRow, TableTh, TableTd } from "@/shared/ui/Table";
+  import { useState, useEffect, useCallback } from "react";
+  import { useRouter } from "next/navigation";
+  import toast from "react-hot-toast";
+  import { Icon } from "@iconify/react";
+  import AppShell from "@/widgets/app-shell/ui/AppShell";
+  import PageHeader from "@/shared/ui/PageHeader";
+  import Badge from "@/shared/ui/Badge";
+  import Button from "@/shared/ui/Button";
+  import SimpleModal from "@/shared/ui/SimpleModal";
+  import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
 
-interface Website {
-  id: number;
-  name: string | null;
-  url: string;
-  location: string | null;
-  tender_type: string | null;
-}
+  interface Website {
+    id: number;
+    name: string | null;
+    url: string;
+    location: string | null;
+    tender_type: string | null;
+  }
+
+  /** GenericTable requires a string `id`; the API uses numeric ids. */
+  interface WebsiteRow extends Omit<Website, "id"> {
+    id: string;
+  }
 
 export default function UploadWebsitePage() {
   const router = useRouter();
@@ -27,6 +33,7 @@ export default function UploadWebsitePage() {
   const [location, setLocation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [scanningId, setScanningId] = useState<number | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchWebsites = useCallback(async () => {
     setIsLoading(true);
@@ -64,6 +71,7 @@ export default function UploadWebsitePage() {
       setName("");
       setUrl("");
       setLocation("");
+      setIsAddModalOpen(false);
       toast.success("Source added.");
     } catch (err: any) {
       toast.error(err.message);
@@ -83,6 +91,46 @@ export default function UploadWebsitePage() {
       toast.error(err.message);
     }
   };
+
+  const columns: Column<WebsiteRow>[] = [
+    {
+      Header: "Source",
+      accessor: "name",
+      sortable: true,
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-text-hi">{row.name || row.url}</span>
+          <a
+            href={row.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="font-mono text-[11px] text-text-lo hover:text-brand-500"
+          >
+            {row.url}
+          </a>
+        </div>
+      ),
+    },
+    {
+      Header: "Location",
+      accessor: "location",
+      sortable: true,
+      render: (row) =>
+        row.location ? <Badge status="neutral">{row.location}</Badge> : <span className="text-text-lo">—</span>,
+    },
+  ];
+
+  const actions: Action<WebsiteRow>[] = [
+    {
+      icon: (row) => (scanningId === Number(row.id) ? "mdi:loading" : "solar:play-circle-broken"),
+      tooltip: "Scan now",
+      label: "Scan",
+      disabled: (row) => scanningId === Number(row.id),
+      className: (row) => (scanningId === Number(row.id) ? "animate-spin" : ""),
+      onClick: (row) => handleScan({ ...row, id: Number(row.id) }),
+    },
+  ];
 
   const handleScan = async (website: Website) => {
     setScanningId(website.id);
@@ -105,88 +153,71 @@ export default function UploadWebsitePage() {
           title="Upload Website"
           description="Add a website as a tracked source. Every scheduled run checks it for tenders — click Scan Now to check it immediately."
           icon="solar:cloud-upload-broken"
+          actions={[
+            {
+              label: "Add Source",
+              icon: "solar:add-circle-broken",
+              variant: "primary",
+              onClick: () => setIsAddModalOpen(true),
+            },
+          ]}
         />
 
-        <div className="flex flex-col gap-3 rounded-lg border border-app-border bg-surface p-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Name (optional)"
-              className="h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500"
-            />
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/tenders"
-              className="h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500 sm:col-span-1"
-            />
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Location (optional)"
-              className="h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500"
-            />
-          </div>
+        <GenericTable<WebsiteRow>
+          data={websites.map((w) => ({ ...w, id: String(w.id) }))}
+          columns={columns}
+          loading={isLoading}
+          emptyMessage="No tracked websites yet — add one above."
+          searchable
+          searchPlaceholder="Search sources…"
+          selectable={false}
+          showBulkBar={false}
+          showExportButton={false}
+          enableDateFilter={false}
+          hideEmptyColumns={false}
+          fullPageHeight={false}
+          actions={actions}
+          onDelete={(row) => handleDelete(Number(row.id))}
+          confirmDelete
+          deleteConfirmationProps={{
+            itemType: "source",
+            message: (item) => `"${item?.name || item?.url || "this source"}"`,
+          }}
+        />
+      </div>
+
+      <SimpleModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Add Source"
+        subtitle="Track a new website for scheduled tender scraping."
+        width="max-w-lg"
+      >
+        <div className="flex flex-col gap-3">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name (optional)"
+            className="h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500"
+          />
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://example.com/tenders"
+            className="h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500"
+          />
+          <input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Location (optional)"
+            className="h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500"
+          />
           <Button size="sm" onClick={handleAdd} disabled={isSubmitting} className="self-start">
             <Icon icon={isSubmitting ? "mdi:loading" : "solar:add-circle-broken"} width={16} className={isSubmitting ? "animate-spin" : ""} />
             Add Source
           </Button>
         </div>
-
-        {isLoading ? (
-          <div className="flex h-40 items-center justify-center rounded-lg border border-app-border bg-surface">
-            <Icon icon="mdi:loading" width={28} className="animate-spin text-brand-500" />
-          </div>
-        ) : websites.length === 0 ? (
-          <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">No tracked websites yet — add one above.</div>
-        ) : (
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableTh>Source</TableTh>
-                <TableTh>Location</TableTh>
-                <TableTh className="w-32" />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {websites.map((website) => (
-                <TableRow key={website.id}>
-                  <TableTd>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-text-hi">{website.name || website.url}</span>
-                      <a href={website.url} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] text-text-lo hover:text-brand-500">
-                        {website.url}
-                      </a>
-                    </div>
-                  </TableTd>
-                  <TableTd>{website.location ? <Badge status="neutral">{website.location}</Badge> : <span className="text-text-lo">—</span>}</TableTd>
-                  <TableTd>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleScan(website)}
-                        disabled={scanningId === website.id}
-                        className="flex h-7 items-center gap-1 rounded-md px-2 text-xs text-text-lo hover:bg-surface-2 hover:text-brand-500 disabled:opacity-50"
-                        title="Scan now"
-                      >
-                        <Icon icon={scanningId === website.id ? "mdi:loading" : "solar:play-circle-broken"} width={14} className={scanningId === website.id ? "animate-spin" : ""} />
-                        Scan
-                      </button>
-                      <button
-                        onClick={() => handleDelete(website.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-text-lo hover:bg-status-danger/10 hover:text-status-danger"
-                        aria-label="Remove source"
-                      >
-                        <Icon icon="solar:trash-bin-trash-broken" width={14} />
-                      </button>
-                    </div>
-                  </TableTd>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+      </SimpleModal>
     </AppShell>
   );
 }

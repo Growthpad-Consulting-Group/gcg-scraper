@@ -62,7 +62,7 @@ const DateFilter: React.FC<DateFilterProps> = ({
   return ReactDOM.createPortal(
     <div
       ref={datePickerRef}
-      className={`date-filter-glass z-9999 absolute border rounded-2xl shadow-2xl backdrop-blur-2xl p-4 ${
+      className={`date-filter-glass z-[9999] absolute border rounded-2xl shadow-2xl backdrop-blur-2xl p-4 ${
         mode === "dark"
           ? "dark bg-gray-950/60 border-white/10"
           : "bg-white/70 border-white/20"

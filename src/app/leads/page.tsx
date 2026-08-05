@@ -8,12 +8,26 @@ import AppShell from "@/widgets/app-shell/ui/AppShell";
 import PageHeader from "@/shared/ui/PageHeader";
 import Button from "@/shared/ui/Button";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
+import Badge from "@/shared/ui/Badge";
+import LogPanel from "@/shared/ui/LogPanel";
+import GenericTable, { type Column } from "@/shared/ui/GenericTable";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import LeadSearchForm from "@/features/leads/components/LeadSearchForm";
 import LinkedInSearchForm from "@/features/leads/components/LinkedInSearchForm";
-import LeadsTableV2, { LeadColumn } from "@/features/leads/components/LeadsTableV2";
 import LeadsExportButton from "@/features/leads/components/LeadsExportButton";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
+
+interface LeadColumn<T> {
+  key: string;
+  label: string;
+  render: (lead: T) => React.ReactNode;
+  mono?: boolean;
+}
+
+interface Lead {
+  id: string;
+  [key: string]: unknown;
+}
 
 const gmbColumns: LeadColumn<any>[] = [
   { key: "business_name", label: "Business", render: (l) => l.business_name },
@@ -29,6 +43,76 @@ const linkedinColumns: LeadColumn<any>[] = [
   { key: "current_company", label: "Company", render: (l) => l.current_company || "—" },
   { key: "location", label: "Location", render: (l) => l.location || "—" },
 ];
+
+function LeadsResultsTable<T extends Lead>({
+  leads,
+  columns,
+  onDelete,
+  sourceBadge,
+}: {
+  leads: T[];
+  columns: LeadColumn<T>[];
+  onDelete: (id: string) => void;
+  sourceBadge: string;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const tableColumns: Column<T>[] = [
+    ...columns.map((col) => ({
+      Header: col.label,
+      accessor: col.key,
+      className: col.mono ? "font-mono max-w-[220px] truncate" : "max-w-[220px] truncate",
+      render: (row: T) => col.render(row),
+    })),
+    {
+      Header: "Source",
+      accessor: "__source",
+      sortable: false,
+      render: () => <Badge status="neutral">{sourceBadge}</Badge>,
+    },
+  ];
+
+  const customRowRender = (row: T, _index: number, defaultRow: React.ReactNode) => {
+    const expanded = expandedId === row.id;
+    return (
+      <>
+        {defaultRow}
+        {expanded && (
+          <tr className="hover:bg-transparent">
+            <td colSpan={tableColumns.length + 2} className="bg-canvas p-3">
+              <LogPanel autoScroll={false} lines={[{ text: JSON.stringify(row, null, 2), tone: "default" }]} />
+            </td>
+          </tr>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <GenericTable<T>
+      data={leads}
+      columns={tableColumns}
+      onRowClick={(row) => setExpandedId(expandedId === row.id ? null : row.id)}
+      rowClickable
+      customRowRender={customRowRender}
+      emptyMessage="No leads yet — run a search above."
+      searchable
+      searchPlaceholder="Search leads…"
+      selectable={false}
+      showBulkBar={false}
+      showExportButton={false}
+      enableDateFilter={false}
+      hideEmptyColumns={false}
+      fullPageHeight={false}
+      confirmDelete
+      deleteConfirmationProps={{
+        itemType: "lead",
+        suppressToast: true,
+      }}
+      onDelete={(row) => onDelete(row.id)}
+    />
+  );
+}
 
 function CancelRunningJob({ jobId }: { jobId: string }) {
   const [isCanceling, setIsCanceling] = useState(false);
@@ -144,7 +228,7 @@ function GmbTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark"; jo
       {isLoading ? (
         <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading leads…</div>
       ) : (
-        <LeadsTableV2 leads={leads} columns={gmbColumns} onDelete={handleDelete} sourceBadge="Google Maps" />
+        <LeadsResultsTable leads={leads} columns={gmbColumns} onDelete={handleDelete} sourceBadge="Google Maps" />
       )}
     </div>
   );
@@ -234,7 +318,7 @@ function LinkedInTab({ mode, jobFilter, onClearFilter }: { mode: "light" | "dark
       {isLoading ? (
         <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading leads…</div>
       ) : (
-        <LeadsTableV2 leads={leads} columns={linkedinColumns} onDelete={handleDelete} sourceBadge="LinkedIn" />
+        <LeadsResultsTable leads={leads} columns={linkedinColumns} onDelete={handleDelete} sourceBadge="LinkedIn" />
       )}
     </div>
   );

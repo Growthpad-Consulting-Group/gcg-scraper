@@ -113,7 +113,7 @@ function SimpleModal({
   const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           {/* Glass distortion backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -209,7 +209,7 @@ function SimpleModal({
   const confirmationDialog = (
     <AnimatePresence>
       {showConfirmDialog && (
-        <div className="fixed inset-0 z-10000 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

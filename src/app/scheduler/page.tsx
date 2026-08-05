@@ -5,18 +5,31 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import AppShell from "@/widgets/app-shell/ui/AppShell";
 import PageHeader from "@/shared/ui/PageHeader";
-import Button from "@/shared/ui/Button";
+import Badge from "@/shared/ui/Badge";
 import { Icon } from "@iconify/react";
-import SchedulerListV2 from "@/features/scheduler/components/SchedulerListV2";
+import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
 import AddSchedulerModal from "@/features/scheduler/components/AddSchedulerModal";
 import DeleteConfirmationModal from "@/features/scheduler/components/DeleteConfirmationModal";
 import LogsModal from "@/features/scheduler/components/LogsModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 
+interface ScheduledTask {
+  task_id: number;
+  name: string;
+  tender_type?: string;
+  frequency: string;
+  is_enabled: boolean;
+  last_run: string | null;
+}
+
+interface ScheduledTaskRow extends Omit<ScheduledTask, "task_id"> {
+  id: string;
+}
+
 export default function SchedulerPage() {
   const { resolvedMode: mode } = useTheme();
   const router = useRouter();
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [tenderTypes, setTenderTypes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -79,6 +92,7 @@ export default function SchedulerPage() {
 
   const handleToggleTask = async (taskId: number) => {
     const task = tasks.find((t) => t.task_id === taskId);
+    if (!task) return;
     const originalIsEnabled = task.is_enabled;
     setTasks((prev) => prev.map((t) => (t.task_id === taskId ? { ...t, is_enabled: !originalIsEnabled } : t)));
 
@@ -118,6 +132,57 @@ export default function SchedulerPage() {
     setIsDeleteModalOpen(true);
   };
 
+  const columns: Column<ScheduledTaskRow>[] = [
+    { Header: "Task", accessor: "name", sortable: true, className: "font-medium text-text-hi" },
+    {
+      Header: "Recurrence",
+      accessor: "frequency",
+      sortable: true,
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className="text-text-hi">{row.frequency}</span>
+          {row.tender_type && <span className="font-mono text-[11px] text-text-lo">{row.tender_type}</span>}
+        </div>
+      ),
+    },
+    {
+      Header: "Status",
+      accessor: "is_enabled",
+      sortable: true,
+      render: (row) => <Badge status={row.is_enabled ? "success" : "neutral"}>{row.is_enabled ? "enabled" : "disabled"}</Badge>,
+    },
+    {
+      Header: "Last run",
+      accessor: "last_run",
+      sortable: true,
+      render: (row) => <span className="font-mono">{row.last_run ? new Date(row.last_run).toLocaleString() : "never"}</span>,
+    },
+  ];
+
+  const actions: Action<ScheduledTaskRow>[] = [
+    {
+      icon: "solar:play-circle-broken",
+      tooltip: "Run now",
+      onClick: (row) => handleRunTask(Number(row.id), row.name),
+    },
+    {
+      icon: (row) => (row.is_enabled ? "solar:pause-circle-broken" : "solar:play-circle-broken"),
+      tooltip: (row) => (row.is_enabled ? "Disable" : "Enable"),
+      onClick: (row) => handleToggleTask(Number(row.id)),
+    },
+    {
+      icon: "solar:document-text-broken",
+      tooltip: "View logs",
+      onClick: (row) => handleViewLogs(Number(row.id), row.name),
+    },
+    {
+      icon: "solar:trash-bin-trash-broken",
+      tooltip: "Delete",
+      variant: "danger",
+      onClick: (row) => openDeleteModal(Number(row.id), row.name),
+    },
+  ];
+
   const handleViewLogs = async (taskId: number, taskName: string) => {
     const toastId = toast.loading(`Fetching logs for task "${taskName}"...`);
     try {
@@ -153,22 +218,21 @@ export default function SchedulerPage() {
           ]}
         />
 
-        {isLoading ? (
-          <div className="flex h-64 items-center justify-center rounded-lg border border-app-border bg-surface">
-            <div className="flex flex-col items-center gap-2">
-              <Icon icon="mdi:loading" width={32} height={32} className="animate-spin text-brand-500" />
-              <p className="text-sm text-text-lo">Loading, please wait…</p>
-            </div>
-          </div>
-        ) : (
-          <SchedulerListV2
-            tasks={tasks}
-            handleRunTask={handleRunTask}
-            handleToggleTask={handleToggleTask}
-            handleViewLogs={handleViewLogs}
-            handleDeleteTask={openDeleteModal}
-          />
-        )}
+        <GenericTable<ScheduledTaskRow>
+          data={tasks.map((t) => ({ ...t, id: String(t.task_id) }))}
+          columns={columns}
+          loading={isLoading}
+          emptyMessage="No scheduled tasks yet."
+          searchable
+          searchPlaceholder="Search tasks…"
+          selectable={false}
+          showBulkBar={false}
+          showExportButton={false}
+          enableDateFilter={false}
+          hideEmptyColumns={false}
+          fullPageHeight={false}
+          actions={actions}
+        />
       </div>
 
       <AddSchedulerModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} mode={mode} tenderTypes={tenderTypes} onTaskAdded={handleTaskAdded} />
