@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import Select from "react-select";
 import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
 import Popover from "@/shared/ui/Popover";
 import GlassPanel from "@/shared/ui/GlassPanel";
 import useTypewriterPlaceholder from "@/shared/hooks/useTypewriterPlaceholder";
+import LocationInput from "./LocationInput";
+import { getSelectStyles } from "@/utils/selectStyles";
 import type { ExtractOptions } from "@/features/tenders/api/firecrawlExtract";
 
 export interface WebsiteSource {
@@ -16,14 +19,17 @@ export interface WebsiteSource {
   location: string | null;
 }
 
+type SourceOption = { value: number; label: string; url: string };
+
 const inputClass = "h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500";
 const optionInputClass = "h-8 w-28 rounded-md border border-app-border bg-canvas px-2 text-sm text-text-hi outline-none focus:border-brand-500";
 
-const URL_EXAMPLES = [
+/** Fallback examples for when nothing's been tracked yet — real tracked URLs are used instead once they exist. */
+const GENERIC_URL_EXAMPLES = [
   "https://example.gov/tenders",
-  "https://techcrunch.com/procurement",
   "https://supplier-portal.co.ke/rfps",
   "https://company.com/opportunities",
+  "https://procurement.example.org/notices",
 ];
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -50,6 +56,7 @@ export default function WebsiteRunForm({
   mode,
   sources = [],
   onSelectSource,
+  countries = [],
 }: {
   url: string;
   setUrl: (v: string) => void;
@@ -63,9 +70,20 @@ export default function WebsiteRunForm({
   /** Already-tracked sites, so re-running one doesn't mean retyping its URL. */
   sources?: WebsiteSource[];
   onSelectSource?: (source: WebsiteSource) => void;
+  /** Powers the location field's autocomplete suggestions — stays free text, just easier to fill in. */
+  countries?: string[];
 }) {
   const canRun = url.trim().length > 0;
-  const urlPlaceholder = useTypewriterPlaceholder(URL_EXAMPLES, url.length === 0);
+  const urlExamples = useMemo(() => {
+    if (sources.length === 0) return GENERIC_URL_EXAMPLES;
+    const shuffled = [...sources];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, 6).map((s) => s.url);
+  }, [sources]);
+  const urlPlaceholder = useTypewriterPlaceholder(urlExamples, url.length === 0);
 
   const [onlyMainContent, setOnlyMainContent] = useState(true);
   const [waitFor, setWaitFor] = useState("");
@@ -73,7 +91,6 @@ export default function WebsiteRunForm({
   const [maxAge, setMaxAge] = useState("");
   const [excludeTags, setExcludeTags] = useState("");
   const [includeTags, setIncludeTags] = useState("");
-  const [sourceFilter, setSourceFilter] = useState("");
 
   const toArray = (v: string) =>
     v
@@ -92,15 +109,21 @@ export default function WebsiteRunForm({
     });
   };
 
-  const filteredSources = sources.filter((s) => {
-    const q = sourceFilter.trim().toLowerCase();
-    if (!q) return true;
-    return (s.name || "").toLowerCase().includes(q) || s.url.toLowerCase().includes(q);
-  });
+  const sourceOptions: SourceOption[] = sources.map((s) => ({ value: s.id, label: s.name || s.url, url: s.url }));
+
+  // The shared select styling is tuned for GenericTable's larger filter bar (52px control,
+  // heavy rounding) — override just size/radius here so it sits naturally among this form's h-9 inputs.
+  const baseStyles = getSelectStyles<SourceOption>(mode);
+  const compactSelectStyles = {
+    ...baseStyles,
+    control: (base: any, state: any) => ({ ...(baseStyles.control as any)(base, state), minHeight: "36px", borderRadius: "0.375rem" }),
+    menu: (base: any) => ({ ...(baseStyles.menu as any)(base), borderRadius: "0.5rem" }),
+    valueContainer: (base: any) => ({ ...base, padding: "0 8px" }),
+  } as any;
 
   return (
     <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pb-2">
         <span className="text-xs text-text-lo">Scrape a new URL, or pick one you're already tracking.</span>
         <Link href="/upload-website" className="flex items-center gap-1 text-xs text-brand-500 hover:underline">
           View tracked sources
@@ -108,65 +131,44 @@ export default function WebsiteRunForm({
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <div className="flex gap-2 sm:col-span-2">
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={urlPlaceholder} className={`${inputClass} flex-1`} />
-          {sources.length > 0 && (
-            <Popover
-              trigger={(open) => (
-                <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
-                    open ? "border-brand-500 text-brand-500" : "border-app-border text-text-lo hover:border-text-lo"
-                  }`}
-                  title="Pick an existing source"
-                >
-                  <Icon icon="solar:list-broken" width={16} />
-                </span>
-              )}
-              className="w-72"
-            >
-              <div className="flex flex-col gap-2">
-                <input
-                  autoFocus
-                  value={sourceFilter}
-                  onChange={(e) => setSourceFilter(e.target.value)}
-                  placeholder="Search tracked sources…"
-                  className={`${inputClass} w-full`}
-                />
-                <div className="max-h-64 overflow-y-auto">
-                  {filteredSources.length === 0 ? (
-                    <p className="py-2 text-xs text-text-lo">No matching sources.</p>
-                  ) : (
-                    filteredSources.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          onSelectSource?.(s);
-                          setSourceFilter("");
-                        }}
-                        className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left hover:bg-surface-2"
-                      >
-                        <span className="truncate text-sm text-text-hi">{s.name || s.url}</span>
-                        <span className="truncate font-mono text-[11px] text-text-lo">{s.url}</span>
-                      </button>
-                    ))
-                  )}
+      <div className="flex gap-2">
+        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={urlPlaceholder} className={`${inputClass} flex-1`} />
+        {sourceOptions.length > 0 && (
+          <div className="w-56 shrink-0">
+            <Select<SourceOption>
+              value={null}
+              onChange={(opt) => {
+                if (!opt) return;
+                const source = sources.find((s) => s.id === opt.value);
+                if (source) onSelectSource?.(source);
+              }}
+              options={sourceOptions}
+              placeholder="Existing source…"
+              isSearchable
+              isClearable={false}
+              styles={compactSelectStyles}
+              classNamePrefix="react-select"
+              formatOptionLabel={(opt) => (
+                <div className="flex items-center gap-2">
+                  <Icon icon="solar:global-broken" width={14} className="shrink-0 text-text-lo" />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate">{opt.label}</span>
+                    <span className="truncate font-mono text-[10px] text-text-lo">{opt.url}</span>
+                  </div>
                 </div>
-              </div>
-            </Popover>
-          )}
-        </div>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={inputClass} />
+              )}
+            />
+          </div>
+        )}
       </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={`${inputClass} flex-1`} />
+        <LocationInput value={location} onChange={setLocation} countries={countries} mode={mode} className="w-full sm:w-56 shrink-0" />
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Location (optional)"
-            className={`${inputClass} w-56`}
-          />
           <Popover
             trigger={(open) => (
               <span

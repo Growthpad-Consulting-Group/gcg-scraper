@@ -54,7 +54,7 @@ function PageHeader({
   if (variant === "enhanced") {
     return (
       <div className={`mb-6 ${className}`}>
-        <div className="relative rounded-2xl border border-app-border bg-surface px-6 py-5 shadow-lg transition-all duration-300 ease-in-out">
+        <div className="relative rounded-2xl border border-app-border bg-surface px-6 py-5 shadow-lg shadow-gray-400/10 transition-all duration-300 ease-in-out">
           <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             {/* Left — icon + title + description */}
             <div className="flex items-center gap-3">

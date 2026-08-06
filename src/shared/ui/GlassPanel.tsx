@@ -63,7 +63,7 @@ export default function GlassPanel({ mode = "light", className = "", shadow, chi
           }`}
         />
       </div>
-      <div className="relative flex flex-col min-h-0 flex-1">{children}</div>
+      <div className="relative flex flex-col min-h-0 flex-1 gap-4">{children}</div>
     </div>
   );
 }

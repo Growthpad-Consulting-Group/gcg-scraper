@@ -107,7 +107,7 @@ export default function QueryComposer({
 
         <div className="ml-auto flex items-center gap-2">
           {handleAddScheduledTask && (
-            <Button size="sm" variant="secondary" onClick={handleAddScheduledTask} disabled={!canRun}>
+            <Button size="md" variant="secondary" onClick={handleAddScheduledTask} disabled={!canRun}>
               <Icon icon="solar:calendar-add-broken" width={15} />
               Schedule
             </Button>

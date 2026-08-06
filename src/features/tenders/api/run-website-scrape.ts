@@ -27,17 +27,20 @@ export const runWebsiteScrapeJob = inngest.createFunction(
     try {
       const [{ data: websites }, { data: searchTerms }] = await step.run("fetch-inputs", async () => {
         const websitesQuery = websiteId
-          ? supabase.from("websites").select("id, name, url").eq("id", websiteId)
+          ? supabase.from("websites").select("id, name, url, location").eq("id", websiteId)
           : supabase
               .from("websites")
-              .select("id, name, url")
+              .select("id, name, url, location")
               .order("last_scraped_at", { ascending: true, nullsFirst: true })
               .limit(BATCH_SIZE);
         return Promise.all([websitesQuery, supabase.from("search_terms").select("term").limit(20)]);
       });
 
       const terms = (searchTerms || []).map((t) => t.term).join(", ");
-      const prompt = `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, the full URL to the tender/notice if available (otherwise use the page URL), the direct document/PDF link if different, the issuing organization (usually this website's own organization unless stated otherwise), a short category label, location, and budget/value if stated. If no tenders are found, return an empty list.`;
+      const buildPrompt = (location?: string | null) =>
+        `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, the full URL to the tender/notice if available (otherwise use the page URL), the direct document/PDF link if different, the issuing organization (usually this website's own organization unless stated otherwise), a short category label, location, and budget/value if stated.${
+          location ? ` If a tender's location isn't stated on the page, use "${location}" as a fallback.` : ""
+        } If no tenders are found, return an empty list.`;
 
       if (await step.run("check-canceled-before-extract", () => isJobCanceled(supabase, jobId))) {
         return { jobId, tendersFound: 0, canceled: true };
@@ -54,7 +57,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
         (websites || []).map(async (website) => {
           const { tenders: extracted, markdown } = await step.run(`extract-${website.id}`, async () => {
             try {
-              return await extractTenders(website.url, prompt, extractOptions);
+              return await extractTenders(website.url, buildPrompt(website.location), extractOptions);
             } catch {
               return { tenders: [], markdown: null };
             }

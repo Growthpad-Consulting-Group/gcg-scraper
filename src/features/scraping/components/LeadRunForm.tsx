@@ -3,6 +3,7 @@
 import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
 import GlassPanel from "@/shared/ui/GlassPanel";
+import LocationInput from "./LocationInput";
 import useTypewriterPlaceholder from "@/shared/hooks/useTypewriterPlaceholder";
 
 const inputClass = "h-9 flex-1 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500";
@@ -21,6 +22,7 @@ export default function LeadRunForm({
   isRunning,
   onRun,
   mode,
+  countries = [],
 }: {
   kind: "gmb" | "linkedin";
   searchTerm: string;
@@ -32,6 +34,7 @@ export default function LeadRunForm({
   isRunning: boolean;
   onRun: () => void;
   mode?: "light" | "dark";
+  countries?: string[];
 }) {
   const canRun = searchTerm.trim().length > 0;
   const locationPlaceholder = kind === "gmb" ? "e.g. Nairobi, Kenya" : "e.g. Kenya";
@@ -41,7 +44,7 @@ export default function LeadRunForm({
     <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <div className="flex flex-col gap-2 sm:flex-row">
         <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={searchTermPlaceholder} className={inputClass} />
-        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={locationPlaceholder} className={`${inputClass} sm:max-w-56`} />
+        <LocationInput value={location} onChange={setLocation} countries={countries} placeholder={locationPlaceholder} mode={mode} className="w-full sm:w-56 shrink-0" />
       </div>
       <div className="flex items-center justify-between gap-2">
         <label className="flex items-center gap-2 text-sm text-text-lo">

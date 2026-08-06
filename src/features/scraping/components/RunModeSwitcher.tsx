@@ -18,7 +18,7 @@ export function isRunMode(value: string | null): value is RunMode {
 /** Firecrawl-playground-style mode switcher: one page, several input shapes. */
 export default function RunModeSwitcher({ mode, onChange }: { mode: RunMode; onChange: (mode: RunMode) => void }) {
   return (
-    <div className="inline-flex w-fit flex-wrap gap-1 rounded-lg border border-app-border bg-surface-2 p-1">
+    <div className="inline-flex w-fi flex-wrap gap-1 rounded-lg border border-app-border bg-surface-2 p-1 mb-2">
       {RUN_MODES.map((m) => (
         <button
           key={m.id}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
 import GlassPanel from "@/shared/ui/GlassPanel";
 import { useTheme } from "@/shared/contexts/ThemeContext";
@@ -16,17 +17,39 @@ const SUGGESTIONS = [
   "What keywords should I try next?",
 ];
 
+const RUN_QUERY_HINT_KEY = "gcg_chat_hint_seen:run-query";
+
 export default function ChatWidget() {
   const { resolvedMode: mode } = useTheme();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [showRunQueryHint, setShowRunQueryHint] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isSending]);
+
+  // One-time nudge on Run Query — never auto-opens the panel, just points at the bubble until
+  // dismissed (or the user opens the chat at all, anywhere).
+  useEffect(() => {
+    if (isOpen || typeof window === "undefined") return;
+    if (!pathname?.startsWith("/run-query")) {
+      setShowRunQueryHint(false);
+      return;
+    }
+    if (localStorage.getItem(RUN_QUERY_HINT_KEY)) return;
+    const t = setTimeout(() => setShowRunQueryHint(true), 1200);
+    return () => clearTimeout(t);
+  }, [pathname, isOpen]);
+
+  const dismissRunQueryHint = () => {
+    setShowRunQueryHint(false);
+    localStorage.setItem(RUN_QUERY_HINT_KEY, "1");
+  };
 
   const send = async (text: string) => {
     const question = text.trim();
@@ -133,8 +156,26 @@ export default function ChatWidget() {
         </GlassPanel>
       )}
 
+      {showRunQueryHint && (
+        <div className="flex items-center gap-2 rounded-lg border border-app-border bg-surface px-3 py-2 text-xs text-text-hi shadow-lg">
+          <span>Need help picking keywords or a source? Ask →</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              dismissRunQueryHint();
+            }}
+            className="text-text-lo hover:text-text-hi"
+          >
+            <Icon icon="mdi:close" width={12} />
+          </button>
+        </div>
+      )}
+
       <button
-        onClick={() => setIsOpen((o) => !o)}
+        onClick={() => {
+          setIsOpen((o) => !o);
+          dismissRunQueryHint();
+        }}
         className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
         title="Ask about your data"
       >

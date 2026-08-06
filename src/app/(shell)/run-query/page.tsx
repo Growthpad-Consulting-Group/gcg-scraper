@@ -274,7 +274,7 @@ function RunQueryContent() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-10">
             <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
               <div className="flex justify-center">
                 <RunModeSwitcher mode={runMode} onChange={changeMode} />
@@ -319,6 +319,7 @@ function RunQueryContent() {
                   setWebsiteName(s.name || "");
                   setWebsiteLocation(s.location || "");
                 }}
+                countries={countries.map((c) => c.country_name)}
               />
             )}
 
@@ -334,6 +335,7 @@ function RunQueryContent() {
                 isRunning={scrapeStatus === "running"}
                 onRun={handleRunGmbLeads}
                 mode={mode}
+                countries={countries.map((c) => c.country_name)}
               />
             )}
 
@@ -349,6 +351,7 @@ function RunQueryContent() {
                 isRunning={scrapeStatus === "running"}
                 onRun={handleRunLinkedinLeads}
                 mode={mode}
+                countries={countries.map((c) => c.country_name)}
               />
             )}
             </div>
