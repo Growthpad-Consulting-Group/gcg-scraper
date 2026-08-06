@@ -5,6 +5,7 @@ import Sidebar from "@/widgets/app-shell/ui/Sidebar";
 import Header from "@/widgets/app-shell/ui/Header";
 import SimpleFooter from "@/shared/ui/SimpleFooter";
 import CommandPalette from "@/widgets/app-shell/ui/CommandPalette";
+import ChatWidget from "@/features/chat/components/ChatWidget";
 import useSidebar from "@/shared/hooks/useSidebar";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useNotifications } from "@/shared/contexts/NotificationsContext";
@@ -57,6 +58,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <CommandPalette />
+        <ChatWidget />
       </div>
     </CommandPaletteProvider>
   );

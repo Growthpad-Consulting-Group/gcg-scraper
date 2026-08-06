@@ -45,7 +45,7 @@ export default function TenderDetailPage() {
   const router = useRouter();
   const [tender, setTender] = useState<Tender | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<"parsed" | "raw">("parsed");
+  const [showRaw, setShowRaw] = useState(false);
 
   useEffect(() => {
     const fetchTender = async () => {
@@ -125,23 +125,14 @@ export default function TenderDetailPage() {
             </div>
 
             <div>
-              <div className="mb-2 flex gap-1">
-                <button
-                  onClick={() => setView("parsed")}
-                  className={`rounded-md px-2 py-1 font-mono text-[11px] uppercase tracking-wide ${view === "parsed" ? "bg-brand-500/10 text-brand-500" : "text-text-lo"}`}
-                >
-                  Parsed
-                </button>
-                <button
-                  onClick={() => setView("raw")}
-                  className={`rounded-md px-2 py-1 font-mono text-[11px] uppercase tracking-wide ${view === "raw" ? "bg-brand-500/10 text-brand-500" : "text-text-lo"}`}
-                >
-                  Raw
-                </button>
-              </div>
-              {view === "parsed" ? (
-                <LogPanel autoScroll={false} lines={[{ text: JSON.stringify(tender, null, 2), tone: "default" }]} />
-              ) : (
+              <button
+                onClick={() => setShowRaw((v) => !v)}
+                className="mb-2 flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-text-lo hover:text-text-hi"
+              >
+                <Icon icon={showRaw ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={12} />
+                {showRaw ? "Hide raw scraped content" : "Show raw scraped content"}
+              </button>
+              {showRaw && (
                 <LogPanel
                   autoScroll={false}
                   lines={[{ text: tender.raw_content || "No raw content captured for this tender (scraped before raw capture was added).", tone: "default" }]}
