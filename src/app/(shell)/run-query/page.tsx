@@ -8,7 +8,7 @@ import PageHeader from "@/shared/ui/PageHeader";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import QueryComposer from "@/features/scraping/components/QueryComposer";
-import WebsiteRunForm from "@/features/scraping/components/WebsiteRunForm";
+import WebsiteRunForm, { type WebsiteSource } from "@/features/scraping/components/WebsiteRunForm";
 import LeadRunForm from "@/features/scraping/components/LeadRunForm";
 import RunModeSwitcher, { isRunMode, type RunMode } from "@/features/scraping/components/RunModeSwitcher";
 import RunConsole from "@/features/scraping/components/RunConsole";
@@ -46,6 +46,7 @@ function RunQueryContent() {
   const [websiteName, setWebsiteName] = useState("");
   const [websiteLocation, setWebsiteLocation] = useState("");
   const [isAddingWebsite, setIsAddingWebsite] = useState(false);
+  const [websiteSources, setWebsiteSources] = useState<WebsiteSource[]>([]);
 
   const [gmbSearchTerm, setGmbSearchTerm] = useState("");
   const [gmbLocation, setGmbLocation] = useState("");
@@ -82,17 +83,20 @@ function RunQueryContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [searchTermsRes, baseKeywordsRes, countriesRes, tenderTypesRes] = await Promise.all([
+        const [searchTermsRes, baseKeywordsRes, countriesRes, tenderTypesRes, websitesRes] = await Promise.all([
           fetch("/api/search-terms"),
           fetch("/api/base-keywords"),
           fetch("/api/countries"),
           fetch("/api/tender-types"),
+          fetch("/api/websites"),
         ]);
         const searchTermsData = await searchTermsRes.json();
         const baseKeywordsData = await baseKeywordsRes.json();
         const countriesData: Country[] = await countriesRes.json();
         const tenderTypesData = await tenderTypesRes.json();
+        const websitesData = await websitesRes.json();
         setTenderTypes(Array.isArray(tenderTypesData.tenderTypes) ? tenderTypesData.tenderTypes : []);
+        setWebsiteSources(Array.isArray(websitesData.websites) ? websitesData.websites : []);
 
         setSearchTerms(searchTermsData.search_terms || []);
         if (searchTermsData.search_terms?.length > 0) setSelectedTerms([searchTermsData.search_terms[0].term]);
@@ -309,6 +313,12 @@ function RunQueryContent() {
                 isRunning={isAddingWebsite || scrapeStatus === "running"}
                 onRun={handleRunWebsite}
                 mode={mode}
+                sources={websiteSources}
+                onSelectSource={(s) => {
+                  setWebsiteUrl(s.url);
+                  setWebsiteName(s.name || "");
+                  setWebsiteLocation(s.location || "");
+                }}
               />
             )}
 

@@ -20,6 +20,14 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createServerSupabaseClient();
+
+  // Re-adding a URL that's already tracked should reuse that row instead of creating a
+  // duplicate — otherwise re-running the same site through Run Query's Website mode silently
+  // piles up copies in the sources list.
+  const { data: existing, error: lookupError } = await supabase.from("websites").select("*").eq("url", normalizedUrl).maybeSingle();
+  if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  if (existing) return NextResponse.json({ website: existing, reused: true });
+
   const { data: website, error } = await supabase
     .from("websites")
     .insert({

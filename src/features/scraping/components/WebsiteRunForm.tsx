@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
 import Popover from "@/shared/ui/Popover";
 import GlassPanel from "@/shared/ui/GlassPanel";
 import useTypewriterPlaceholder from "@/shared/hooks/useTypewriterPlaceholder";
 import type { ExtractOptions } from "@/features/tenders/api/firecrawlExtract";
+
+export interface WebsiteSource {
+  id: number;
+  name: string | null;
+  url: string;
+  location: string | null;
+}
 
 const inputClass = "h-9 rounded-md border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500";
 const optionInputClass = "h-8 w-28 rounded-md border border-app-border bg-canvas px-2 text-sm text-text-hi outline-none focus:border-brand-500";
@@ -40,6 +48,8 @@ export default function WebsiteRunForm({
   isRunning,
   onRun,
   mode,
+  sources = [],
+  onSelectSource,
 }: {
   url: string;
   setUrl: (v: string) => void;
@@ -50,6 +60,9 @@ export default function WebsiteRunForm({
   isRunning: boolean;
   onRun: (options: ExtractOptions) => void;
   mode?: "light" | "dark";
+  /** Already-tracked sites, so re-running one doesn't mean retyping its URL. */
+  sources?: WebsiteSource[];
+  onSelectSource?: (source: WebsiteSource) => void;
 }) {
   const canRun = url.trim().length > 0;
   const urlPlaceholder = useTypewriterPlaceholder(URL_EXAMPLES, url.length === 0);
@@ -60,6 +73,7 @@ export default function WebsiteRunForm({
   const [maxAge, setMaxAge] = useState("");
   const [excludeTags, setExcludeTags] = useState("");
   const [includeTags, setIncludeTags] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
 
   const toArray = (v: string) =>
     v
@@ -78,15 +92,71 @@ export default function WebsiteRunForm({
     });
   };
 
+  const filteredSources = sources.filter((s) => {
+    const q = sourceFilter.trim().toLowerCase();
+    if (!q) return true;
+    return (s.name || "").toLowerCase().includes(q) || s.url.toLowerCase().includes(q);
+  });
+
   return (
     <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-text-lo">Scrape a new URL, or pick one you're already tracking.</span>
+        <Link href="/upload-website" className="flex items-center gap-1 text-xs text-brand-500 hover:underline">
+          View tracked sources
+          <Icon icon="solar:arrow-right-broken" width={12} />
+        </Link>
+      </div>
+
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder={urlPlaceholder}
-          className={`${inputClass} sm:col-span-2`}
-        />
+        <div className="flex gap-2 sm:col-span-2">
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={urlPlaceholder} className={`${inputClass} flex-1`} />
+          {sources.length > 0 && (
+            <Popover
+              trigger={(open) => (
+                <span
+                  className={`flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
+                    open ? "border-brand-500 text-brand-500" : "border-app-border text-text-lo hover:border-text-lo"
+                  }`}
+                  title="Pick an existing source"
+                >
+                  <Icon icon="solar:list-broken" width={16} />
+                </span>
+              )}
+              className="w-72"
+            >
+              <div className="flex flex-col gap-2">
+                <input
+                  autoFocus
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  placeholder="Search tracked sources…"
+                  className={`${inputClass} w-full`}
+                />
+                <div className="max-h-64 overflow-y-auto">
+                  {filteredSources.length === 0 ? (
+                    <p className="py-2 text-xs text-text-lo">No matching sources.</p>
+                  ) : (
+                    filteredSources.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          onSelectSource?.(s);
+                          setSourceFilter("");
+                        }}
+                        className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left hover:bg-surface-2"
+                      >
+                        <span className="truncate text-sm text-text-hi">{s.name || s.url}</span>
+                        <span className="truncate font-mono text-[11px] text-text-lo">{s.url}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </Popover>
+          )}
+        </div>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={inputClass} />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
