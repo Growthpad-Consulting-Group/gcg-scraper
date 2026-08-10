@@ -34,7 +34,7 @@ export function formatClosingDate(closingDate: string): string {
  * urgency badge on the tender detail page. Only meaningful for open tenders with a real
  * deadline; whole-day granularity is enough here (unlike the detail page, nobody's deciding
  * whether to act in the next few hours from a Slack ping). */
-function daysLeftLabel(closingDate: string, status: "open" | "closed"): string | null {
+export function daysLeftLabel(closingDate: string, status: "open" | "closed"): string | null {
   if (status !== "open" || closingDate === NO_DEADLINE_SENTINEL) return null;
   const deadline = new Date(closingDate);
   if (isNaN(deadline.getTime())) return null;
