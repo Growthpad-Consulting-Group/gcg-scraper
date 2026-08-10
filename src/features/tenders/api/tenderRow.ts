@@ -94,17 +94,44 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
   };
 }
 
+// Despite the extraction schema asking for ISO 8601, some sources come back with a date `new
+// Date()` can't parse directly: Kenya Treasury wraps it in extra text ("Thu, 08/06/2026 -
+// 15:00" — Date chokes on the " - 15:00" suffix, not the date itself), and PPIP uses ordinal
+// day suffixes ("August 11th, 2026" — Date chokes on "th"). Both were silently getting treated
+// as if there were no deadline at all (open forever, sorts as "no closing date") instead of
+// being worth a second parse attempt. Shared by resolveClosingDate and computeStatus so both
+// treat the same raw value consistently instead of one parsing it and the other giving up.
+const ORDINAL_SUFFIX_PATTERN = /(\d+)(st|nd|rd|th)\b/gi;
+const DATE_SUBSTRING_PATTERN = /\d{1,4}[/-]\d{1,2}[/-]\d{1,4}/;
+
+function parseFlexibleDate(value: string): Date | null {
+  const direct = new Date(value);
+  if (!isNaN(direct.getTime())) return direct;
+
+  const withoutOrdinals = value.replace(ORDINAL_SUFFIX_PATTERN, "$1");
+  const reparsedOrdinal = new Date(withoutOrdinals);
+  if (!isNaN(reparsedOrdinal.getTime())) return reparsedOrdinal;
+
+  const match = value.match(DATE_SUBSTRING_PATTERN);
+  if (match) {
+    const reparsed = new Date(match[0]);
+    if (!isNaN(reparsed.getTime())) return reparsed;
+  }
+
+  return null;
+}
+
 export function computeStatus(closingDate: string | null): "open" | "closed" {
   if (!closingDate) return "open";
-  const parsed = new Date(closingDate);
-  if (isNaN(parsed.getTime())) return "open";
+  const parsed = parseFlexibleDate(closingDate);
+  if (!parsed) return "open";
   return parsed.getTime() < Date.now() ? "closed" : "open";
 }
 
 export function resolveClosingDate(closingDate: string | null | undefined): string {
   if (closingDate) {
-    const parsed = new Date(closingDate);
-    if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+    const parsed = parseFlexibleDate(closingDate);
+    if (parsed) return parsed.toISOString().slice(0, 10);
   }
   return NO_DEADLINE_SENTINEL;
 }

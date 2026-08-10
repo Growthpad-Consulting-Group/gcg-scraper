@@ -39,8 +39,15 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
   },
   {
     tenderType: "PPIP",
-    url: "https://tenders.go.ke/Listings/Tenders",
+    // The Python backend's old URL (/Listings/Tenders) 404s inside this Vue SPA now — the
+    // current listings route is /tenders (confirmed live; the app's own nav/footer links
+    // still pointed at the dead path).
+    url: "https://tenders.go.ke/tenders",
     prompt: "Extract all tender listings on this Kenyan government procurement portal page, including title, closing/deadline date, and the full URL linking to each individual tender." + FIELD_SUFFIX,
+    // Client-rendered SPA (Vue) — the listing table populates after JS runs, so it needs the
+    // same render-settle allowance as UNGM.
+    waitFor: 6000,
+    timeout: 40000,
   },
   {
     tenderType: "ReliefWeb Jobs",
@@ -56,6 +63,10 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     tenderType: "UNDP",
     url: "https://procurement-notices.undp.org/",
     prompt: "Extract all procurement notices listed on this UNDP page, including title, deadline date, and the full URL linking to each individual notice." + FIELD_SUFFIX,
+    // Large global notice board (~200KB+ of markdown) — a longer timeout gives it margin under
+    // real-world load instead of relying on Firecrawl's default.
+    waitFor: 6000,
+    timeout: 40000,
   },
   {
     tenderType: "Job in Rwanda",
