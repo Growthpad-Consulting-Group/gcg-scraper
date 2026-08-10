@@ -61,7 +61,7 @@ export default function Footer({ mode }: { mode: "light" | "dark" }) {
         </div>
 
         <div className="hidden md:block relative -top-20 right-0 bottom-0">
-          <Image src="/assets/images/footer-image.png" alt="Growthpad Logo" width={500} height={40} />
+          <Image src="/assets/images/footer-image.png" alt="Growthpad Logo" width={500} height={40} className="w-[500px] h-10" />
         </div>
       </div>
 
@@ -69,18 +69,18 @@ export default function Footer({ mode }: { mode: "light" | "dark" }) {
         <div className="flex flex-col">
           <span className="text-base">
             © {currentYear} Growthpad Consulting Group. Made with ♡ in
-            <span className="relative group">
+            <span className="relative inline-block group">
               <span className="cursor-default">Nairobi</span>
-              <div className="absolute top-[-110%] left-0 w-full h-full bg-transparent opacity-0 transition-all duration-500 ease-in-out group-hover:top-[-150%] group-hover:opacity-100">
-                <Image src="/assets/images/kenya.gif" alt="Nairobi Flag" width={30} height={30} className="absolute top-0 left-0" />
-              </div>
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 scale-90 transition-all duration-300 ease-out group-hover:-top-9 group-hover:opacity-100 group-hover:scale-100">
+                <Image src="/assets/images/kenya.gif" alt="Nairobi Flag" width={30} height={30} className="w-[30px] h-[30px] rounded-sm shadow" unoptimized />
+              </span>
             </span>{" "}
             x{" "}
-            <span className="relative group">
+            <span className="relative inline-block group">
               <span className="cursor-default">Accra</span>
-              <div className="absolute top-[-110%] left-0 w-full h-full bg-transparent opacity-0 transition-all duration-500 ease-in-out group-hover:top-[-150%] group-hover:opacity-100">
-                <Image src="/assets/images/ghana.gif" alt="Accra Flag" width={30} height={30} className="absolute top-0 left-0" />
-              </div>
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 scale-90 transition-all duration-300 ease-out group-hover:-top-9 group-hover:opacity-100 group-hover:scale-100">
+                <Image src="/assets/images/ghana.gif" alt="Accra Flag" width={30} height={30} className="w-[30px] h-[30px] rounded-sm shadow" unoptimized />
+              </span>
             </span>
           </span>
         </div>
@@ -92,6 +92,7 @@ export default function Footer({ mode }: { mode: "light" | "dark" }) {
               alt="Growthpad Logo"
               width={300}
               height={40}
+              className="w-[300px] h-10"
             />
           </a>
         </div>

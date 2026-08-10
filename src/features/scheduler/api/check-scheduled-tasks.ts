@@ -1,22 +1,10 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { startTaskRun } from "./startTaskRun";
-
-// "Every 3 Hours" / "Every 12 Hours" match the options TaskForm actually offers.
-const FREQUENCY_MS: Record<string, number> = {
-  Hourly: 60 * 60 * 1000,
-  "Every 3 Hours": 3 * 60 * 60 * 1000,
-  "Every 12 Hours": 12 * 60 * 60 * 1000,
-  Daily: 24 * 60 * 60 * 1000,
-  Weekly: 7 * 24 * 60 * 60 * 1000,
-  Monthly: 30 * 24 * 60 * 60 * 1000,
-};
-const DEFAULT_INTERVAL_MS = FREQUENCY_MS.Daily;
+import { nextRunAt } from "../lib/frequency";
 
 export function isDue(task: { frequency: string | null; last_run: string | null }): boolean {
-  if (!task.last_run) return true; // never run ⇒ due immediately
-  const intervalMs = (task.frequency ? FREQUENCY_MS[task.frequency] : undefined) ?? DEFAULT_INTERVAL_MS;
-  return Date.now() - new Date(task.last_run).getTime() >= intervalMs;
+  return nextRunAt(task).getTime() <= Date.now();
 }
 
 /**

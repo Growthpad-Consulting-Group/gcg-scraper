@@ -130,11 +130,10 @@ export default function Header({
                   )}
                 </button>
                 {isNotificationsOpen && (
-                  <div
-                    className={`absolute top-12 right-0 w-96 rounded-2xl shadow-lg z-10 ${mode === "dark" ? "bg-gray-800 text-white" : "bg-white text-[#231812]"}`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Notifications notifications={notifications} mode={mode} isLoading={isLoading} onMarkAsRead={onMarkAsRead} onClearAll={onClearAll} />
+                  <div className="absolute top-12 right-0 w-96 z-10" onClick={(e) => e.stopPropagation()}>
+                    <GlassPanel mode={mode} className={`rounded-2xl ${mode === "dark" ? "bg-gray-900/40 text-white" : "bg-white/40 text-[#231812]"}`}>
+                      <Notifications notifications={notifications} mode={mode} isLoading={isLoading} onMarkAsRead={onMarkAsRead} onClearAll={onClearAll} />
+                    </GlassPanel>
                   </div>
                 )}
               </div>

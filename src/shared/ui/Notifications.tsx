@@ -18,7 +18,7 @@ export default function Notifications({
   const hasUnread = notifications.some((n) => !n.read);
 
   return (
-    <div className={`rounded-xl p-4 ${isDark ? "bg-gray-800 text-white" : "bg-white text-[#231812]"}`}>
+    <div className={`rounded-xl p-4 ${isDark ? "text-white" : "text-[#231812]"}`}>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold uppercase tracking-wide">Notifications</h3>
         {hasUnread && (

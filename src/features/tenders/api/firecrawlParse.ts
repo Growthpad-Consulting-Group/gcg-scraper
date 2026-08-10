@@ -63,14 +63,17 @@ const EXTRACTION_PROMPT =
   "This is a procurement or business document. Extract every tender, RFP, RFQ, contract notice, or procurement opportunity mentioned. For each one, capture its title, issuing organization, closing/deadline date, location, budget/value if stated, a short category label, the URL of the listing if linked, and the URL of any downloadable document if linked. If no tenders are found, return an empty list.";
 
 /**
- * Parse a local document file using Firecrawl's /v1/parse endpoint and extract structured
+ * Parse a local document file using Firecrawl's /v2/parse endpoint and extract structured
  * tender data from it. Returns the same ExtractResult shape as extractTenders() so downstream
  * Inngest steps and DB helpers work identically regardless of source type.
+ *
+ * /parse only exists under Firecrawl's v2 API (not v1, which every other call in this codebase
+ * uses) — confirmed live: v1/parse 404s outright, and v2 rejects a v1-style top-level `json` key
+ * ("Unrecognized key: json") in favor of an inline format object inside `formats`.
  */
 export async function parseDocument(file: File | Blob, fileName: string, options?: ParseOptions): Promise<ExtractResult> {
   const parseOptions: Record<string, unknown> = {
-    formats: ["markdown", "json"],
-    json: { schema: EXTRACTION_SCHEMA, prompt: EXTRACTION_PROMPT },
+    formats: ["markdown", { type: "json", schema: EXTRACTION_SCHEMA, prompt: EXTRACTION_PROMPT }],
     onlyMainContent: false,
     timeout: options?.timeout ?? 60_000,
     ...(options?.redactPII ? { redactPII: true } : {}),
@@ -89,7 +92,7 @@ export async function parseDocument(file: File | Blob, fileName: string, options
   formData.append("file", file, fileName);
   formData.append("options", JSON.stringify(parseOptions));
 
-  const res = await fetch("https://api.firecrawl.dev/v1/parse", {
+  const res = await fetch("https://api.firecrawl.dev/v2/parse", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,

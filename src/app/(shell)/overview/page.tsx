@@ -12,6 +12,7 @@ import TendersTrendChart from "@/features/overview/components/TendersTrendChart"
 import type { RunJob } from "@/features/overview/lib/runFeed";
 import { buildTenderTrend, type TenderTrendPoint } from "@/features/overview/lib/tenderTrend";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
+import { nextRunAt, nextRunLabel } from "@/features/scheduler/lib/frequency";
 
 interface ScheduledTask {
   task_id: number;
@@ -116,17 +117,19 @@ export default function OverviewPage() {
                 <p className="text-sm text-text-lo">No active schedules.</p>
               ) : (
                 <ul className="flex flex-col gap-3">
-                  {tasks.slice(0, 6).map((task) => (
-                    <li key={task.task_id}>
-                      <Link href="/scheduler" className="flex flex-col gap-0.5 hover:text-brand-500">
-                        <span className="truncate text-sm text-text-hi">{task.name}</span>
-                        <span className="font-mono text-[11px] text-text-lo">
-                          {task.frequency}
-                          {task.last_run && ` · last run ${new Date(task.last_run).toLocaleDateString()}`}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
+                  {[...tasks]
+                    .sort((a, b) => nextRunAt(a).getTime() - nextRunAt(b).getTime())
+                    .slice(0, 6)
+                    .map((task) => (
+                      <li key={task.task_id}>
+                        <Link href="/scheduler" className="flex flex-col gap-0.5 hover:text-brand-500">
+                          <span className="truncate text-sm text-text-hi">{task.name}</span>
+                          <span className="font-mono text-[11px] text-text-lo">
+                            {task.frequency} · next run {nextRunLabel(task)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
                 </ul>
               )}
             </div>

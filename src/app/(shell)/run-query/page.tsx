@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import PageHeader from "@/shared/ui/PageHeader";
@@ -30,7 +30,6 @@ function RunQueryContent() {
   const { resolvedMode: mode } = useTheme();
   const { loading: userLoading } = useUserProfile();
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const urlMode = searchParams?.get("mode") ?? null;
   const [runMode, setRunMode] = useState<RunMode>(isRunMode(urlMode) ? urlMode : "search-query");
@@ -72,12 +71,20 @@ function RunQueryContent() {
     if (urlTaskId) setJobId(urlTaskId);
   }, [searchParams]);
 
+  useEffect(() => {
+    if (isRunMode(urlMode) && urlMode !== runMode) setRunMode(urlMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlMode]);
+
   const changeMode = (next: RunMode) => {
     setRunMode(next);
+    // Update the URL directly (not via router.replace) so the mode switch doesn't
+    // re-suspend the useSearchParams() boundary and reset in-flight UI state like
+    // hover tooltips — we already hold `next` in local state above.
     const params = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
     params.set("mode", next);
     params.delete("taskId");
-    router.replace(`/run-query?${params.toString()}`);
+    window.history.replaceState(null, "", `/run-query?${params.toString()}`);
   };
 
   useEffect(() => {

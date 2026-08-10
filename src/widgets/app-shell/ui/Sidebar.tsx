@@ -87,7 +87,7 @@ export default function Sidebar({
               alt="Growthpad Logo"
               width={150}
               height={62}
-              className="object-contain"
+              className="w-[150px] h-[62px] object-contain"
             />
           ) : (
             <Image
