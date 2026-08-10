@@ -142,6 +142,31 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     waitFor: 8000,
     timeout: 40000,
   },
+  {
+    tenderType: "DevelopmentAid",
+    // Open to browse without login (only deeper account features are gated) — re-aggregates
+    // World Bank/AfDB/UNDP notices (expected, harmless overlap; insertTenderRows already dedupes
+    // by source_url/title+date) but also surfaces bilateral/foundation funders with no other
+    // source here (GIZ, FSD Africa, KFW, Gates Foundation, ...). locations=32,35,49 is
+    // DevelopmentAid's own filter for Ghana/Kenya/Nigeria.
+    url: "https://www.developmentaid.org/tenders/search?showAdvancedFilters=1&locations=32,35,49",
+    prompt:
+      "Extract all tender/procurement listings on this DevelopmentAid page, including title, closing/deadline date, and the full URL linking to each individual tender." + FIELD_SUFFIX,
+    waitFor: 6000,
+    timeout: 40000,
+  },
+  {
+    tenderType: "Global Tenders Kenya",
+    // Previously in blocked_domains as "Subscription required" — that reason doesn't hold up:
+    // confirmed live, the listing itself (1,685+ notices, titles/dates/detail links) is fully
+    // browsable with no login wall; only the publisher-side dashboard/analytics features are
+    // gated. Page 1 already showed directly relevant hits (Advertising, Corporate Branding,
+    // Internet & Telecom Services) — needs the blocked_domains row removed to actually run.
+    url: "https://www.globaltenders.com/kenya-tenders",
+    prompt: "Extract all tender listings on this page, including title, closing/deadline date, and the full URL linking to each individual tender." + FIELD_SUFFIX,
+    waitFor: 6000,
+    timeout: 35000,
+  },
 ];
 
 export function getSourceConfig(tenderType: string) {

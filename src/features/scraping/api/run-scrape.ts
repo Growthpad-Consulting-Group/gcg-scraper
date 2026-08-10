@@ -9,6 +9,13 @@ import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 
 const TENDER_TYPE = "Search Query Tenders";
 const RESULTS_LIMIT = 10;
+// A scheduled task can have several distinct search terms selected — each needs its own actual
+// search (searching "term1 term2 term3" as one combined string dilutes relevance into a
+// meaningless bag-of-words query). Multiple searches multiply Firecrawl usage though, so each
+// term gets a smaller per-term result count, and the merged, deduped total across all of a
+// task's terms is capped regardless of how many terms it has.
+const MULTI_QUERY_PER_TERM_LIMIT = 3;
+const MULTI_QUERY_TOTAL_CAP = 15;
 
 /** Extracts the bare hostname from a URL, stripping www. prefix for consistent matching. */
 function extractHostname(url: string): string {
@@ -43,7 +50,19 @@ export const runScrapeJob = inngest.createFunction(
   async ({ event, step }) => {
     // `engines` is accepted for backward compatibility with older callers but no longer drives
     // behavior — Firecrawl's /search endpoint replaces per-engine SERP scraping entirely.
-    const { jobId, query, resultsLimit } = event.data as { jobId: string; query: string; engines?: string[]; resultsLimit?: number };
+    // `query` (single string) is the ad-hoc Run Query path (/api/jobs) — unchanged, one search.
+    // `queries` (array) is the scheduled multi-term path (startTaskRun.ts) — one search per term.
+    const { jobId, query, queries, resultsLimit } = event.data as {
+      jobId: string;
+      query?: string;
+      queries?: string[];
+      engines?: string[];
+      resultsLimit?: number;
+    };
+    const queryList = queries?.length ? queries : query ? [query] : [];
+    const isMultiQuery = queryList.length > 1;
+    // The label used in prompts/logging below — every term for multi-query, the single query otherwise.
+    const queryLabel = queryList.join(", ");
 
     const supabase = createServerSupabaseClient();
 
@@ -52,7 +71,14 @@ export const runScrapeJob = inngest.createFunction(
     });
 
     try {
-      const results = await step.run("search", () => searchWeb(query, resultsLimit || RESULTS_LIMIT));
+      const perQueryLimit = isMultiQuery ? MULTI_QUERY_PER_TERM_LIMIT : resultsLimit || RESULTS_LIMIT;
+      const searchResults = await step.run("search", async () => {
+        const batches = await Promise.all(queryList.map((q) => searchWeb(q, perQueryLimit)));
+        const seen = new Set<string>();
+        const merged = batches.flat().filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true)));
+        return isMultiQuery ? merged.slice(0, MULTI_QUERY_TOTAL_CAP) : merged;
+      });
+      const results = searchResults;
 
       // Load blocked domains and filter out any search results whose hostname matches.
       const filteredResults = await step.run("filter-blocked", async () => {
@@ -77,7 +103,7 @@ export const runScrapeJob = inngest.createFunction(
         return { jobId, visited: 0, tendersFound: 0, canceled: true };
       }
 
-      const prompt = `Extract any tender, RFP, RFQ, or procurement opportunity details from this page relevant to: "${query}". Include title, closing/deadline date if shown, the full URL linking to the specific tender/notice, the direct document/PDF link if different, the issuing organization, a short category label, location, and budget/value if stated.`;
+      const prompt = `Extract any tender, RFP, RFQ, or procurement opportunity details from this page relevant to: "${queryLabel}". Include title, closing/deadline date if shown, the full URL linking to the specific tender/notice, the direct document/PDF link if different, the issuing organization, a short category label, location, and budget/value if stated.`;
 
       let visited = 0;
       let totalInserted = 0;

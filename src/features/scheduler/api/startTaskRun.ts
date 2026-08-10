@@ -35,9 +35,15 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
       data: { jobId: job.id, tenderType, keywords: task.search_terms || [], countries: task.countries || [] },
     });
   } else {
+    // Each selected term gets searched separately (see run-scrape.ts) rather than joined into
+    // one combined string — a search engine can't usefully match "term1 term2 term3" as a bag
+    // of unrelated phrases the way a human reads a task's term list. Countries are appended as
+    // extra keywords on each term's own query (not cross-multiplied into a separate search per
+    // country) — same intent as "digital marketing tender Kenya" typed into a search box,
+    // without multiplying the already-per-term search count.
     const currentYear = new Date().getFullYear();
-    const query = `${currentYear} ${(task.search_terms || []).join(" ")}`.trim();
-    await inngest.send({ name: "scrape/job.queued", data: { jobId: job.id, query } });
+    const queries = (task.search_terms || []).map((term) => [currentYear, term, ...(task.countries || [])].join(" ").trim());
+    await inngest.send({ name: "scrape/job.queued", data: { jobId: job.id, queries } });
   }
 
   await supabase.from("scheduled_tasks").update({ last_run: new Date().toISOString() }).eq("task_id", task.task_id);
