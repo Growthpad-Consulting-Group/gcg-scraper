@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/shared/lib/mailer";
 import { sendSlackMessage } from "@/shared/lib/slack";
 import type { InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
+import { tenderHref } from "@/shared/lib/slug";
 
 const NO_DEADLINE_SENTINEL = "9999-12-31";
 const LIST_THRESHOLD = 3; // show titles inline up to this many; beyond it, just the count
@@ -27,6 +28,21 @@ export function formatClosingDate(closingDate: string): string {
   const parsed = new Date(closingDate);
   if (isNaN(parsed.getTime())) return `closes ${closingDate}`;
   return `closes ${ordinal(parsed.getUTCDate())} ${MONTH_NAMES[parsed.getUTCMonth()]} ${parsed.getUTCFullYear()}`;
+}
+
+/** "12 days left" — reads faster in a notification than the raw date alone, and mirrors the
+ * urgency badge on the tender detail page. Only meaningful for open tenders with a real
+ * deadline; whole-day granularity is enough here (unlike the detail page, nobody's deciding
+ * whether to act in the next few hours from a Slack ping). */
+function daysLeftLabel(closingDate: string, status: "open" | "closed"): string | null {
+  if (status !== "open" || closingDate === NO_DEADLINE_SENTINEL) return null;
+  const deadline = new Date(closingDate);
+  if (isNaN(deadline.getTime())) return null;
+  const days = Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return null;
+  if (days === 0) return "closes today";
+  if (days === 1) return "1 day left";
+  return `${days} days left`;
 }
 
 /**
@@ -64,6 +80,20 @@ export async function notifyTaskOwner(
   // is noise, not signal.
   const showList = tendersFound <= LIST_THRESHOLD && tenders.length > 0;
 
+  // "[Category] Organization · Location" — each piece included only when known, since
+  // extraction doesn't always find all three and a blank/lone separator reads worse than
+  // just omitting what's missing.
+  const meta = (t: InsertedTenderSummary) => {
+    const orgLocation = [t.organization, t.location].filter(Boolean).join(" · ");
+    return [t.category ? `[${t.category}]` : null, orgLocation || null].filter(Boolean).join(" ");
+  };
+  // "closes 5th June 2026 (12 days left)" — falls back to just the date when there's no
+  // deadline or the tender's already closed (daysLeftLabel returns null in both cases).
+  const closingWithUrgency = (t: InsertedTenderSummary) => {
+    const urgency = daysLeftLabel(t.closing_date, t.status);
+    return urgency ? `${formatClosingDate(t.closing_date)} (${urgency})` : formatClosingDate(t.closing_date);
+  };
+
   if (task.email_notifications_enabled) {
     const extraEmails = (task.custom_emails || "")
       .split(",")
@@ -72,7 +102,12 @@ export async function notifyTaskOwner(
     const recipients = [task.user_id, ...extraEmails];
     try {
       const listHtml = showList
-        ? `<ul>${tenders.map((t) => `<li>${t.title} — ${formatClosingDate(t.closing_date)}</li>`).join("")}</ul>`
+        ? `<ul>${tenders
+            .map((t) => {
+              const detail = meta(t);
+              return `<li><a href="${appUrl}${tenderHref(t)}">${t.title}</a>${detail ? ` — ${detail}` : ""} — ${closingWithUrgency(t)}</li>`;
+            })
+            .join("")}</ul>`
         : "";
       await sendEmail({
         to: recipients,
@@ -86,7 +121,15 @@ export async function notifyTaskOwner(
 
   if (task.slack_notifications_enabled) {
     try {
-      const listText = showList ? "\n" + tenders.map((t) => `• ${t.title} — ${formatClosingDate(t.closing_date)}`).join("\n") : "";
+      const listText = showList
+        ? "\n" +
+          tenders
+            .map((t) => {
+              const detail = meta(t);
+              return `• <${appUrl}${tenderHref(t)}|${t.title}>${detail ? ` — ${detail}` : ""} — ${closingWithUrgency(t)}`;
+            })
+            .join("\n")
+        : "";
       await sendSlackMessage(`${message}${listText}\n<${appUrl}/tenders|View tenders>`);
     } catch (err) {
       console.error("Failed to send tender-found Slack message:", err);

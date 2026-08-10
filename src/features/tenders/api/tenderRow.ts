@@ -55,15 +55,20 @@ function normalizeTitle(title: string): string {
  * catch that case.
  */
 export interface InsertedTenderSummary {
+  id: number;
   title: string;
   closing_date: string;
+  status: "open" | "closed";
+  organization: string | null;
+  location: string | null;
+  category: string | null;
 }
 
 export interface InsertResult {
   inserted: number;
   open: number;
   closed: number;
-  /** Title + closing_date only, for building a Slack/email summary without a second query. */
+  /** Enough per-tender detail to build a Slack/email summary (with real deep links) without a second query. */
   rows: InsertedTenderSummary[];
 }
 
@@ -83,14 +88,29 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
 
   if (deduped.length === 0) return { inserted: 0, open: 0, closed: 0, rows: [] };
 
-  const { error } = await supabase.from("tenders").upsert(deduped, { onConflict: "source_url", ignoreDuplicates: true });
+  // `ignoreDuplicates` means Postgres's ON CONFLICT DO NOTHING skips already-existing rows
+  // silently — RETURNING (what `.select()` pulls back) only ever contains the rows that were
+  // actually newly inserted, which is exactly what a "N new tenders found" notification wants.
+  const { data: insertedRows, error } = await supabase
+    .from("tenders")
+    .upsert(deduped, { onConflict: "source_url", ignoreDuplicates: true })
+    .select("id, title, closing_date, status, organization, location, category");
   if (error) throw error;
 
+  const returned = insertedRows ?? [];
   return {
-    inserted: deduped.length,
-    open: deduped.filter((r) => r.status === "open").length,
-    closed: deduped.filter((r) => r.status === "closed").length,
-    rows: deduped.map((r) => ({ title: r.title, closing_date: r.closing_date })),
+    inserted: returned.length,
+    open: returned.filter((r) => r.status === "open").length,
+    closed: returned.filter((r) => r.status === "closed").length,
+    rows: returned.map((r) => ({
+      id: r.id,
+      title: r.title,
+      closing_date: r.closing_date,
+      status: r.status,
+      organization: r.organization,
+      location: r.location,
+      category: r.category,
+    })),
   };
 }
 

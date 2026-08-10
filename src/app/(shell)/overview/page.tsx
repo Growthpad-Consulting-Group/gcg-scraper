@@ -16,6 +16,7 @@ import useUserProfile from "@/features/auth/hooks/useUserProfile";
 interface ScheduledTask {
   task_id: number;
   name: string;
+  tender_type: string | null;
   frequency: string;
   last_run: string | null;
   is_enabled: boolean;
@@ -69,6 +70,9 @@ export default function OverviewPage() {
 
   const runningCount = jobs.filter((j) => j.status === "running" || j.status === "queued").length;
   const sourcesActive = new Set(jobs.filter((j) => j.status === "running").map((j) => j.kind)).size;
+  // Distinct tender_type across enabled scheduled tasks — the actual sources currently in
+  // rotation, not a fixed list from whenever this card was first built.
+  const activeSourceNames = [...new Set(tasks.map((t) => t.tender_type).filter((v): v is string => !!v))].sort();
 
   return (
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -97,8 +101,11 @@ export default function OverviewPage() {
         <TendersTrendChart points={trendPoints} onSelectDate={(date) => router.push(`/tenders?date=${date}`)} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-          <div>
-            <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Run feed</h2>
+          {/* Nested grid (not flexbox) so the "fill available height" sizing stays scoped to
+              this row and matches the sidebar's natural height, instead of a flex-1 reaching up
+              into the page shell's own flex layout and filling the whole viewport. */}
+          <div className="grid grid-rows-[auto_1fr] rounded-lg border border-app-border bg-surface p-4">
+            <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Run feed</h2>
             <RunFeed jobs={jobs} isLoading={isLoading} onRefresh={fetchData} />
           </div>
 
@@ -126,12 +133,17 @@ export default function OverviewPage() {
 
             <div className="rounded-lg border border-app-border bg-surface p-4">
               <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Sources</h2>
-              <div className="flex flex-wrap gap-1.5">
-                <Badge status="neutral">Tenders.go.ke</Badge>
-                <Badge status="neutral">Website</Badge>
-                <Badge status="neutral">GMB</Badge>
-                <Badge status="neutral">LinkedIn</Badge>
-              </div>
+              {activeSourceNames.length === 0 ? (
+                <p className="text-sm text-text-lo">No active sources.</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {activeSourceNames.map((name) => (
+                    <Badge key={name} status="neutral">
+                      {name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

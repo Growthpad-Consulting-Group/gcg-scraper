@@ -74,20 +74,20 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
     return () => clearInterval(interval);
   }, [hasRunningJob]);
 
+  // No card chrome (border/bg/padding) here — the parent on the Overview page now supplies that,
+  // matching the sidebar cards' "title inside the card" look instead of a separate boxed table.
   if (isLoading) {
-    return <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading run feed…</div>;
+    return <p className="h-full text-sm text-text-lo">Loading run feed…</p>;
   }
 
   if (jobs.length === 0) {
-    return (
-      <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">
-        No runs yet — start one from Run Query or the Scheduler.
-      </div>
-    );
+    return <p className="h-full text-sm text-text-lo">No runs yet — start one from Run Query or the Scheduler.</p>;
   }
 
   return (
-    <div className="max-h-[480px] overflow-y-auto rounded-lg border border-app-border [&>div]:rounded-none [&>div]:border-0">
+    // min-h keeps it from collapsing to near-zero if the sidebar is ever short; max-h is a
+    // defensive cap so it can never run away and fill the viewport regardless of layout context.
+    <div className="h-full min-h-[320px] max-h-[80vh] overflow-y-auto [&>div]:rounded-none [&>div]:border-0">
     <Table>
       <TableHead className="sticky top-0 z-10">
         <TableRow>
