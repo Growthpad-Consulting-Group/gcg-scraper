@@ -8,12 +8,15 @@ import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 
 const TENDER_TYPE = "Website Tenders";
-// Scraping all ~1000 rows in `websites` in a single run isn't practical (Firecrawl cost/time);
-// each scheduled run processes a bounded batch instead, ordered oldest-checked-first (nulls —
-// never checked — sort first) so repeated runs rotate through the full list instead of always
-// hitting the same head slice. A single `websiteId` (from the Upload Website page's "Scan Now"
-// action) skips the batch and checks just that one site instead.
-const BATCH_SIZE = 15;
+// Scraping all rows in `websites` in a single run isn't practical (Firecrawl cost/time); each
+// scheduled run processes a bounded batch instead, ordered oldest-checked-first (nulls — never
+// checked — sort first) so repeated runs rotate through the full list instead of always hitting
+// the same head slice. A single `websiteId` (from the Upload Website page's "Scan Now" action)
+// skips the batch and checks just that one site instead.
+// Raised from 15 after curating the list down to ~218 orgs plausibly likely to run their own
+// tenders page (government bodies, NGOs, universities) — 30/week cycles the full list in ~7
+// weeks instead of ~15 weeks, for a small, bounded increase in per-run Firecrawl usage.
+const BATCH_SIZE = 30;
 
 export const runWebsiteScrapeJob = inngest.createFunction(
   // Shares the same Firecrawl account/quota as the other scrape jobs, so it's throttled the

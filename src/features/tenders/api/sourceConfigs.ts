@@ -155,18 +155,6 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     waitFor: 6000,
     timeout: 40000,
   },
-  {
-    tenderType: "Global Tenders Kenya",
-    // Previously in blocked_domains as "Subscription required" — that reason doesn't hold up:
-    // confirmed live, the listing itself (1,685+ notices, titles/dates/detail links) is fully
-    // browsable with no login wall; only the publisher-side dashboard/analytics features are
-    // gated. Page 1 already showed directly relevant hits (Advertising, Corporate Branding,
-    // Internet & Telecom Services) — needs the blocked_domains row removed to actually run.
-    url: "https://www.globaltenders.com/kenya-tenders",
-    prompt: "Extract all tender listings on this page, including title, closing/deadline date, and the full URL linking to each individual tender." + FIELD_SUFFIX,
-    waitFor: 6000,
-    timeout: 35000,
-  },
 ];
 
 export function getSourceConfig(tenderType: string) {
