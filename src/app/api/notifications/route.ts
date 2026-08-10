@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const supabase = createServerSupabaseClient();
   const { data: notifications, error } = await supabase
     .from("notifications")
-    .select("id, message, read, created_at")
+    .select("id, message, read, created_at, job_id")
     .eq("user_id", user.email)
     .order("created_at", { ascending: false })
     .limit(5);

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Icon } from "@iconify/react";
 import type { Notification } from "@/shared/contexts/NotificationsContext";
 
@@ -7,12 +8,15 @@ export default function Notifications({
   isLoading,
   onMarkAsRead,
   onClearAll,
+  onNavigate,
 }: {
   notifications: Notification[];
   mode: "light" | "dark";
   isLoading: boolean;
   onMarkAsRead: (id: string) => void;
   onClearAll?: () => void;
+  /** Closes the dropdown after clicking through to a notification's linked page. */
+  onNavigate?: () => void;
 }) {
   const isDark = mode === "dark";
   const hasUnread = notifications.some((n) => !n.read);
@@ -43,7 +47,20 @@ export default function Notifications({
                   aria-hidden
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{notification.message}</p>
+                  {notification.link ? (
+                    <Link
+                      href={notification.link}
+                      onClick={() => {
+                        if (!notification.read) onMarkAsRead(notification.id);
+                        onNavigate?.();
+                      }}
+                      className="block truncate text-sm hover:text-[#f05d23] hover:underline"
+                    >
+                      {notification.message}
+                    </Link>
+                  ) : (
+                    <p className="truncate text-sm">{notification.message}</p>
+                  )}
                   <p className={`font-mono text-[10px] ${isDark ? "text-gray-500" : "text-gray-400"}`}>
                     {new Date(notification.timestamp).toLocaleString()}
                   </p>

@@ -8,6 +8,8 @@ export type Notification = {
   message: string;
   timestamp: string;
   read: boolean;
+  /** Tenders page filtered to the run that triggered this notification, if it came from one. */
+  link: string | null;
 };
 
 type NotificationsContextValue = {
@@ -52,6 +54,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         message: n.message || "New notification",
         timestamp: n.created_at || new Date().toISOString(),
         read: n.read || false,
+        link: n.job_id ? `/tenders?job=${n.job_id}` : null,
       }));
       setNotifications(formatted);
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data: formatted, timestamp: Date.now() }));

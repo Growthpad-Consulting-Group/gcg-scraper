@@ -35,6 +35,14 @@ const TooltipIconButton = forwardRef<HTMLDivElement, TooltipIconButtonProps>((
   const btnRef = useRef<HTMLDivElement>(null);
   const [show, setShow] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [mounted, setMounted] = useState(false);
+
+  // Portal must not render during hydration — `typeof window` is already true on the
+  // client's first render (before hydration completes), which the server never rendered,
+  // so gating on that alone causes a hydration mismatch. Wait for a post-mount effect instead.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (show && btnRef.current) {
@@ -83,7 +91,7 @@ const TooltipIconButton = forwardRef<HTMLDivElement, TooltipIconButtonProps>((
       >
         {children || (icon && <Icon icon={icon} className="h-5 w-5 text-current" />)}
       </div>
-      {typeof window !== "undefined" && createPortal(
+      {mounted && createPortal(
         <div
           style={{
             position: "absolute",

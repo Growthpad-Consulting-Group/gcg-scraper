@@ -74,7 +74,9 @@ export async function notifyTaskOwner(
   const message = `"${label}" found ${tendersFound} new tender${tendersFound === 1 ? "" : "s"}.`;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-  await supabase.from("notifications").insert({ user_id: task.user_id, message, read: false });
+  // job_id lets the in-app notification link straight to this run's results via the Tenders
+  // page's existing `?job=` filter, instead of a message with nothing to click through to.
+  await supabase.from("notifications").insert({ user_id: task.user_id, message, read: false, job_id: jobId });
 
   // Enough to be worth listing inline vs. just pointing at the app — past a handful, a list
   // is noise, not signal.

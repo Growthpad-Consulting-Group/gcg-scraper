@@ -132,7 +132,14 @@ export default function Header({
                 {isNotificationsOpen && (
                   <div className="absolute top-12 right-0 w-96 z-10" onClick={(e) => e.stopPropagation()}>
                     <GlassPanel mode={mode} className={`rounded-2xl ${mode === "dark" ? "bg-gray-900/40 text-white" : "bg-white/40 text-[#231812]"}`}>
-                      <Notifications notifications={notifications} mode={mode} isLoading={isLoading} onMarkAsRead={onMarkAsRead} onClearAll={onClearAll} />
+                      <Notifications
+                        notifications={notifications}
+                        mode={mode}
+                        isLoading={isLoading}
+                        onMarkAsRead={onMarkAsRead}
+                        onClearAll={onClearAll}
+                        onNavigate={() => setIsNotificationsOpen(false)}
+                      />
                     </GlassPanel>
                   </div>
                 )}
