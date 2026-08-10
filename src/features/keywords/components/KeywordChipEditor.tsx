@@ -132,7 +132,7 @@ export default function KeywordChipEditor({
         {keywords.map((keyword) => (
           <span
             key={keyword.id}
-            className="inline-flex items-center gap-1.5 rounded-md border border-app-border bg-surface-2 px-2 py-1 text-sm text-text-hi"
+            className="inline-flex items-center gap-1.5 rounded-md border border-app-border bg-surface-2 px-2 py-1 text-sm text-text-hi transition-colors hover:border-brand-500/50 hover:bg-brand-500/5"
           >
             {keyword[keywordKey]}
             {needsTenderType && keyword.tender_type && (

@@ -130,7 +130,10 @@ export default function OverviewPage() {
                     .slice(0, 6)
                     .map((task) => (
                       <li key={task.task_id}>
-                        <Link href="/scheduler" className="flex flex-col gap-0.5 hover:text-brand-500">
+                        <Link
+                          href="/scheduler"
+                          className="-mx-2 flex flex-col gap-0.5 rounded-md px-2 py-1 transition-colors hover:bg-surface-2 hover:text-brand-500"
+                        >
                           <span className="truncate text-sm text-text-hi">{task.name}</span>
                           <span className="font-mono text-[11px] text-text-lo">
                             {task.frequency} · next run {nextRunLabel(task)}
@@ -149,9 +152,11 @@ export default function OverviewPage() {
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {activeSourceNames.map((name) => (
-                    <Badge key={name} status="neutral">
-                      {name}
-                    </Badge>
+                    <Link key={name} href={`/tenders?type=${encodeURIComponent(name)}`}>
+                      <Badge status="neutral" className="cursor-pointer transition-colors hover:border-brand-500/50 hover:text-brand-500">
+                        {name}
+                      </Badge>
+                    </Link>
                   ))}
                 </div>
               )}

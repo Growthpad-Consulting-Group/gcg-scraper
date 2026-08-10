@@ -16,7 +16,10 @@ export async function proxy(req: NextRequest) {
     // with its own CRON_SECRET check instead of a session cookie.
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/icons") ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/sw.js"
   ) {
     return NextResponse.next();
   }

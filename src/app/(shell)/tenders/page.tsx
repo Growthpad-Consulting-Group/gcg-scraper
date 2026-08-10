@@ -291,6 +291,7 @@ function TendersContent() {
   const searchParams = useSearchParams();
   const jobFilter = searchParams?.get("job") || null;
   const dateFilter = searchParams?.get("date") || null;
+  const typeFilter = searchParams?.get("type") || null;
 
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [total, setTotal] = useState(0);
@@ -365,7 +366,8 @@ function TendersContent() {
     () => [...new Set(tenders.map((t) => t.country).filter((v): v is string => !!v?.trim()))].sort(),
     [tenders]
   );
-  const filteredTenders = countryFilter ? dateFilteredTenders.filter((t) => t.country === countryFilter) : dateFilteredTenders;
+  const typeFilteredTenders = typeFilter ? dateFilteredTenders.filter((t) => t.tender_type === typeFilter) : dateFilteredTenders;
+  const filteredTenders = countryFilter ? typeFilteredTenders.filter((t) => t.country === countryFilter) : typeFilteredTenders;
 
   const columns = buildColumns(expandedId, setExpandedId);
 
@@ -436,6 +438,18 @@ function TendersContent() {
               Tenders scraped on{" "}
               {new Date(`${dateFilter}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
             </span>
+            <span className="font-mono text-[11px] text-text-lo">{filteredTenders.length} tenders</span>
+            <button onClick={() => router.push("/tenders")} className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
+              <Icon icon="mdi:close" width={12} />
+              Clear filter
+            </button>
+          </div>
+        )}
+
+        {typeFilter && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-app-border bg-surface px-3 py-2 text-sm">
+            <Badge status="info">Filtered</Badge>
+            <span className="text-text-hi">Source: {typeFilter}</span>
             <span className="font-mono text-[11px] text-text-lo">{filteredTenders.length} tenders</span>
             <button onClick={() => router.push("/tenders")} className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
               <Icon icon="mdi:close" width={12} />

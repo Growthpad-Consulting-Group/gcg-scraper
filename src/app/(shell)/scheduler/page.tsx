@@ -10,7 +10,7 @@ import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable
 import AddSchedulerModal from "@/features/scheduler/components/AddSchedulerModal";
 import EditSchedulerModal from "@/features/scheduler/components/EditSchedulerModal";
 import ConfirmDeleteModal from "@/shared/ui/ConfirmDeleteModal";
-import LogsModal from "@/features/scheduler/components/LogsModal";
+import LogsModal, { type TaskLogEntry } from "@/features/scheduler/components/LogsModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import { getSourceConfig } from "@/features/tenders/api/sourceConfigs";
 
@@ -40,7 +40,7 @@ export default function SchedulerPage() {
   const [currentTaskId, setCurrentTaskId] = useState<number | null>(null);
   const [currentTaskName, setCurrentTaskName] = useState("");
   const [currentTask, setCurrentTask] = useState<ScheduledTask | null>(null);
-  const [logsContent, setLogsContent] = useState("");
+  const [logs, setLogs] = useState<TaskLogEntry[]>([]);
 
   const fetchTenderTypes = useCallback(async () => {
     try {
@@ -236,8 +236,7 @@ export default function SchedulerPage() {
       toast.dismiss(toastId);
       if (!res.ok) throw new Error(data.error || "Failed to fetch logs");
 
-      const logs = (data.logs || []).map((log: any) => `${log.created_at}: ${log.log_entry}`).join("\n");
-      setLogsContent(logs || "No logs available.");
+      setLogs(data.logs || []);
       setCurrentTaskName(taskName);
       setIsLogsModalOpen(true);
     } catch (err: any) {
@@ -319,7 +318,7 @@ export default function SchedulerPage() {
         itemType="scheduled task"
         mode={mode}
       />
-      <LogsModal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} logsContent={logsContent} taskName={currentTaskName} />
+      <LogsModal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} logs={logs} taskName={currentTaskName} />
     </>
   );
 }

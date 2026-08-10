@@ -119,7 +119,7 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
           const canRetry = (job.status === "error" || job.status === "canceled") && job.task_id != null;
           return (
             <Fragment key={job.id}>
-              <TableRow className="cursor-pointer" onClick={() => setExpandedId(expanded ? null : job.id)}>
+              <TableRow className="cursor-pointer hover:!bg-brand-500/5" onClick={() => setExpandedId(expanded ? null : job.id)}>
                 <TableTd>
                   <div className="flex flex-col">
                     <span className="truncate font-medium text-text-hi">{job.label || KIND_LABEL[job.kind]}</span>

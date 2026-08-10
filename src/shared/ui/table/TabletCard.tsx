@@ -263,6 +263,7 @@ const TabletCard: React.FC<TabletCardProps> = ({
                       <div className="absolute right-0 top-10 z-[100] min-w-[200px] rounded-2xl shadow-2xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-1.5 animate-in fade-in zoom-in duration-200 overflow-hidden">
                         {overflowActions.map((action, i) => {
                           const label = typeof action.label === "function" ? action.label(row) : action.label;
+                          const tooltip = typeof action.tooltip === "function" ? action.tooltip(row) : action.tooltip;
                           const icon = typeof action.icon === "function" ? action.icon(row) : action.icon;
                           const isDisabled = typeof action.disabled === "function" ? action.disabled(row) : action.disabled;
 
@@ -280,7 +281,7 @@ const TabletCard: React.FC<TabletCardProps> = ({
                                 }`}
                             >
                               <Icon icon={icon || "solar:question-circle-broken"} className="w-5 h-5 opacity-70" />
-                              {label || 'Action'}
+                              {label || tooltip || 'Action'}
                             </button>
                           );
                         })}

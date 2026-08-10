@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Figtree, Inter, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/contexts/ThemeContext";
 import { NotificationsProvider } from "@/shared/contexts/NotificationsContext";
 import AppToaster from "@/shared/ui/AppToaster";
+import ServiceWorkerRegister from "@/shared/ui/ServiceWorkerRegister";
 
 const figtree = Figtree({
   subsets: ["latin"],
@@ -43,6 +44,24 @@ const cloverDisplay = localFont({
 
 export const metadata: Metadata = {
   title: "GCG Scraper",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "GCG Scraper",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f05d23",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -62,6 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <NotificationsProvider>
             <AppToaster />
+            <ServiceWorkerRegister />
             {children}
           </NotificationsProvider>
         </ThemeProvider>
