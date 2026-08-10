@@ -150,12 +150,21 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
                       lines={[
                         { text: `job ${job.id}`, tone: "info" },
                         { text: `kind: ${job.kind}`, tone: "default" },
-                        job.progress?.current_url
-                          ? { text: `current_url: ${job.progress.current_url}`, tone: "default" }
-                          : { text: "no progress payload yet", tone: "default" },
-                        job.progress?.total
-                          ? { text: `progress: ${job.progress.visited ?? 0}/${job.progress.total}`, tone: "default" }
-                          : { text: "progress: —", tone: "default" },
+                        // tender-source jobs are a single Firecrawl call with no incremental
+                        // visited/total progress to report — showing "no progress payload
+                        // yet"/"progress: —" there reads as stuck rather than just single-step.
+                        job.kind === "tender-source"
+                          ? job.status === "running"
+                            ? { text: `stage: ${job.progress?.stage ?? "extracting"}`, tone: "default" as const }
+                            : null
+                          : job.progress?.current_url
+                            ? { text: `current_url: ${job.progress.current_url}`, tone: "default" as const }
+                            : { text: "no progress payload yet", tone: "default" as const },
+                        job.kind === "tender-source"
+                          ? null
+                          : job.progress?.total
+                            ? { text: `progress: ${job.progress.visited ?? 0}/${job.progress.total}`, tone: "default" as const }
+                            : { text: "progress: —", tone: "default" as const },
                         job.status === "error" ? { text: errorMessage ? `error: ${errorMessage}` : "job failed — no error message captured", tone: "danger" } : null,
                         job.status === "done" ? { text: "completed", tone: "success" } : null,
                       ].filter((l): l is { text: string; tone: "info" | "default" | "danger" | "success" } => l !== null)}

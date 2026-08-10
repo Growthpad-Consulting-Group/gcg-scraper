@@ -8,7 +8,7 @@ export interface RunJob {
   kind: JobKind;
   label: string | null;
   status: "queued" | "running" | "done" | "error" | "canceled";
-  progress: { visited?: number; total?: number; current_url?: string } | null;
+  progress: { visited?: number; total?: number; current_url?: string; stage?: string } | null;
   result_summary: Record<string, number | string> | null;
   created_at: string;
   finished_at: string | null;

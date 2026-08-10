@@ -105,3 +105,30 @@ export async function extractTenders(url: string, prompt: string, options?: Extr
 
   throw lastError!;
 }
+
+// Matches an actual downloadable file, not just any URL containing "file"-ish substrings
+// (e.g. a nav link like ".../targetproductprofiles" would false-positive on a bare /file/i test).
+const DOCUMENT_LINK_PATTERN = /\.pdf(\?|$)|\.docx?(\?|$)|\.xlsx?(\?|$)|\bdownload\b|\battachment\b/i;
+
+/** Fetches a tender's own detail page (one level deeper than the listing page extraction sees)
+ * and picks out the real document/PDF link, for sources like UNGM where the listing-page
+ * extraction can only see the notice URL itself, not its attached files. */
+export async function resolveDocumentLink(url: string): Promise<string | null> {
+  const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url, formats: ["links"], onlyMainContent: false, waitFor: 5000, timeout: 25000 }),
+  });
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const links: string[] = Array.isArray(data?.data?.links) ? data.data.links : [];
+  const candidates = links.filter((l) => l !== url && DOCUMENT_LINK_PATTERN.test(l));
+  if (!candidates.length) return null;
+
+  // Prefer a single-document link over a "download all" bundle when both are present.
+  return candidates.find((l) => !/all/i.test(l)) ?? candidates[0];
+}

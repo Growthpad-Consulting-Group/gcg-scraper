@@ -12,6 +12,7 @@ import EditSchedulerModal from "@/features/scheduler/components/EditSchedulerMod
 import ConfirmDeleteModal from "@/shared/ui/ConfirmDeleteModal";
 import LogsModal from "@/features/scheduler/components/LogsModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
+import { getSourceConfig } from "@/features/tenders/api/sourceConfigs";
 
 interface ScheduledTask {
   task_id: number;
@@ -82,15 +83,28 @@ export default function SchedulerPage() {
   };
 
   const handleRunTask = async (taskId: number, taskName: string) => {
-    const toastId = toast.loading("Redirecting, please wait...");
+    // The /run-query progress page is built for the interactive "Search Query Tenders" flow
+    // (visited/total URL counts as it goes). Fixed-source and website scrapes are a single
+    // Firecrawl call with no such incremental progress to report, so redirecting there just
+    // shows a permanently-stuck "0 results queued" screen — those stay on this page instead,
+    // where the job list already polls and reflects status/results correctly.
+    const task = tasks.find((t) => t.task_id === taskId);
+    const tenderType = task?.tender_type;
+    const isFixedSource = tenderType === "Website Tenders" || (tenderType && !!getSourceConfig(tenderType));
+
+    const toastId = toast.loading(isFixedSource ? "Starting task..." : "Redirecting, please wait...");
     try {
       const res = await fetch(`/api/scheduled-tasks/${taskId}/run`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.scraping_task_id) throw new Error(data.error || "No scraping_task_id returned");
 
-      router.push(`/run-query?taskId=${data.scraping_task_id}`);
       setTasks((prev) => prev.map((t) => (t.task_id === taskId ? { ...t, last_run: new Date().toISOString() } : t)));
-      toast.success("Task started successfully!", { id: toastId, duration: 3000 });
+      if (isFixedSource) {
+        toast.success(`"${taskName}" started — check its status below.`, { id: toastId, duration: 4000 });
+      } else {
+        router.push(`/run-query?taskId=${data.scraping_task_id}`);
+        toast.success("Task started successfully!", { id: toastId, duration: 3000 });
+      }
     } catch (err: any) {
       toast.error("Error starting task: " + err.message, { id: toastId });
     }

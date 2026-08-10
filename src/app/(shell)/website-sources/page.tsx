@@ -138,7 +138,10 @@ export default function UploadWebsitePage() {
       const res = await fetch(`/api/websites/${website.id}/scan`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start scan");
-      router.push(`/run-query?taskId=${data.jobId}`);
+      // /run-query's progress screen expects incremental visited/total URL counts, which a
+      // single-site website scan never produces (one Firecrawl call, no interim steps) — it
+      // would just show a permanently-stuck "0 results queued" screen. Stay here instead.
+      toast.success(`Scan started for "${website.name}" — check the Scheduler's job list for status.`);
     } catch (err: any) {
       toast.error("Failed to start scan: " + err.message);
     } finally {
