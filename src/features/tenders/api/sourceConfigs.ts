@@ -20,9 +20,14 @@ export type SourceConfig = {
 
 // Appended to every prompt below: these are aggregator sites (UNGM, ReliefWeb, ...) where many
 // different organizations post under one domain, so "who's asking" has to come from the page
-// content per listing, not the site itself.
+// content per listing, not the site itself. The "leave blank" instruction matters as much as
+// the "extract X" one — without it the model fabricates a plausible-looking category from the
+// title alone on sites that never actually display one per listing (e.g. Job in Rwanda has a
+// real category taxonomy, but it's never printed next to any individual tender), which then
+// both over- and under-triggers keyword-based relevance filtering on a value that was never
+// really there.
 const FIELD_SUFFIX =
-  " For each one, also extract the issuing organization/agency named on the page (not the aggregator site itself), a short category label, location, and budget/value if stated.";
+  " For each one, also extract the issuing organization/agency named on the page (not the aggregator site itself), location, and budget/value if stated. Also extract a category label, but only if the page explicitly shows one for that listing — leave it blank rather than guessing one from the title.";
 
 export const SOURCE_CONFIGS: SourceConfig[] = [
   {
@@ -51,8 +56,18 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
   },
   {
     tenderType: "ReliefWeb Jobs",
-    url: "https://reliefweb.int/updates?content=procurement",
-    prompt: "Extract all procurement/tender updates listed on this page, including title, closing/deadline date if shown, and the full URL linking to each individual update." + FIELD_SUFFIX,
+    // The old URL's `content=procurement` param wasn't a real filter at all — it returned
+    // ~1.1M generic humanitarian updates (situation reports, disaster maps), and ReliefWeb's
+    // own content-format taxonomy has no "procurement" category. ReliefWeb's job board,
+    // however, does list genuine tenders/RFQs/EOIs from NGOs alongside job vacancies —
+    // `?search=tender` on /jobs surfaces those (confirmed live: RFQs, EOIs, "Call for Tender"
+    // postings mixed in with regular vacancies).
+    url: "https://reliefweb.int/jobs?search=tender",
+    prompt:
+      "Extract all tender/procurement listings on this page (RFQs, RFPs, EOIs, tender notices — not regular job vacancies), including title, closing/deadline date if shown, and the full URL linking to each individual listing." +
+      FIELD_SUFFIX,
+    waitFor: 6000,
+    timeout: 35000,
   },
   {
     tenderType: "Kenya Treasury",
@@ -94,14 +109,22 @@ export function buildRelevanceClause(keywords?: string[] | null, countries?: str
   return `Only include tenders ${parts.join(" AND ")}. Skip any tender that doesn't match these criteria.`;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** Deterministic backstop for `buildRelevanceClause` — the extraction prompt is only a soft
  * hint (the model doesn't reliably enforce it as a strict filter across every listing on a
  * page), so this re-checks each extracted tender's own text against the keyword list before
  * it's saved. Country isn't re-checked here: free-text `location` fields vary too much
- * ("Nairobi" vs "Kenya" vs "East Africa") for a substring match to be reliable. */
+ * ("Nairobi" vs "Kenya" vs "East Africa") for a substring match to be reliable.
+ *
+ * Uses word-boundary matching, not plain substring — short keyword abbreviations like "IT" and
+ * "PR" otherwise false-positive inside unrelated words ("condIT ioners", "PReventive"), which
+ * silently let irrelevant tenders through undetected. */
 export function matchesKeywords(tender: { title: string; description?: string | null; category?: string | null }, keywords?: string[] | null): boolean {
   const kw = (keywords || []).map((k) => k.trim().toLowerCase()).filter(Boolean);
   if (!kw.length) return true;
   const haystack = `${tender.title} ${tender.description || ""} ${tender.category || ""}`.toLowerCase();
-  return kw.some((k) => haystack.includes(k));
+  return kw.some((k) => new RegExp(`\\b${escapeRegExp(k)}\\b`, "i").test(haystack));
 }

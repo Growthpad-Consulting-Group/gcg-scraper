@@ -95,16 +95,27 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
 }
 
 // Despite the extraction schema asking for ISO 8601, some sources come back with a date `new
-// Date()` can't parse directly: Kenya Treasury wraps it in extra text ("Thu, 08/06/2026 -
-// 15:00" — Date chokes on the " - 15:00" suffix, not the date itself), and PPIP uses ordinal
-// day suffixes ("August 11th, 2026" — Date chokes on "th"). Both were silently getting treated
-// as if there were no deadline at all (open forever, sorts as "no closing date") instead of
-// being worth a second parse attempt. Shared by resolveClosingDate and computeStatus so both
-// treat the same raw value consistently instead of one parsing it and the other giving up.
+// Date()` can't parse directly (or worse, parses wrong): Kenya Treasury wraps it in extra text
+// ("Thu, 08/06/2026 - 15:00" — Date chokes on the " - 15:00" suffix, not the date itself), PPIP
+// uses ordinal day suffixes ("August 11th, 2026" — Date chokes on "th"), and Job in Rwanda uses
+// day-first dashes ("21-08-2026", "10-08-2026") — Date assumes month-first for dash dates, so
+// "10-08-2026" silently parses as October 8 instead of the intended August 10. Checked before
+// the ambiguous native parse for exactly that reason: a wrong date is worse than a missing one.
+// Shared by resolveClosingDate and computeStatus so both treat the same raw value consistently.
+const DAY_FIRST_DASH_PATTERN = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
 const ORDINAL_SUFFIX_PATTERN = /(\d+)(st|nd|rd|th)\b/gi;
 const DATE_SUBSTRING_PATTERN = /\d{1,4}[/-]\d{1,2}[/-]\d{1,4}/;
 
 function parseFlexibleDate(value: string): Date | null {
+  const dayFirst = value.trim().match(DAY_FIRST_DASH_PATTERN);
+  if (dayFirst) {
+    const [, day, month, year] = dayFirst;
+    if (Number(day) <= 31 && Number(month) <= 12) {
+      const dayFirstParsed = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+      if (!isNaN(dayFirstParsed.getTime())) return dayFirstParsed;
+    }
+  }
+
   const direct = new Date(value);
   if (!isNaN(direct.getTime())) return direct;
 

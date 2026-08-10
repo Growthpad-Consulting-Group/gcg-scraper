@@ -86,8 +86,9 @@ export default function SchedulerPage() {
     // The /run-query progress page is built for the interactive "Search Query Tenders" flow
     // (visited/total URL counts as it goes). Fixed-source and website scrapes are a single
     // Firecrawl call with no such incremental progress to report, so redirecting there just
-    // shows a permanently-stuck "0 results queued" screen — those stay on this page instead,
-    // where the job list already polls and reflects status/results correctly.
+    // shows a permanently-stuck "0 results queued" screen. There's no job list on this page
+    // itself to point at either — the run feed only lives on /overview — so link there directly
+    // instead of a vague "check below" that has nothing to check "below".
     const task = tasks.find((t) => t.task_id === taskId);
     const tenderType = task?.tender_type;
     const isFixedSource = tenderType === "Website Tenders" || (tenderType && !!getSourceConfig(tenderType));
@@ -100,7 +101,23 @@ export default function SchedulerPage() {
 
       setTasks((prev) => prev.map((t) => (t.task_id === taskId ? { ...t, last_run: new Date().toISOString() } : t)));
       if (isFixedSource) {
-        toast.success(`"${taskName}" started — check its status below.`, { id: toastId, duration: 4000 });
+        toast.success(
+          (t) => (
+            <span>
+              {`"${taskName}" started — `}
+              <button
+                className="font-medium text-brand-500 underline"
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  router.push("/overview");
+                }}
+              >
+                view status on Overview
+              </button>
+            </span>
+          ),
+          { id: toastId, duration: 6000 }
+        );
       } else {
         router.push(`/run-query?taskId=${data.scraping_task_id}`);
         toast.success("Task started successfully!", { id: toastId, duration: 3000 });
