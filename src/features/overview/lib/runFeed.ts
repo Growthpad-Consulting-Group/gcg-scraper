@@ -42,6 +42,35 @@ export function runErrorMessage(job: RunJob): string | null {
   return typeof error === "string" ? error : null;
 }
 
+/** result_summary is computed and stored for every job (tenders found, open/closed split, URLs
+ * visited/skipped, leads found, ...) but the expanded panel only ever surfaced a sliver of it via
+ * runItemCount — this turns whatever's actually present into readable lines, kind-agnostic since
+ * the shape varies (tender-source/website have tendersFound+open/closed, search-query adds
+ * urls_visited/urlsSkipped, leads flows just have leadsFound). */
+export function resultSummaryLines(job: RunJob): string[] {
+  const s = job.result_summary;
+  if (!s) return [];
+  const lines: string[] = [];
+
+  if (typeof s.tendersFound === "number") {
+    const split =
+      typeof s.openTenders === "number" && typeof s.closedTenders === "number" ? ` (${s.openTenders} open, ${s.closedTenders} closed)` : "";
+    lines.push(`tenders found: ${s.tendersFound}${split}`);
+  }
+  if (typeof s.totalExtracted === "number" && s.totalExtracted !== s.tendersFound) {
+    lines.push(`extracted ${s.totalExtracted} raw, ${s.tendersFound ?? 0} new after de-dup/filtering`);
+  }
+  if (typeof s.leadsFound === "number") lines.push(`leads found: ${s.leadsFound}`);
+  if (typeof s.websitesProcessed === "number") lines.push(`websites processed: ${s.websitesProcessed}`);
+  if (typeof s.urls_visited === "number") {
+    const skipped = typeof s.urlsSkipped === "number" && s.urlsSkipped > 0 ? `, ${s.urlsSkipped} skipped (blocked domains)` : "";
+    lines.push(`urls visited: ${s.urls_visited}${skipped}`);
+  }
+  if (typeof s.apifyStatus === "string") lines.push(`apify status: ${s.apifyStatus}`);
+
+  return lines;
+}
+
 /** Where "View results" should send you for this job's kind — tender flows land on /tenders,
  * lead flows on /leads, filtered down to exactly what this run produced via ?job=<id>. Leads
  * also carry which tab (gmb/linkedin) to switch to, since the Leads page has two separate

@@ -8,7 +8,17 @@ import Badge from "@/shared/ui/Badge";
 import Button from "@/shared/ui/Button";
 import { Table, TableHead, TableBody, TableRow, TableTh, TableTd } from "@/shared/ui/Table";
 import LogPanel from "@/shared/ui/LogPanel";
-import { KIND_LABEL, STATUS_BADGE, runItemCount, runDuration, runErrorMessage, relativeTime, resultsHref, type RunJob } from "@/features/overview/lib/runFeed";
+import {
+  KIND_LABEL,
+  STATUS_BADGE,
+  runItemCount,
+  runDuration,
+  runErrorMessage,
+  resultSummaryLines,
+  relativeTime,
+  resultsHref,
+  type RunJob,
+} from "@/features/overview/lib/runFeed";
 
 function CancelButton({ jobId, onDone }: { jobId: string; onDone: () => void }) {
   const [isCanceling, setIsCanceling] = useState(false);
@@ -105,6 +115,7 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
           const items = runItemCount(job);
           const duration = runDuration(job, now);
           const errorMessage = runErrorMessage(job);
+          const summaryLines = resultSummaryLines(job);
           const canRetry = (job.status === "error" || job.status === "canceled") && job.task_id != null;
           return (
             <Fragment key={job.id}>
@@ -165,6 +176,7 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
                           : job.progress?.total
                             ? { text: `progress: ${job.progress.visited ?? 0}/${job.progress.total}`, tone: "default" as const }
                             : { text: "progress: —", tone: "default" as const },
+                        ...summaryLines.map((text) => ({ text, tone: "default" as const })),
                         job.status === "error" ? { text: errorMessage ? `error: ${errorMessage}` : "job failed — no error message captured", tone: "danger" } : null,
                         job.status === "done" ? { text: "completed", tone: "success" } : null,
                       ].filter((l): l is { text: string; tone: "info" | "default" | "danger" | "success" } => l !== null)}
@@ -172,7 +184,7 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
                     <div className="mt-2 flex gap-2">
                       {job.status === "done" && (
                         <Link href={resultsHref(job)}>
-                          <Button size="sm" variant="secondary">
+                          <Button size="sm">
                             <Icon icon="solar:arrow-right-broken" width={14} />
                             View {job.kind === "gmb-leads" || job.kind === "linkedin-leads" ? "leads" : "tenders"}
                           </Button>
