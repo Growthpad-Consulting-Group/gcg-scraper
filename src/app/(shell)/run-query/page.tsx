@@ -10,6 +10,7 @@ import { useTheme } from "@/shared/contexts/ThemeContext";
 import QueryComposer from "@/features/scraping/components/QueryComposer";
 import WebsiteRunForm, { type WebsiteSource } from "@/features/scraping/components/WebsiteRunForm";
 import LeadRunForm from "@/features/scraping/components/LeadRunForm";
+import DocumentRunForm from "@/features/scraping/components/DocumentRunForm";
 import RunModeSwitcher, { isRunMode, type RunMode } from "@/features/scraping/components/RunModeSwitcher";
 import RunConsole from "@/features/scraping/components/RunConsole";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
@@ -88,7 +89,7 @@ function RunQueryContent() {
           fetch("/api/base-keywords"),
           fetch("/api/countries"),
           fetch("/api/tender-types"),
-          fetch("/api/websites"),
+          fetch("/api/websites?limit=50"),
         ]);
         const searchTermsData = await searchTermsRes.json();
         const baseKeywordsData = await baseKeywordsRes.json();
@@ -195,6 +196,22 @@ function RunQueryContent() {
     }
   };
 
+  const handleRunDocument = async (file: File) => {
+    toast.loading("Uploading document...", { id: "document-start" });
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/jobs/document", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start document parse");
+      startJob(data.jobId, "document");
+      toast.dismiss("document-start");
+    } catch (err: any) {
+      setScrapeStatus("error");
+      toast.error("Failed to parse document: " + err.message, { id: "document-start" });
+    }
+  };
+
   const handleRunGmbLeads = async () => {
     if (!gmbSearchTerm.trim()) return;
     toast.loading("Starting lead search...", { id: "gmb-start" });
@@ -280,7 +297,7 @@ function RunQueryContent() {
                 <RunModeSwitcher mode={runMode} onChange={changeMode} />
               </div>
 
-            {runMode === "search-query" && (
+            <div className={runMode === "search-query" ? undefined : "hidden"}>
               <QueryComposer
                 searchTerms={searchTerms}
                 setSearchTerms={setSearchTerms}
@@ -300,9 +317,9 @@ function RunQueryContent() {
                 handleAddScheduledTask={handleAddScheduledTask}
                 mode={mode}
               />
-            )}
+            </div>
 
-            {runMode === "website" && (
+            <div className={runMode === "website" ? undefined : "hidden"}>
               <WebsiteRunForm
                 url={websiteUrl}
                 setUrl={setWebsiteUrl}
@@ -321,9 +338,17 @@ function RunQueryContent() {
                 }}
                 countries={countries.map((c) => c.country_name)}
               />
-            )}
+            </div>
 
-            {runMode === "gmb-leads" && (
+            <div className={runMode === "document" ? undefined : "hidden"}>
+              <DocumentRunForm
+                isRunning={scrapeStatus === "running"}
+                onRun={handleRunDocument}
+                mode={mode}
+              />
+            </div>
+
+            <div className={runMode === "gmb-leads" ? undefined : "hidden"}>
               <LeadRunForm
                 kind="gmb"
                 searchTerm={gmbSearchTerm}
@@ -337,9 +362,9 @@ function RunQueryContent() {
                 mode={mode}
                 countries={countries.map((c) => c.country_name)}
               />
-            )}
+            </div>
 
-            {runMode === "linkedin-leads" && (
+            <div className={runMode === "linkedin-leads" ? undefined : "hidden"}>
               <LeadRunForm
                 kind="linkedin"
                 searchTerm={linkedinSearchQuery}
@@ -353,7 +378,7 @@ function RunQueryContent() {
                 mode={mode}
                 countries={countries.map((c) => c.country_name)}
               />
-            )}
+            </div>
             </div>
 
             <div className="mx-auto w-full max-w-4xl min-h-[500px]">

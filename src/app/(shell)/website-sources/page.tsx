@@ -13,11 +13,19 @@ interface Website {
   url: string;
   location: string | null;
   tender_type: string | null;
+  created_at: string | null;
+  last_scraped_at: string | null;
+  tenders_count: number;
 }
 
 /** GenericTable requires a string `id`; the API uses numeric ids. */
 interface WebsiteRow extends Omit<Website, "id"> {
   id: string;
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function UploadWebsitePage() {
@@ -83,6 +91,34 @@ export default function UploadWebsitePage() {
       render: (row) =>
         row.location ? <Badge status="neutral">{row.location}</Badge> : <span className="text-text-lo">—</span>,
     },
+    {
+      Header: "Tenders Found",
+      accessor: "tenders_count",
+      sortable: true,
+      render: (row) =>
+        row.tenders_count > 0 ? (
+          <span className="font-mono text-sm font-medium text-text-hi">{row.tenders_count.toLocaleString()}</span>
+        ) : (
+          <span className="text-text-lo">—</span>
+        ),
+    },
+    {
+      Header: "Last Scraped",
+      accessor: "last_scraped_at",
+      sortable: true,
+      render: (row) =>
+        row.last_scraped_at ? (
+          <span className="text-sm text-text-hi">{formatDate(row.last_scraped_at)}</span>
+        ) : (
+          <Badge status="warning">Never</Badge>
+        ),
+    },
+    {
+      Header: "Date Added",
+      accessor: "created_at",
+      sortable: true,
+      render: (row) => <span className="text-sm text-text-lo">{formatDate(row.created_at)}</span>,
+    },
   ];
 
   const actions: Action<WebsiteRow>[] = [
@@ -138,7 +174,7 @@ export default function UploadWebsitePage() {
         showExportButton={false}
         enableDateFilter={false}
         hideEmptyColumns={false}
-        fullPageHeight={false}
+        fullPageHeight={true}
         actions={actions}
         onDelete={(row) => handleDelete(Number(row.id))}
         confirmDelete

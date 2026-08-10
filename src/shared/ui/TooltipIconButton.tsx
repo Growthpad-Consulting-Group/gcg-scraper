@@ -83,26 +83,26 @@ const TooltipIconButton = forwardRef<HTMLDivElement, TooltipIconButtonProps>((
       >
         {children || (icon && <Icon icon={icon} className="h-5 w-5 text-current" />)}
       </div>
-      {show && typeof window !== "undefined" && createPortal(
+      {typeof window !== "undefined" && createPortal(
         <div
           style={{
             position: "absolute",
             top: position === "top" ? coords.top - 8 : coords.top + 8,
             left: coords.left,
-            transform: "translateX(-50%)",
+            transform: position === "top" ? "translate(-50%, -100%)" : "translateX(-50%)",
             zIndex: 999999,
             pointerEvents: "none",
+            opacity: show ? 1 : 0,
+            transition: show ? "opacity 0.4s ease 0.2s" : "opacity 0.4s ease",
           }}
         >
           <div
             className={`
-              text-xs py-2 px-3 rounded-lg shadow-lg
+              text-sm py-2 px-3 rounded-lg shadow-lg
               text-center
               ${mode === "dark" ? "text-gray-200 bg-gray-900 border border-gray-700" : "text-gray-900 bg-white border border-gray-200"}
             `}
             style={{
-              opacity: 1,
-              transition: "opacity 0.2s",
               whiteSpace: "pre-line",
               maxWidth: `${tooltipMaxWidth}px`,
               minWidth: "120px",

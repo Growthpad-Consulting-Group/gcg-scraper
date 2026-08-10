@@ -401,7 +401,7 @@ function TendersContent() {
             {
               label: "Add Source",
               icon: "solar:upload-broken",
-              onClick: () => router.push("/upload-website"),
+              onClick: () => router.push("/website-sources"),
             },
           ]}
         />

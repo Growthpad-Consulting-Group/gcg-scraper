@@ -86,6 +86,7 @@ export default function WebsiteRunForm({
   const urlPlaceholder = useTypewriterPlaceholder(urlExamples, url.length === 0);
 
   const [onlyMainContent, setOnlyMainContent] = useState(true);
+  const [showDetails, setShowDetails] = useState(false);
   const [waitFor, setWaitFor] = useState("");
   const [timeout, setTimeoutMs] = useState("");
   const [maxAge, setMaxAge] = useState("");
@@ -109,7 +110,9 @@ export default function WebsiteRunForm({
     });
   };
 
-  const sourceOptions: SourceOption[] = sources.map((s) => ({ value: s.id, label: s.name || s.url, url: s.url }));
+  const sourceOptions: SourceOption[] = sources
+    .map((s) => ({ value: s.id, label: s.name || s.url, url: s.url }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   // The shared select styling is tuned for GenericTable's larger filter bar (52px control,
   // heavy rounding) — override just size/radius here so it sits naturally among this form's h-9 inputs.
@@ -125,7 +128,7 @@ export default function WebsiteRunForm({
     <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <div className="flex items-center justify-between pb-2">
         <span className="text-xs text-text-lo">Scrape a new URL, or pick one you're already tracking.</span>
-        <Link href="/upload-website" className="flex items-center gap-1 text-xs text-brand-500 hover:underline">
+        <Link href="/website-sources" className="flex items-center gap-1 text-xs text-brand-500 hover:underline">
           View tracked sources
           <Icon icon="solar:arrow-right-broken" width={12} />
         </Link>
@@ -163,9 +166,22 @@ export default function WebsiteRunForm({
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={`${inputClass} flex-1`} />
-        <LocationInput value={location} onChange={setLocation} countries={countries} mode={mode} className="w-full sm:w-56 shrink-0" />
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          className="flex items-center gap-1 text-xs text-text-lo hover:text-text-hi transition-colors"
+        >
+          <Icon icon={showDetails ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={12} />
+          {showDetails ? "Hide details" : "Add name & location"}
+        </button>
       </div>
+
+      {showDetails && (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={`${inputClass} flex-1`} />
+          <LocationInput value={location} onChange={setLocation} countries={countries} mode={mode} className="w-full sm:w-56 shrink-0" />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
