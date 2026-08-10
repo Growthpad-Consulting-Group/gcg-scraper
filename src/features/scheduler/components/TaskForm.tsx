@@ -2,6 +2,7 @@
 
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
+import MultiCreatableSelect from "@/shared/ui/MultiCreatableSelect";
 
 const inputClass = "w-full rounded-lg border border-app-border bg-canvas p-2 text-sm text-text-hi focus:outline-none focus:ring-2 focus:ring-brand-500";
 const pillClass = "flex items-center gap-1 rounded-full bg-surface-2 px-2 py-1 text-sm text-text-hi";
@@ -10,24 +11,20 @@ const secondaryButtonClass = "rounded-lg bg-surface-2 px-3 py-1 text-text-hi hov
 export default function TaskForm({
   task,
   setTask,
-  currentSearchTerm,
-  setCurrentSearchTerm,
+  mode,
   tenderTypes,
-  handleAddSearchTerm,
-  handleRemoveSearchTerm,
   isLoadingParent,
 }: {
   task: any;
   setTask: (updater: any) => void;
-  currentSearchTerm?: string;
-  setCurrentSearchTerm?: (v: string) => void;
+  mode: "light" | "dark";
   tenderTypes: string[];
-  handleAddSearchTerm?: () => void;
-  handleRemoveSearchTerm: (term: string) => void;
   isLoadingParent: boolean;
 }) {
   const [searchTerms, setSearchTerms] = useState<{ id: number; term: string }[]>([]);
   const [isLoadingSearchTerms, setIsLoadingSearchTerms] = useState(false);
+  const [countryOptions, setCountryOptions] = useState<string[]>([]);
+  const [isLoadingCountries, setIsLoadingCountries] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(
     task.emailNotificationsEnabled || task.smsNotificationsEnabled || task.slackNotificationsEnabled
@@ -55,13 +52,6 @@ export default function TaskForm({
   };
 
   useEffect(() => {
-    if (task.tenderType !== "Search Query Tenders") {
-      setSearchTerms([]);
-      setError(null);
-      setIsLoadingSearchTerms(false);
-      return;
-    }
-
     const fetchSearchTerms = async () => {
       setIsLoadingSearchTerms(true);
       setError(null);
@@ -75,9 +65,24 @@ export default function TaskForm({
         setIsLoadingSearchTerms(false);
       }
     };
-
     fetchSearchTerms();
-  }, [task.tenderType]);
+  }, []);
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      setIsLoadingCountries(true);
+      try {
+        const res = await fetch("/api/countries");
+        const data = await res.json();
+        setCountryOptions(Array.isArray(data) ? data.map((c: { country_name: string }) => c.country_name) : []);
+      } catch {
+        setCountryOptions([]);
+      } finally {
+        setIsLoadingCountries(false);
+      }
+    };
+    fetchCountries();
+  }, []);
 
   useEffect(() => {
     if (!task.customEmails && !task.custom_emails) {
@@ -92,11 +97,6 @@ export default function TaskForm({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setTask((prev: any) => ({ ...prev, [name]: value }));
-  };
-
-  const handleCheckboxChange = (term: string) => {
-    const updatedSearchTerms = task.searchTerms.includes(term) ? task.searchTerms.filter((t: string) => t !== term) : [...task.searchTerms, term];
-    setTask({ ...task, searchTerms: updatedSearchTerms, search_terms: updatedSearchTerms });
   };
 
   useEffect(() => {
@@ -156,74 +156,36 @@ export default function TaskForm({
       <div>
         <label className="mb-2 block text-sm font-medium text-text-hi">
           Search Term / Keyword
-          {task.tenderType !== "Search Query Tenders" && " (Optional)"}
+          {task.tenderType !== "Search Query Tenders" && (
+            <span className="ml-1 font-normal text-text-lo">(optional — narrows results to tenders matching these topics)</span>
+          )}
         </label>
-        {task.tenderType === "Search Query Tenders" ? (
-          <>
-            {isLoadingSearchTerms ? (
-              <p className="text-sm text-text-lo">Loading search terms...</p>
-            ) : error ? (
-              <p className="text-sm text-status-danger">Error: {error}</p>
-            ) : searchTerms.length > 0 ? (
-              <div className="grid max-h-32 grid-cols-2 gap-4 overflow-y-auto">
-                {searchTerms.map((termObj) => (
-                  <label key={termObj.id} className="flex items-center space-x-2 text-sm text-text-hi">
-                    <input
-                      type="checkbox"
-                      checked={task.searchTerms.includes(termObj.term)}
-                      onChange={() => handleCheckboxChange(termObj.term)}
-                      className="h-4 w-4 rounded border-app-border text-brand-500 focus:ring-brand-500"
-                    />
-                    <span>{termObj.term}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-status-danger">No search terms available. Please add search terms to proceed.</p>
-            )}
-            {task.searchTerms.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {task.searchTerms.map((term: string, index: number) => (
-                  <span key={index} className={pillClass}>
-                    {term}
-                    <button onClick={() => handleRemoveSearchTerm(term)} className="focus:outline-none">
-                      <Icon icon="solar:close-circle-broken" width={16} height={16} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="mb-2 flex gap-2">
-              <input
-                type="text"
-                value={currentSearchTerm}
-                onChange={(e) => setCurrentSearchTerm?.(e.target.value)}
-                className={inputClass}
-                placeholder="Add a search term"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddSearchTerm?.();
-                }}
-              />
-              <button onClick={handleAddSearchTerm} className={secondaryButtonClass}>
-                Add
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {task.searchTerms.map((term: string, index: number) => (
-                <span key={index} className={pillClass}>
-                  {term}
-                  <button onClick={() => handleRemoveSearchTerm(term)} className="focus:outline-none">
-                    <Icon icon="solar:close-circle-broken" width={16} height={16} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          </>
-        )}
+        {error && <p className="mb-2 text-sm text-status-danger">Error: {error}</p>}
+        <MultiCreatableSelect
+          value={task.searchTerms}
+          onChange={(values) => setTask((prev: any) => ({ ...prev, searchTerms: values, search_terms: values }))}
+          options={searchTerms.map((t) => t.term)}
+          placeholder="Select or type a keyword..."
+          mode={mode}
+          isLoading={isLoadingSearchTerms}
+        />
       </div>
+
+      {task.tenderType !== "Search Query Tenders" && (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-text-hi">
+            Countries / Regions <span className="font-normal text-text-lo">(optional — narrows results to these markets)</span>
+          </label>
+          <MultiCreatableSelect
+            value={task.countries || []}
+            onChange={(values) => setTask((prev: any) => ({ ...prev, countries: values }))}
+            options={countryOptions}
+            placeholder="Select or type a country/region..."
+            mode={mode}
+            isLoading={isLoadingCountries}
+          />
+        </div>
+      )}
 
       <div className="flex items-center space-x-3">
         <label className="text-sm font-medium text-text-hi">Enable Notifications?</label>

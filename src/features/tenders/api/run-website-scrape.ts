@@ -1,6 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders, type ExtractOptions } from "./firecrawlExtract";
+import { buildRelevanceClause, matchesKeywords } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
@@ -15,9 +16,17 @@ const TENDER_TYPE = "Website Tenders";
 const BATCH_SIZE = 15;
 
 export const runWebsiteScrapeJob = inngest.createFunction(
-  { id: "run-website-scrape-job", retries: 0, triggers: { event: "tenders/website.queued" } },
+  // Shares the same Firecrawl account/quota as the other scrape jobs, so it's throttled the
+  // same way to avoid contributing to 429 bursts (see run-source-scrape-job).
+  { id: "run-website-scrape-job", retries: 0, triggers: { event: "tenders/website.queued" }, throttle: { limit: 3, period: "1m" } },
   async ({ event, step }) => {
-    const { jobId, websiteId, extractOptions } = event.data as { jobId: string; websiteId?: number; extractOptions?: ExtractOptions };
+    const { jobId, websiteId, extractOptions, keywords, countries } = event.data as {
+      jobId: string;
+      websiteId?: number;
+      extractOptions?: ExtractOptions;
+      keywords?: string[];
+      countries?: string[];
+    };
     const supabase = createServerSupabaseClient();
 
     await step.run("mark-running", async () => {
@@ -36,11 +45,15 @@ export const runWebsiteScrapeJob = inngest.createFunction(
         return Promise.all([websitesQuery, supabase.from("search_terms").select("term").limit(20)]);
       });
 
-      const terms = (searchTerms || []).map((t) => t.term).join(", ");
+      // Task-level keywords (from the scheduled task's search terms) take priority over the
+      // global search_terms table when the task owner has specified their own.
+      const globalTerms = (searchTerms || []).map((t) => t.term).join(", ");
+      const terms = keywords && keywords.length ? keywords.join(", ") : globalTerms;
+      const countryClause = buildRelevanceClause(undefined, countries);
       const buildPrompt = (location?: string | null) =>
         `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, the full URL to the tender/notice if available (otherwise use the page URL), the direct document/PDF link if different, the issuing organization (usually this website's own organization unless stated otherwise), a short category label, location, and budget/value if stated.${
           location ? ` If a tender's location isn't stated on the page, use "${location}" as a fallback.` : ""
-        } If no tenders are found, return an empty list.`;
+        }${countryClause ? ` ${countryClause}` : ""} If no tenders are found, return an empty list.`;
 
       if (await step.run("check-canceled-before-extract", () => isJobCanceled(supabase, jobId))) {
         return { jobId, tendersFound: 0, canceled: true };
@@ -65,7 +78,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
 
           const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${website.id}`, async () => {
             const rows = extracted
-              .filter((t) => t.source_url || website.url)
+              .filter((t) => (t.source_url || website.url) && matchesKeywords(t, keywords))
               .map((t) => ({
                 title: t.title,
                 description: t.description || null,

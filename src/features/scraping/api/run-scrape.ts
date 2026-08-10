@@ -37,7 +37,9 @@ export const runScrapeJob = inngest.createFunction(
   // Single attempt: a retry would just re-run the same slow multi-URL extraction from scratch.
   // The catch-all below guarantees the job always lands in a terminal status either way, instead
   // of getting stuck at "running" forever if something throws past the per-URL try/catch.
-  { id: "run-scrape-job", retries: 0, triggers: { event: "scrape/job.queued" } },
+  // Shares the same Firecrawl account/quota as the other scrape jobs, so it's throttled the
+  // same way to avoid contributing to 429 bursts (see run-source-scrape-job).
+  { id: "run-scrape-job", retries: 0, triggers: { event: "scrape/job.queued" }, throttle: { limit: 3, period: "1m" } },
   async ({ event, step }) => {
     // `engines` is accepted for backward compatibility with older callers but no longer drives
     // behavior — Firecrawl's /search endpoint replaces per-engine SERP scraping entirely.

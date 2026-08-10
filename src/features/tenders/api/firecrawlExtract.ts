@@ -61,32 +61,47 @@ export type ExtractOptions = {
   includeTags?: string[];
 };
 
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
+
 export async function extractTenders(url: string, prompt: string, options?: ExtractOptions): Promise<ExtractResult> {
-  const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      url,
-      formats: ["markdown", "extract"],
-      extract: { schema: EXTRACTION_SCHEMA, prompt },
-      onlyMainContent: options?.onlyMainContent ?? true,
-      ...(options?.waitFor ? { waitFor: options.waitFor } : {}),
-      ...(options?.timeout ? { timeout: options.timeout } : {}),
-      ...(options?.maxAge ? { maxAge: options.maxAge } : {}),
-      ...(options?.excludeTags?.length ? { excludeTags: options.excludeTags } : {}),
-      ...(options?.includeTags?.length ? { includeTags: options.includeTags } : {}),
-    }),
+  const body = JSON.stringify({
+    url,
+    formats: ["markdown", "extract"],
+    extract: { schema: EXTRACTION_SCHEMA, prompt },
+    onlyMainContent: options?.onlyMainContent ?? true,
+    ...(options?.waitFor ? { waitFor: options.waitFor } : {}),
+    ...(options?.timeout ? { timeout: options.timeout } : {}),
+    ...(options?.maxAge ? { maxAge: options.maxAge } : {}),
+    ...(options?.excludeTags?.length ? { excludeTags: options.excludeTags } : {}),
+    ...(options?.includeTags?.length ? { includeTags: options.includeTags } : {}),
   });
 
-  if (!res.ok) {
-    throw new Error(`Firecrawl extract failed for ${url}: ${res.status} ${await res.text()}`);
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
+
+    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      lastError = new Error(`Firecrawl extract failed for ${url}: ${res.status} ${text}`);
+      if (!RETRYABLE_STATUSES.has(res.status)) throw lastError;
+      continue;
+    }
+
+    const data = await res.json();
+    const tenders = data?.data?.extract?.tenders;
+    const markdown = typeof data?.data?.markdown === "string" ? data.data.markdown : null;
+    return { tenders: Array.isArray(tenders) ? tenders : [], markdown };
   }
 
-  const body = await res.json();
-  const tenders = body?.data?.extract?.tenders;
-  const markdown = typeof body?.data?.markdown === "string" ? body.data.markdown : null;
-  return { tenders: Array.isArray(tenders) ? tenders : [], markdown };
+  throw lastError!;
 }

@@ -8,6 +8,7 @@ export interface ScheduledTaskRow {
   name: string | null;
   tender_type: string | null;
   search_terms: string[] | null;
+  countries: string[] | null;
 }
 
 /** Shared by the manual "Run Task" button and the cron trigger — one place that decides which
@@ -24,9 +25,15 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
   if (error || !job) throw new Error(error?.message || "Failed to create job");
 
   if (tenderType === "Website Tenders") {
-    await inngest.send({ name: "tenders/website.queued", data: { jobId: job.id } });
+    await inngest.send({
+      name: "tenders/website.queued",
+      data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [] },
+    });
   } else if (tenderType && getSourceConfig(tenderType)) {
-    await inngest.send({ name: "tenders/source.queued", data: { jobId: job.id, tenderType } });
+    await inngest.send({
+      name: "tenders/source.queued",
+      data: { jobId: job.id, tenderType, keywords: task.search_terms || [], countries: task.countries || [] },
+    });
   } else {
     const currentYear = new Date().getFullYear();
     const query = `${currentYear} ${(task.search_terms || []).join(" ")}`.trim();

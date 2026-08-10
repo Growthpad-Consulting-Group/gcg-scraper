@@ -1,15 +1,27 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
-import { getSourceConfig } from "./sourceConfigs";
+import { getSourceConfig, buildRelevanceClause, matchesKeywords } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 
 export const runSourceScrapeJob = inngest.createFunction(
-  { id: "run-source-scrape-job", retries: 0, triggers: { event: "tenders/source.queued" } },
+  {
+    id: "run-source-scrape-job",
+    retries: 0,
+    triggers: { event: "tenders/source.queued" },
+    // Scheduled sources all fire within the same cron tick, which was bursting past Firecrawl's
+    // per-minute rate limit (429s on PPIP/Treasury/UNDP). Throttle to spread calls out instead.
+    throttle: { limit: 3, period: "1m" },
+  },
   async ({ event, step }) => {
-    const { jobId, tenderType } = event.data as { jobId: string; tenderType: string };
+    const { jobId, tenderType, keywords, countries } = event.data as {
+      jobId: string;
+      tenderType: string;
+      keywords?: string[];
+      countries?: string[];
+    };
     const supabase = createServerSupabaseClient();
     const config = getSourceConfig(tenderType);
 
@@ -25,11 +37,16 @@ export const runSourceScrapeJob = inngest.createFunction(
     });
 
     try {
-      const { tenders: extracted, markdown } = await step.run("extract", () => extractTenders(config.url, config.prompt));
+      const relevanceClause = buildRelevanceClause(keywords, countries);
+      const prompt = relevanceClause ? `${config.prompt} ${relevanceClause}` : config.prompt;
+
+      const { tenders: extracted, markdown } = await step.run("extract", () =>
+        extractTenders(config.url, prompt, { waitFor: config.waitFor, timeout: config.timeout })
+      );
 
       const { inserted, open: openCount, closed: closedCount, rows: insertedTenders } = await step.run("save-tenders", async () => {
         const rows = extracted
-          .filter((t) => t.source_url)
+          .filter((t) => t.source_url && matchesKeywords(t, keywords))
           .map((t) => ({
             title: t.title,
             description: t.description || null,
@@ -42,6 +59,7 @@ export const runSourceScrapeJob = inngest.createFunction(
             raw_content: markdown,
             job_id: jobId,
             ...resolveOptionalFields(t),
+            ...(config.skipBudget ? { budget: null } : {}),
           }));
 
         return insertTenderRows(supabase, rows);

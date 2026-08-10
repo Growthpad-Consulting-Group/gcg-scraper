@@ -30,6 +30,7 @@ export default function AddSchedulerModal({
     frequency: "Daily",
     priority: "Medium",
     searchTerms: initialSearchTerms ?? ([] as string[]),
+    countries: [] as string[],
     emailNotificationsEnabled: false,
     smsNotificationsEnabled: false,
     slackNotificationsEnabled: false,
@@ -38,27 +39,14 @@ export default function AddSchedulerModal({
   });
 
   const [newTask, setNewTask] = useState(defaultTask);
-  const [currentSearchTerm, setCurrentSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setNewTask(defaultTask());
-      setCurrentSearchTerm("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, tenderTypes]);
-
-  const handleAddSearchTerm = () => {
-    if (currentSearchTerm.trim() && !newTask.searchTerms.includes(currentSearchTerm.trim())) {
-      setNewTask({ ...newTask, searchTerms: [...newTask.searchTerms, currentSearchTerm.trim()] });
-      setCurrentSearchTerm("");
-    }
-  };
-
-  const handleRemoveSearchTerm = (term: string) => {
-    setNewTask({ ...newTask, searchTerms: newTask.searchTerms.filter((t) => t !== term) });
-  };
 
   const validateTask = () => {
     if (!newTask.name.trim()) {
@@ -96,6 +84,7 @@ export default function AddSchedulerModal({
         frequency: newTask.frequency,
         priority: newTask.priority,
         search_terms: newTask.searchTerms,
+        countries: newTask.countries,
         email_notifications_enabled: newTask.emailNotificationsEnabled,
         sms_notifications_enabled: newTask.smsNotificationsEnabled,
         slack_notifications_enabled: newTask.slackNotificationsEnabled,
@@ -122,16 +111,7 @@ export default function AddSchedulerModal({
 
   return (
     <SimpleModal isOpen={isOpen} onClose={onClose} title="Add Scheduler" mode={mode} noPadding>
-      <TaskForm
-        task={newTask}
-        setTask={setNewTask}
-        currentSearchTerm={currentSearchTerm}
-        setCurrentSearchTerm={setCurrentSearchTerm}
-        tenderTypes={tenderTypes}
-        handleAddSearchTerm={handleAddSearchTerm}
-        handleRemoveSearchTerm={handleRemoveSearchTerm}
-        isLoadingParent={isSaving}
-      />
+      <TaskForm task={newTask} setTask={setNewTask} mode={mode} tenderTypes={tenderTypes} isLoadingParent={isSaving} />
       <div className="border-t border-app-border p-4">
         <FormActions
           onCancel={onClose}

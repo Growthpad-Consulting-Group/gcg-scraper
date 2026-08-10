@@ -22,7 +22,6 @@ export default function EditSchedulerModal({
   onTaskUpdated: (task: any) => void;
 }) {
   const [editedTask, setEditedTask] = useState<any>(null);
-  const [currentSearchTerm, setCurrentSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -31,25 +30,14 @@ export default function EditSchedulerModal({
         ...task,
         tenderType: task.tender_type || "",
         searchTerms: Array.isArray(task.search_terms) ? task.search_terms : [],
+        countries: Array.isArray(task.countries) ? task.countries : [],
         emailNotificationsEnabled: task.email_notifications_enabled ?? false,
         smsNotificationsEnabled: task.sms_notifications_enabled ?? false,
         slackNotificationsEnabled: task.slack_notifications_enabled ?? false,
         customEmails: (task.custom_emails || "").split(",").filter(Boolean),
       });
-      setCurrentSearchTerm("");
     }
   }, [isOpen, task]);
-
-  const handleAddSearchTerm = () => {
-    if (currentSearchTerm.trim() && !editedTask.searchTerms.includes(currentSearchTerm.trim())) {
-      setEditedTask((prev: any) => ({ ...prev, searchTerms: [...prev.searchTerms, currentSearchTerm.trim()] }));
-      setCurrentSearchTerm("");
-    }
-  };
-
-  const handleRemoveSearchTerm = (term: string) => {
-    setEditedTask((prev: any) => ({ ...prev, searchTerms: prev.searchTerms.filter((t: string) => t !== term) }));
-  };
 
   const handleSave = async () => {
     if (!editedTask.name?.trim()) {
@@ -67,6 +55,7 @@ export default function EditSchedulerModal({
           frequency: editedTask.frequency,
           priority: editedTask.priority,
           search_terms: editedTask.searchTerms,
+          countries: editedTask.countries,
           email_notifications_enabled: editedTask.emailNotificationsEnabled,
           sms_notifications_enabled: editedTask.smsNotificationsEnabled,
           slack_notifications_enabled: editedTask.slackNotificationsEnabled,
@@ -89,16 +78,7 @@ export default function EditSchedulerModal({
 
   return (
     <SimpleModal isOpen={isOpen} onClose={onClose} title="Edit Scheduler" mode={mode} noPadding>
-      <TaskForm
-        task={editedTask}
-        setTask={setEditedTask}
-        currentSearchTerm={currentSearchTerm}
-        setCurrentSearchTerm={setCurrentSearchTerm}
-        tenderTypes={tenderTypes}
-        handleAddSearchTerm={handleAddSearchTerm}
-        handleRemoveSearchTerm={handleRemoveSearchTerm}
-        isLoadingParent={isSaving}
-      />
+      <TaskForm task={editedTask} setTask={setEditedTask} mode={mode} tenderTypes={tenderTypes} isLoadingParent={isSaving} />
       <div className="border-t border-app-border p-4">
         <FormActions
           onCancel={onClose}
