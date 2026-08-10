@@ -10,6 +10,15 @@ import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 const TENDER_TYPE = "Search Query Tenders";
 const RESULTS_LIMIT = 10;
 
+/** Extracts the bare hostname from a URL, stripping www. prefix for consistent matching. */
+function extractHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 export const runScrapeJob = inngest.createFunction(
   // Single attempt: a retry would just re-run the same slow multi-URL extraction from scratch.
   // The catch-all below guarantees the job always lands in a terminal status either way, instead
@@ -29,8 +38,23 @@ export const runScrapeJob = inngest.createFunction(
     try {
       const results = await step.run("search", () => searchWeb(query, resultsLimit || RESULTS_LIMIT));
 
+      // Load blocked domains and filter out any search results whose hostname matches.
+      const filteredResults = await step.run("filter-blocked", async () => {
+        const { data } = await supabase
+          .from("blocked_domains")
+          .select("domain");
+        const blocked = new Set((data ?? []).map((r: { domain: string }) => r.domain));
+        const before = results.length;
+        const allowed = results.filter((r) => {
+          const host = extractHostname(r.url);
+          return host && !blocked.has(host);
+        });
+        console.log(`[run-scrape] blocked filter: ${before - allowed.length} URL(s) skipped, ${allowed.length} remaining`);
+        return allowed;
+      });
+
       await step.run("progress-searched", async () => {
-        await supabase.from("scrape_jobs").update({ progress: { visited: 0, total: results.length, stage: "extracting" } }).eq("id", jobId);
+        await supabase.from("scrape_jobs").update({ progress: { visited: 0, total: filteredResults.length, stage: "extracting" } }).eq("id", jobId);
       });
 
       if (await step.run("check-canceled-before-extract", () => isJobCanceled(supabase, jobId))) {
@@ -48,7 +72,7 @@ export const runScrapeJob = inngest.createFunction(
       // Extracted concurrently instead of one-at-a-time — this was the single biggest latency
       // cost in the whole pipeline (up to ~60s × 10 results run sequentially before).
       await Promise.all(
-        results.map(async (result) => {
+        filteredResults.map(async (result) => {
           const { tenders: extracted, markdown } = await step.run(`extract-${result.url}`, async () => {
             try {
               return await extractTenders(result.url, prompt);
@@ -99,7 +123,7 @@ export const runScrapeJob = inngest.createFunction(
           .update({
             status: "done",
             finished_at: new Date().toISOString(),
-            result_summary: { urls_visited: visited, tendersFound: totalInserted, totalTenders: totalInserted, openTenders: openCount, closedTenders: closedCount },
+            result_summary: { urls_visited: visited, tendersFound: totalInserted, totalTenders: totalInserted, openTenders: openCount, closedTenders: closedCount, urlsSkipped: (results.length - filteredResults.length) },
           })
           .eq("id", jobId)
           .neq("status", "canceled");

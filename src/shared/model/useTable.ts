@@ -159,8 +159,9 @@ export function useTable<T extends { id: string;[key: string]: any }>(
 
     // 2. Initial Sort
     if (sortBy === "recent") {
+      const getDate = (item: any) => item.created_at || item.scraped_at || item.last_run || item.last_scraped_at || 0;
       result = [...result].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        (a, b) => new Date(getDate(b)).getTime() - new Date(getDate(a)).getTime()
       );
     } else if (sortBy === "asc") {
       result = [...result].sort((a, b) =>

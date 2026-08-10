@@ -375,7 +375,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
     return safeData.filter((row: any) => {
       const dateFields = [
         'created_at', 'updated_at', 'scraped_at', 'published_at',
-        'deadline', 'date', 'timestamp',
+        'deadline', 'date', 'timestamp', 'last_run', 'last_scraped_at',
       ];
       let dateValue = null;
 

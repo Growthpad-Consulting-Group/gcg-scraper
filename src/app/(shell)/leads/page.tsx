@@ -42,11 +42,17 @@ function LeadsResultsTable<T extends Lead>({
   columns,
   onDelete,
   sourceBadge,
+  isLoading,
+  onRefresh,
+  exportTitle,
 }: {
   leads: T[];
   columns: LeadColumn<T>[];
   onDelete: (id: string) => void;
   sourceBadge: string;
+  isLoading?: boolean;
+  onRefresh?: () => void;
+  exportTitle?: string;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -85,22 +91,28 @@ function LeadsResultsTable<T extends Lead>({
     <GenericTable<T>
       data={leads}
       columns={tableColumns}
+      loading={isLoading}
       onRowClick={(row) => setExpandedId(expandedId === row.id ? null : row.id)}
       rowClickable
       customRowRender={customRowRender}
       emptyMessage="No leads yet — find some from Run Query."
       searchable
       searchPlaceholder="Search leads…"
-      selectable={false}
-      showBulkBar={false}
-      showExportButton={false}
-      enableDateFilter={false}
+      selectable
+      showBulkBar
+      showExportButton
+      exportType="leads"
+      exportTitle={exportTitle || "Leads"}
+      enableDateFilter
+      enableRefresh={!!onRefresh}
+      onRefresh={onRefresh}
       hideEmptyColumns={false}
-      fullPageHeight={false}
+      fullPageHeight={true}
       confirmDelete
       deleteConfirmationProps={{
         itemType: "lead",
-        suppressToast: true,
+        message: (item) => `"${item?.business_name || item?.full_name || "this lead"}"`,
+        suppressToast: false,
       }}
       onDelete={(row) => onDelete(row.id)}
     />
@@ -144,16 +156,15 @@ function GmbTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClea
   return (
     <div className="flex flex-col gap-4">
       {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
-      {!isLoading && leads.length > 0 && (
-        <div className="flex justify-end">
-          <LeadsExportButton leads={leads} filename="gmb_leads.csv" />
-        </div>
-      )}
-      {isLoading ? (
-        <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading leads…</div>
-      ) : (
-        <LeadsResultsTable leads={leads} columns={gmbColumns} onDelete={handleDelete} sourceBadge="Google Maps" />
-      )}
+      <LeadsResultsTable
+        leads={leads}
+        columns={gmbColumns}
+        onDelete={handleDelete}
+        sourceBadge="Google Maps"
+        isLoading={isLoading}
+        onRefresh={fetchLeads}
+        exportTitle="Google Maps Leads"
+      />
     </div>
   );
 }
@@ -195,16 +206,15 @@ function LinkedInTab({ jobFilter, onClearFilter }: { jobFilter: string | null; o
   return (
     <div className="flex flex-col gap-4">
       {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
-      {!isLoading && leads.length > 0 && (
-        <div className="flex justify-end">
-          <LeadsExportButton leads={leads} filename="linkedin_leads.csv" />
-        </div>
-      )}
-      {isLoading ? (
-        <div className="rounded-lg border border-app-border bg-surface p-6 text-sm text-text-lo">Loading leads…</div>
-      ) : (
-        <LeadsResultsTable leads={leads} columns={linkedinColumns} onDelete={handleDelete} sourceBadge="LinkedIn" />
-      )}
+      <LeadsResultsTable
+        leads={leads}
+        columns={linkedinColumns}
+        onDelete={handleDelete}
+        sourceBadge="LinkedIn"
+        isLoading={isLoading}
+        onRefresh={fetchLeads}
+        exportTitle="LinkedIn Leads"
+      />
     </div>
   );
 }

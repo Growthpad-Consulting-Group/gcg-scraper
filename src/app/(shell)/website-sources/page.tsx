@@ -166,13 +166,18 @@ export default function UploadWebsitePage() {
         data={websites.map((w) => ({ ...w, id: String(w.id) }))}
         columns={columns}
         loading={isLoading}
+        title="Website Sources"
         emptyMessage="No tracked websites yet — add one from Run Query."
         searchable
         searchPlaceholder="Search sources…"
-        selectable={false}
-        showBulkBar={false}
-        showExportButton={false}
-        enableDateFilter={false}
+        selectable
+        showBulkBar
+        showExportButton
+        exportType="website-sources"
+        exportTitle="Website Sources"
+        enableDateFilter
+        enableRefresh
+        onRefresh={fetchWebsites}
         hideEmptyColumns={false}
         fullPageHeight={true}
         actions={actions}

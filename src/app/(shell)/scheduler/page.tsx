@@ -200,6 +200,19 @@ export default function SchedulerPage() {
     }
   };
 
+  const statusOptions = [
+    { value: "all", label: "All statuses" },
+    { value: "enabled", label: "Enabled" },
+    { value: "disabled", label: "Disabled" },
+  ];
+
+  const handleDeleteTaskItem = async (task: ScheduledTaskRow) => {
+    const res = await fetch(`/api/scheduled-tasks/${task.id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to delete task");
+    setTasks((prev) => prev.filter((t) => String(t.task_id) !== String(task.id)));
+  };
+
   return (
     <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
@@ -218,18 +231,34 @@ export default function SchedulerPage() {
         />
 
         <GenericTable<ScheduledTaskRow>
-          data={tasks.map((t) => ({ ...t, id: String(t.task_id) }))}
+          data={tasks.map((t) => ({
+            ...t,
+            id: String(t.task_id),
+            status: t.is_enabled ? "enabled" : "disabled",
+          }))}
           columns={columns}
           loading={isLoading}
+          title="Scheduled Tasks"
           emptyMessage="No scheduled tasks yet."
           searchable
           searchPlaceholder="Search tasks…"
-          selectable={false}
-          showBulkBar={false}
-          showExportButton={false}
-          enableDateFilter={false}
+          selectable
+          showBulkBar
+          showExportButton
+          exportType="scheduled-tasks"
+          exportTitle="Scheduled Tasks"
+          enableDateFilter
+          statusOptions={statusOptions}
+          enableRefresh
+          onRefresh={fetchTasks}
+          onDelete={handleDeleteTaskItem}
+          confirmDelete
+          deleteConfirmationProps={{
+            itemType: "task",
+            message: (item) => `"${item?.name || "this task"}"`,
+          }}
           hideEmptyColumns={false}
-          fullPageHeight={false}
+          fullPageHeight={true}
           actions={actions}
         />
       </div>
