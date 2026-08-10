@@ -94,25 +94,74 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
   };
 }
 
+/** "DMY" (day-first, e.g. GHANEPS's 28/08/2026) or "MDY" (month-first, e.g. Kenya Treasury's
+ * 08/06/2026) — set on a SourceConfig when a source's slash-dates are known ahead of time.
+ * Only disambiguates the genuinely-ambiguous case (both segments ≤12); an unambiguous segment
+ * (>12) is always the day regardless of this hint, and dashes always parse day-first regardless
+ * (see parseFlexibleDate). Defaults to "MDY" — JS Date's own native assumption — when omitted,
+ * so existing sources with no hint set keep their prior behavior unchanged. */
+export type DateFormatHint = "DMY" | "MDY";
+
 // Despite the extraction schema asking for ISO 8601, some sources come back with a date `new
-// Date()` can't parse directly (or worse, parses wrong): Kenya Treasury wraps it in extra text
-// ("Thu, 08/06/2026 - 15:00" — Date chokes on the " - 15:00" suffix, not the date itself), PPIP
-// uses ordinal day suffixes ("August 11th, 2026" — Date chokes on "th"), and Job in Rwanda uses
-// day-first dashes ("21-08-2026", "10-08-2026") — Date assumes month-first for dash dates, so
-// "10-08-2026" silently parses as October 8 instead of the intended August 10. Checked before
-// the ambiguous native parse for exactly that reason: a wrong date is worse than a missing one.
-// Shared by resolveClosingDate and computeStatus so both treat the same raw value consistently.
-const DAY_FIRST_DASH_PATTERN = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
+// Date()` can't parse directly (or worse, parses wrong):
+// - Kenya Treasury wraps it in extra text ("Thu, 08/06/2026 - 15:00" — Date chokes on the
+//   " - 15:00" suffix, not the date itself) and uses MM/DD/YYYY slashes (US convention).
+// - PPIP uses ordinal day suffixes ("August 11th, 2026" — Date chokes on "th").
+// - Job in Rwanda uses day-first dashes ("21-08-2026", "10-08-2026") — Date assumes
+//   month-first for dash dates, so "10-08-2026" silently parses as October 8 instead of the
+//   intended August 10.
+// - GHANEPS (Ghana) uses DD/MM/YYYY slashes ("28/08/2026 14:00:00") — the *same* separator as
+//   Treasury but the *opposite* day/month order, so a fixed "slash = MM/DD" assumption can't
+//   handle both. Resolved case-by-case: whenever one of the two segments is >12 it can only be
+//   the day regardless of convention (no source uses genuinely month-first slashes past the
+//   12th); when both are ≤12 it's genuinely ambiguous from the text alone, so that's where the
+//   caller's `DateFormatHint` (from the source's own SourceConfig) breaks the tie instead of a
+//   blind default.
+// A wrong date is worse than a missing one, so all of this runs before the ambiguous native
+// parse. Shared by resolveClosingDate and computeStatus so both treat the same raw value
+// consistently instead of one parsing it and the other giving up.
+const DAY_FIRST_DASH_PATTERN = /(\d{1,2})-(\d{1,2})-(\d{4})/;
+const SLASH_DATE_PATTERN = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
 const ORDINAL_SUFFIX_PATTERN = /(\d+)(st|nd|rd|th)\b/gi;
 const DATE_SUBSTRING_PATTERN = /\d{1,4}[/-]\d{1,2}[/-]\d{1,4}/;
 
-function parseFlexibleDate(value: string): Date | null {
-  const dayFirst = value.trim().match(DAY_FIRST_DASH_PATTERN);
-  if (dayFirst) {
-    const [, day, month, year] = dayFirst;
-    if (Number(day) <= 31 && Number(month) <= 12) {
-      const dayFirstParsed = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
-      if (!isNaN(dayFirstParsed.getTime())) return dayFirstParsed;
+function tryDayFirst(day: string, month: string, year: string): Date | null {
+  if (Number(day) > 31 || Number(month) > 12) return null;
+  const parsed = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function tryMonthFirst(month: string, day: string, year: string): Date | null {
+  if (Number(day) > 31 || Number(month) > 12) return null;
+  const parsed = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseFlexibleDate(value: string, dateFormat: DateFormatHint = "MDY"): Date | null {
+  // Dashes: no known source uses month-first dashes, so always prefer day-first here.
+  const dayFirstDash = value.match(DAY_FIRST_DASH_PATTERN);
+  if (dayFirstDash) {
+    const [, day, month, year] = dayFirstDash;
+    const parsed = tryDayFirst(day, month, year);
+    if (parsed) return parsed;
+  }
+
+  // Slashes: genuinely ambiguous by convention (Treasury is MM/DD, GHANEPS is DD/MM).
+  const slash = value.match(SLASH_DATE_PATTERN);
+  if (slash) {
+    const [, first, second, year] = slash;
+    if (Number(first) > 12) {
+      // Unambiguous regardless of convention — first segment can only be a day.
+      const parsed = tryDayFirst(first, second, year);
+      if (parsed) return parsed;
+    } else if (Number(second) > 12) {
+      // Unambiguous the other way — second segment can only be a day.
+      const parsed = tryMonthFirst(first, second, year);
+      if (parsed) return parsed;
+    } else {
+      // Both ≤12: genuinely ambiguous from the text alone — defer to the source's known convention.
+      const parsed = dateFormat === "DMY" ? tryDayFirst(first, second, year) : tryMonthFirst(first, second, year);
+      if (parsed) return parsed;
     }
   }
 
@@ -132,16 +181,16 @@ function parseFlexibleDate(value: string): Date | null {
   return null;
 }
 
-export function computeStatus(closingDate: string | null): "open" | "closed" {
+export function computeStatus(closingDate: string | null, dateFormat?: DateFormatHint): "open" | "closed" {
   if (!closingDate) return "open";
-  const parsed = parseFlexibleDate(closingDate);
+  const parsed = parseFlexibleDate(closingDate, dateFormat);
   if (!parsed) return "open";
   return parsed.getTime() < Date.now() ? "closed" : "open";
 }
 
-export function resolveClosingDate(closingDate: string | null | undefined): string {
+export function resolveClosingDate(closingDate: string | null | undefined, dateFormat?: DateFormatHint): string {
   if (closingDate) {
-    const parsed = parseFlexibleDate(closingDate);
+    const parsed = parseFlexibleDate(closingDate, dateFormat);
     if (parsed) return parsed.toISOString().slice(0, 10);
   }
   return NO_DEADLINE_SENTINEL;

@@ -59,6 +59,10 @@ export type ExtractOptions = {
   excludeTags?: string[];
   /** CSS selectors to keep — when set, only these parts of the page are considered. */
   includeTags?: string[];
+  /** "stealth" routes through Firecrawl's anti-bot-detection proxy — costs more per request, so
+   * only set this for sources that actually sit behind a bot challenge (e.g. AfDB's Cloudflare
+   * managed challenge blocks the default proxy outright). */
+  proxy?: "basic" | "stealth";
 };
 
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
@@ -75,6 +79,7 @@ export async function extractTenders(url: string, prompt: string, options?: Extr
     ...(options?.maxAge ? { maxAge: options.maxAge } : {}),
     ...(options?.excludeTags?.length ? { excludeTags: options.excludeTags } : {}),
     ...(options?.includeTags?.length ? { includeTags: options.includeTags } : {}),
+    ...(options?.proxy ? { proxy: options.proxy } : {}),
   });
 
   let lastError: Error | undefined;

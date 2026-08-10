@@ -420,9 +420,9 @@ export default function ExportModal({
             }`}
         >
           {/* Header */}
-          <div className="shrink-0 bg-linear-to-r from-gcg-orange to-gcg-orange-dark rounded-t-2xl p-4 flex items-center justify-between relative overflow-hidden">
+          <div className="shrink-0 bg-gradient-to-r from-gcg-orange to-gcg-orange-dark rounded-t-2xl p-4 flex items-center justify-between relative overflow-hidden">
             <div className="absolute inset-0 opacity-10">
-              <div className="absolute inset-0 bg-linear-to-r from-white/20 via-transparent to-white/20 animate-shimmer" />
+              <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 animate-shimmer" />
             </div>
             <div className="flex items-center gap-3 relative z-10">
               <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">

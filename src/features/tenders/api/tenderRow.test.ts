@@ -36,6 +36,39 @@ describe("resolveClosingDate", () => {
   it("normalizes a valid date to YYYY-MM-DD", () => {
     expect(resolveClosingDate("2026-03-15T10:00:00+03:00")).toBe("2026-03-15");
   });
+
+  // Kenya Treasury wraps dates in extra text and prose day suffixes (PPIP) trip up a bare
+  // `new Date()` call — these previously silently fell back to "no deadline" instead of the
+  // tender's real closing date.
+  it("extracts a date from Kenya Treasury's 'Thu, MM/DD/YYYY - HH:MM' format", () => {
+    expect(resolveClosingDate("Thu, 08/06/2026 - 15:00")).toBe("2026-08-06");
+  });
+
+  it("strips PPIP's ordinal day suffix", () => {
+    expect(resolveClosingDate("August 11th, 2026")).toBe("2026-08-11");
+  });
+
+  // Job in Rwanda's dashes are always day-first, unlike native Date's month-first assumption —
+  // "10-08-2026" previously silently resolved to October 8 instead of August 10.
+  it("parses dash dates as day-first", () => {
+    expect(resolveClosingDate("21-08-2026")).toBe("2026-08-21");
+    expect(resolveClosingDate("10-08-2026")).toBe("2026-08-10");
+  });
+
+  // Slash dates are genuinely ambiguous by source convention when both segments are ≤12 —
+  // GHANEPS is day-first (DD/MM), Kenya Treasury is month-first (MM/DD), same separator,
+  // opposite meaning. An unambiguous segment (>12) always wins regardless of the hint; only the
+  // truly ambiguous case needs it.
+  it("resolves an unambiguous slash date the same way regardless of dateFormat hint", () => {
+    expect(resolveClosingDate("28/08/2026 14:00:00")).toBe("2026-08-28");
+    expect(resolveClosingDate("28/08/2026 14:00:00", "DMY")).toBe("2026-08-28");
+  });
+
+  it("defers to the dateFormat hint only when the slash date is genuinely ambiguous", () => {
+    expect(resolveClosingDate("08/09/2026")).toBe("2026-08-09"); // default MDY: Aug 9
+    expect(resolveClosingDate("08/09/2026", "MDY")).toBe("2026-08-09"); // explicit MDY: Aug 9
+    expect(resolveClosingDate("08/09/2026", "DMY")).toBe("2026-09-08"); // DMY: Sep 8
+  });
 });
 
 describe("resolveOptionalFields", () => {

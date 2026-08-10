@@ -41,7 +41,7 @@ export const runSourceScrapeJob = inngest.createFunction(
       const prompt = relevanceClause ? `${config.prompt} ${relevanceClause}` : config.prompt;
 
       const { tenders: extracted, markdown } = await step.run("extract", () =>
-        extractTenders(config.url, prompt, { waitFor: config.waitFor, timeout: config.timeout })
+        extractTenders(config.url, prompt, { waitFor: config.waitFor, timeout: config.timeout, proxy: config.proxy })
       );
 
       const { inserted, open: openCount, closed: closedCount, rows: insertedTenders } = await step.run("save-tenders", async () => {
@@ -50,9 +50,9 @@ export const runSourceScrapeJob = inngest.createFunction(
           .map((t) => ({
             title: t.title,
             description: t.description || null,
-            closing_date: resolveClosingDate(t.closing_date),
+            closing_date: resolveClosingDate(t.closing_date, config.dateFormat),
             source_url: t.source_url as string,
-            status: computeStatus(t.closing_date ?? null),
+            status: computeStatus(t.closing_date ?? null, config.dateFormat),
             tender_type: tenderType,
             format: t.source_url?.toLowerCase().endsWith(".pdf") ? "PDF" : t.source_url?.toLowerCase().endsWith(".docx") ? "DOCX" : "HTML",
             scraped_at: new Date().toISOString(),

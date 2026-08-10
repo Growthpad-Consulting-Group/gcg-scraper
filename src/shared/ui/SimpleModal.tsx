@@ -233,7 +233,7 @@ function SimpleModal({
             className="relative w-full max-w-sm"
           >
             <GlassPanel mode={mode} className={`rounded-3xl overflow-hidden ${mode === 'dark' ? 'bg-gray-900/50' : 'bg-white/50'}`}>
-              <div className="h-1 w-full bg-linear-to-r from-gcg-orange to-gcg-brown" />
+              <div className="h-1 w-full bg-gradient-to-r from-gcg-orange to-gcg-brown" />
               <div className="p-8 flex flex-col items-center text-center">
                 <div className="mb-5 w-16 h-16 rounded-2xl bg-gcg-brown/10 border border-gcg-brown/30 flex items-center justify-center">
                   <Icon icon="solar:danger-triangle-bold-duotone" className="w-8 h-8 text-gcg-brown" />

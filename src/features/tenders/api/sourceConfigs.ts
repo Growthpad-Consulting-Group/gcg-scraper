@@ -2,6 +2,8 @@
 // which runs a keyword search across generic search engines instead of a single fixed site).
 // URLs and target sites ported from the retired Python backend's per-source scrapers.
 
+import type { DateFormatHint } from "./tenderRow";
+
 export type SourceConfig = {
   tenderType: string;
   url: string;
@@ -16,6 +18,14 @@ export type SourceConfig = {
    * fabricates a small decimal instead of omitting the field — drop it at the source rather than
    * storing noise. */
   skipBudget?: boolean;
+  /** "stealth" for sources sitting behind a bot challenge that blocks Firecrawl's default proxy
+   * outright (e.g. AfDB's Cloudflare managed challenge) — costs more per request, so only set
+   * this where the plain default proxy has been confirmed not to work. */
+  proxy?: "basic" | "stealth";
+  /** Disambiguates this source's slash-separated dates when both day and month are ≤12 (e.g.
+   * GHANEPS's "08/09/2026") — see DateFormatHint in tenderRow.ts. Omit when the source's dates
+   * are unambiguous (dashes, month names) or when it's known/assumed MM/DD (the default). */
+  dateFormat?: DateFormatHint;
 };
 
 // Appended to every prompt below: these are aggregator sites (UNGM, ReliefWeb, ...) where many
@@ -27,7 +37,7 @@ export type SourceConfig = {
 // both over- and under-triggers keyword-based relevance filtering on a value that was never
 // really there.
 const FIELD_SUFFIX =
-  " For each one, also extract the issuing organization/agency named on the page (not the aggregator site itself), location, and budget/value if stated. Also extract a category label, but only if the page explicitly shows one for that listing — leave it blank rather than guessing one from the title.";
+  " For each one, also extract the issuing organization/agency named on the page (not the aggregator site itself), location, and budget/value if stated. Also extract a category label, but only if the page explicitly shows one for that listing — leave it blank rather than guessing one from the title. If the listing belongs to a broader project or programme named on the page (multi-project funder sites like World Bank/AfDB), include that project name in the description — a notice's own title is sometimes too generic (e.g. \"CERT Enhancement\") to tell what it's actually for without it.";
 
 export const SOURCE_CONFIGS: SourceConfig[] = [
   {
@@ -73,6 +83,10 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     tenderType: "Kenya Treasury",
     url: "https://www.treasury.go.ke/tenders/",
     prompt: "Extract all tender listings on this Kenya National Treasury page, including title, closing/deadline date, and the full URL or document link for each tender." + FIELD_SUFFIX,
+    // Explicit even though it matches the default — self-documents the confirmed convention
+    // rather than leaving it to an implicit fallback (see GHANEPS below for the DMY case this
+    // guards against).
+    dateFormat: "MDY",
   },
   {
     tenderType: "UNDP",
@@ -87,6 +101,46 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     tenderType: "Job in Rwanda",
     url: "https://www.jobinrwanda.com/jobs/tender",
     prompt: "Extract all tender listings on this page, including title, closing/deadline date, and the full URL linking to each individual tender." + FIELD_SUFFIX,
+  },
+  {
+    tenderType: "GHANEPS",
+    // The homepage's "Opened Bid Details" link is bids whose submission window has already
+    // closed (past the opening ceremony) — this "Current Tenders" quick-search view is the
+    // actually-open, still-accepting-submissions list.
+    url: "https://www.ghaneps.gov.gh/epps/quickSearchAction.do?searchSelect=6",
+    prompt:
+      "Extract all current/open tender listings on this Ghana government e-procurement page, including title, bid submission deadline date, and the full URL linking to each individual tender." +
+      FIELD_SUFFIX,
+    waitFor: 6000,
+    timeout: 35000,
+    // Confirmed live: dates are DD/MM/YYYY ("28/08/2026"), not Treasury's MM/DD/YYYY — matters
+    // for the rare case where both day and month are ≤12 and the text alone is ambiguous.
+    dateFormat: "DMY",
+  },
+  {
+    tenderType: "AfDB",
+    // AfDB sits behind a Cloudflare managed challenge that blocks Firecrawl's default proxy
+    // outright (confirmed: plain scrape returns a challenge page, stealth proxy gets through).
+    // Most notices are in French for francophone West/Central African projects — relevance
+    // filtering here does real work since only a fraction will ever match Kenya/Ghana.
+    url: "https://www.afdb.org/en/projects-and-operations/procurement",
+    prompt: "Extract all procurement notices listed on this African Development Bank page, including title, closing/deadline date if shown, and the full URL linking to each individual notice." + FIELD_SUFFIX,
+    waitFor: 8000,
+    timeout: 45000,
+    proxy: "stealth",
+  },
+  {
+    tenderType: "World Bank",
+    // The Bank's own "Procurement Notices" page (/procurement) is a historical archive of
+    // ~7,000+ notices per country going back years — /opportunities is the actually-current,
+    // still-open list ("643 current opportunities" at last check), with an explicit
+    // per-row Country column and Submission Deadline.
+    url: "https://projects.worldbank.org/en/projects-operations/opportunities?srce=both",
+    prompt:
+      "Extract all current procurement opportunities listed on this World Bank page, including title, submission deadline date, and the full URL linking to each individual notice." +
+      FIELD_SUFFIX,
+    waitFor: 8000,
+    timeout: 40000,
   },
 ];
 
