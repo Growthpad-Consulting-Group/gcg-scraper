@@ -19,6 +19,20 @@ function extractHostname(url: string): string {
   }
 }
 
+/**
+ * Returns a reason string if the markdown content signals a blocked/gated page,
+ * or null if the page looks legitimate.
+ */
+function detectBlockReason(markdown: string | null): string | null {
+  if (!markdown || markdown.trim().length < 100) return "empty or near-empty response";
+  const lower = markdown.toLowerCase();
+  if (/sign in|log in|login required|please log in|create an account to|register to (view|access)|you must be (logged|signed)/i.test(lower)) return "login wall";
+  if (/access denied|403 forbidden|you don't have permission|not authorized/i.test(lower)) return "access denied";
+  if (/captcha|verify you are human|robot check|cloudflare ray id|enable javascript and cookies/i.test(lower)) return "CAPTCHA / bot protection";
+  if (/subscribe to (view|access|read)|subscription required|premium content|upgrade your plan/i.test(lower)) return "paywall";
+  return null;
+}
+
 export const runScrapeJob = inngest.createFunction(
   // Single attempt: a retry would just re-run the same slow multi-URL extraction from scratch.
   // The catch-all below guarantees the job always lands in a terminal status either way, instead
@@ -79,6 +93,16 @@ export const runScrapeJob = inngest.createFunction(
             } catch {
               return { tenders: [], markdown: null };
             }
+          });
+
+          // Auto-block domains that are gated, inaccessible, or return empty content.
+          await step.run(`check-block-${result.url}`, async () => {
+            const reason = detectBlockReason(markdown);
+            if (!reason) return;
+            const host = extractHostname(result.url);
+            if (!host) return;
+            await supabase.from("blocked_domains").upsert({ domain: host, reason }, { onConflict: "domain", ignoreDuplicates: true });
+            console.log(`[run-scrape] auto-blocked ${host}: ${reason}`);
           });
 
           const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${result.url}`, async () => {
