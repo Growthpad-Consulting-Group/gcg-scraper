@@ -8,6 +8,7 @@ import Badge from "@/shared/ui/Badge";
 import { Icon } from "@iconify/react";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
 import AddSchedulerModal from "@/features/scheduler/components/AddSchedulerModal";
+import EditSchedulerModal from "@/features/scheduler/components/EditSchedulerModal";
 import ConfirmDeleteModal from "@/shared/ui/ConfirmDeleteModal";
 import LogsModal from "@/features/scheduler/components/LogsModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
@@ -34,8 +35,10 @@ export default function SchedulerPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<number | null>(null);
   const [currentTaskName, setCurrentTaskName] = useState("");
+  const [currentTask, setCurrentTask] = useState<ScheduledTask | null>(null);
   const [logsContent, setLogsContent] = useState("");
 
   const fetchTenderTypes = useCallback(async () => {
@@ -72,6 +75,10 @@ export default function SchedulerPage() {
 
   const handleTaskAdded = (update: { task: any }) => {
     setTasks((prev) => [...prev, update.task]);
+  };
+
+  const handleTaskUpdated = (updated: any) => {
+    setTasks((prev) => prev.map((t) => (t.task_id === updated.task_id ? updated : t)));
   };
 
   const handleRunTask = async (taskId: number, taskName: string) => {
@@ -170,6 +177,14 @@ export default function SchedulerPage() {
       onClick: (row) => handleToggleTask(Number(row.id)),
     },
     {
+      icon: "solar:pen-broken",
+      tooltip: "Edit",
+      onClick: (row) => {
+        const task = tasks.find((t) => t.task_id === Number(row.id));
+        if (task) { setCurrentTask(task); setIsEditModalOpen(true); }
+      },
+    },
+    {
       icon: "solar:document-text-broken",
       tooltip: "View logs",
       onClick: (row) => handleViewLogs(Number(row.id), row.name),
@@ -264,6 +279,7 @@ export default function SchedulerPage() {
       </div>
 
       <AddSchedulerModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} mode={mode} tenderTypes={tenderTypes} onTaskAdded={handleTaskAdded} />
+      <EditSchedulerModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} mode={mode} tenderTypes={tenderTypes} task={currentTask} onTaskUpdated={handleTaskUpdated} />
       <ConfirmDeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
