@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback, Fragment } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Select from "react-select";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import PageHeader from "@/shared/ui/PageHeader";
@@ -12,6 +13,8 @@ import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable
 import Badge, { type BadgeStatus } from "@/shared/ui/Badge";
 import LogPanel from "@/shared/ui/LogPanel";
 import { tenderHref } from "@/shared/lib/slug";
+import { useTheme } from "@/shared/contexts/ThemeContext";
+import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
 
 const PAGE_SIZE = 500;
 
@@ -28,6 +31,7 @@ interface Tender {
   scraped_at?: string | null;
   tender_type?: string | null;
   location?: string | null;
+  country?: string | null;
   source_url?: string | null;
   organization?: string | null;
   category?: string | null;
@@ -116,6 +120,7 @@ function TenderDetail({ tender }: { tender: Tender }) {
             ["Category", tender.category],
             ["Budget", formatBudget(tender.budget)],
             ["Location", tender.location],
+            ["Country", tender.country],
             ["Type", tender.tender_type],
             ["Format", tender.format],
             ["Scraped", tender.scraped_at ? new Date(tender.scraped_at).toLocaleString() : null],
@@ -282,6 +287,7 @@ function buildColumns(
 
 function TendersContent() {
   const router = useRouter();
+  const { resolvedMode: mode } = useTheme();
   const searchParams = useSearchParams();
   const jobFilter = searchParams?.get("job") || null;
   const dateFilter = searchParams?.get("date") || null;
@@ -291,6 +297,7 @@ function TendersContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
 
   const fetchTenders = useCallback(async () => {
     setIsLoading(true);
@@ -344,13 +351,21 @@ function TendersContent() {
 
   // Matches the local-day bucketing TendersTrendChart uses on Overview, so clicking a bar and
   // landing here shows exactly the tenders that bar counted.
-  const filteredTenders = dateFilter
+  const dateFilteredTenders = dateFilter
     ? tenders.filter((t) => {
         if (!t.scraped_at) return false;
         const [y, m, d] = dateFilter.split("-").map(Number);
         return new Date(t.scraped_at).toDateString() === new Date(y, m - 1, d).toDateString();
       })
     : tenders;
+
+  // Normalized `country` (see countries.ts:normalizeCountry), not the raw free-text `location` —
+  // "Nairobi, Kenya" and "Kenya" both filter as one "Kenya" instead of two near-duplicate options.
+  const countryOptions = useMemo(
+    () => [...new Set(tenders.map((t) => t.country).filter((v): v is string => !!v?.trim()))].sort(),
+    [tenders]
+  );
+  const filteredTenders = countryFilter ? dateFilteredTenders.filter((t) => t.country === countryFilter) : dateFilteredTenders;
 
   const columns = buildColumns(expandedId, setExpandedId);
 
@@ -441,6 +456,22 @@ function TendersContent() {
           enableDateFilter
           enableStatusPills={false} // we handle status rendering ourselves via Badge
           statusOptions={statusOptions}
+          extraFilters={
+            <Select
+              value={countryFilter ? { value: countryFilter, label: countryFilter } : null}
+              onChange={(opt) => setCountryFilter(getSelectValue(opt) || null)}
+              options={countryOptions.map((c) => ({ value: c, label: c }))}
+              placeholder="Filter by country…"
+              isClearable
+              isSearchable
+              noOptionsMessage={() => "No countries found"}
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={getSelectStyles<{ value: string; label: string }>(mode)}
+              menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+              menuPosition="fixed"
+            />
+          }
           showExportButton
           exportType="tenders"
           exportTitle="Tenders"

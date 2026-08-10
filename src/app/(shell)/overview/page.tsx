@@ -84,12 +84,20 @@ export default function OverviewPage() {
             </h1>
             <p className="mt-0.5 text-sm text-text-lo">Here&apos;s what&apos;s running.</p>
           </div>
-          <Link href="/run-query">
-            <Button size="sm">
-              <Icon icon="solar:play-circle-broken" width={16} />
-              New Query
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/tenders">
+              <Button size="sm" variant="secondary">
+                <Icon icon="solar:document-text-broken" width={16} />
+                View Tenders
+              </Button>
+            </Link>
+            <Link href="/run-query">
+              <Button size="sm">
+                <Icon icon="solar:play-circle-broken" width={16} />
+                New Query
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-lg border border-app-border bg-surface px-4 py-3">

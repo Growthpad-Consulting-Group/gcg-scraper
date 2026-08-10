@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExtractedTender } from "./firecrawlExtract";
+import { normalizeCountry } from "./countries";
 
 // Shared by every insert path (search-query, fixed-source, uploaded-website): `tenders.closing_date`
 // is NOT NULL in the DB, but extraction often can't find a date. Status is computed from the raw
@@ -19,6 +20,10 @@ export interface TenderRow {
   organization: string | null;
   category: string | null;
   location: string | null;
+  /** Canonical country pulled out of the free-text `location` (e.g. "Nairobi, Kenya" -> "Kenya")
+   * — see countries.ts. Null when location is missing or doesn't contain a recognizable country
+   * (e.g. a region like "East Africa"), rather than guessing. */
+  country: string | null;
   budget: number | null;
   document_url: string | null;
   raw_content: string | null;
@@ -27,11 +32,15 @@ export interface TenderRow {
 
 /** `tenders.location` is varchar(100); `budget` is numeric — guard both against malformed
  * extraction output before it hits the DB. */
-export function resolveOptionalFields(t: ExtractedTender): Pick<TenderRow, "organization" | "category" | "location" | "budget" | "document_url"> {
+export function resolveOptionalFields(
+  t: ExtractedTender
+): Pick<TenderRow, "organization" | "category" | "location" | "country" | "budget" | "document_url"> {
+  const location = t.location?.trim().slice(0, 100) || null;
   return {
     organization: t.organization?.trim() || null,
     category: t.category?.trim() || null,
-    location: t.location?.trim().slice(0, 100) || null,
+    location,
+    country: normalizeCountry(location),
     // The model defaults unstated numbers to 0 rather than omitting the field — treat 0 as
     // "not provided" too, since a genuine $0 tender is not a real case worth distinguishing.
     budget: typeof t.budget === "number" && isFinite(t.budget) && t.budget > 0 ? t.budget : null,
