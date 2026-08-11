@@ -7,9 +7,15 @@ import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFie
 import { isJobCanceled } from "./jobStatus";
 import { notifyTaskOwner } from "./notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
+import { mapWithConcurrency } from "@/shared/lib/concurrency";
 
 const TENDER_TYPE = "Search Query Tenders";
 const RESULTS_LIMIT = 10;
+// Firecrawl's account limit is 18 req/min — confirmed live elsewhere (LinkedIn Tenders) that a
+// wider burst than that reliably 429s. MULTI_QUERY_TOTAL_CAP alone (15) is already borderline;
+// bounding in-flight extracts keeps this run from eating the whole per-minute budget on its own,
+// leaving headroom for whatever else might be running in the same window.
+const MAX_CONCURRENT_EXTRACTS = 8;
 // A scheduled task can have several distinct search terms selected — each needs its own actual
 // search (searching "term1 term2 term3" as one combined string dilutes relevance into a
 // meaningless bag-of-words query). Multiple searches multiply Firecrawl usage though, so each
@@ -113,9 +119,9 @@ export const runScrapeJob = inngest.createFunction(
       const insertedTenders: InsertedTenderSummary[] = [];
 
       // Extracted concurrently instead of one-at-a-time — this was the single biggest latency
-      // cost in the whole pipeline (up to ~60s × 10 results run sequentially before).
-      await Promise.all(
-        filteredResults.map(async (result) => {
+      // cost in the whole pipeline (up to ~60s × 10 results run sequentially before) — but
+      // bounded, not a full-width Promise.all, to stay under Firecrawl's per-minute rate limit.
+      await mapWithConcurrency(filteredResults, MAX_CONCURRENT_EXTRACTS, async (result) => {
           const { tenders: extracted, markdown } = await step.run(`extract-${result.url}`, async () => {
             try {
               return await extractTenders(result.url, prompt);
@@ -166,8 +172,7 @@ export const runScrapeJob = inngest.createFunction(
               .update({ progress: { visited, total: results.length, current_url: result.url, stage: "extracting" } })
               .eq("id", jobId);
           });
-        })
-      );
+      });
 
       await step.run("mark-done", async () => {
         // Skip if a cancel landed mid-batch.

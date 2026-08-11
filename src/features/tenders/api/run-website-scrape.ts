@@ -6,8 +6,13 @@ import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFie
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
+import { mapWithConcurrency } from "@/shared/lib/concurrency";
 
 const TENDER_TYPE = "Website Tenders";
+// Firecrawl's account limit is 18 req/min — confirmed live elsewhere (LinkedIn Tenders) that a
+// wider burst than that reliably 429s. 8 in flight leaves headroom under that ceiling given each
+// extract call takes a few seconds anyway (rarely all 8 land in the same one-second window).
+const MAX_CONCURRENT_EXTRACTS = 8;
 // Scraping all rows in `websites` in a single run isn't practical (Firecrawl cost/time); each
 // scheduled run processes a bounded batch instead, ordered oldest-checked-first (nulls — never
 // checked — sort first) so repeated runs rotate through the full list instead of always hitting
@@ -74,9 +79,11 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       let closedCount = 0;
       const insertedTenders: InsertedTenderSummary[] = [];
 
-      // Extracted concurrently instead of one site at a time.
-      await Promise.all(
-        (websites || []).map(async (website) => {
+      // Bounded concurrency, not one-shot Promise.all across the whole batch — confirmed live
+      // that a full-width burst (up to BATCH_SIZE=30 at once) reliably exceeds Firecrawl's
+      // 18 req/min account limit; this account has a 429 fallback via extractTenders' own retry,
+      // but that shouldn't be relied on to paper over a burst this app controls the size of.
+      await mapWithConcurrency(websites || [], MAX_CONCURRENT_EXTRACTS, async (website) => {
           const { tenders: extracted, markdown } = await step.run(`extract-${website.id}`, async () => {
             try {
               return await extractTenders(website.url, buildPrompt(website.location), extractOptions);
@@ -117,8 +124,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
               supabase.from("websites").update({ last_scraped_at: new Date().toISOString() }).eq("id", website.id),
             ]);
           });
-        })
-      );
+      });
 
       await step.run("mark-done", async () => {
         await supabase
