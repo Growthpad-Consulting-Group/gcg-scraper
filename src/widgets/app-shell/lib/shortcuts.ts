@@ -10,7 +10,6 @@ export const NAV_SHORTCUTS: Record<string, string> = {
   "/leads": "l",
   "/run-query": "q",
   "/scheduler": "s",
-  "/keyword-manager": "k",
 };
 
 /** `G` then a letter jumps to the matching section from anywhere in the app. */

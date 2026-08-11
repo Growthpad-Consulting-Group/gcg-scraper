@@ -30,7 +30,6 @@ export const sidebarNavGroups: NavGroup[] = [
     icon: "solar:calendar-broken",
     items: [
       { href: "/scheduler", icon: "solar:calendar-broken", label: "Scheduler" },
-      { href: "/keyword-manager", icon: "solar:tag-broken", label: "Keyword Manager" },
       { href: "/blocked-domains", icon: "solar:shield-cross-broken", label: "Blocked Domains" },
     ],
   },
