@@ -20,6 +20,8 @@ export default function RunConsole({
   progress,
   visitedUrls,
   totalUrlsToVisit,
+  jobKind,
+  stage,
   isCanceling,
   handleCancelScrape,
   taskId,
@@ -29,15 +31,32 @@ export default function RunConsole({
   progress: number;
   visitedUrls: string[];
   totalUrlsToVisit: number;
+  /** search-query is the only kind with per-URL visited/total progress to show — everything
+   * else (tender-source, tender-website, gmb-leads, linkedin-leads) only ever reports a `stage`
+   * string, so this decides which of the two progress styles below applies. */
+  jobKind?: string | null;
+  stage?: string | null;
   isCanceling: boolean;
   handleCancelScrape: () => void;
   taskId: string | null;
   mode?: "light" | "dark";
 }) {
+  const isUrlVisitingJob = !jobKind || jobKind === "search-query";
+
   const lines: LogLine[] = [];
   if (taskId) lines.push({ text: `job ${taskId}`, tone: "info" });
+  if (jobKind) lines.push({ text: `kind: ${jobKind}`, tone: "default" });
   if (scrapeStatus === "idle") lines.push({ text: "waiting to start…", tone: "default" });
-  if (scrapeStatus !== "idle") lines.push({ text: `[ ${scrapeStatus.toUpperCase()} ] ${totalUrlsToVisit} results queued`, tone: "info" });
+  if (scrapeStatus !== "idle") {
+    lines.push({
+      text: isUrlVisitingJob ? `[ ${scrapeStatus.toUpperCase()} ] ${totalUrlsToVisit} results queued` : `[ ${scrapeStatus.toUpperCase()} ]`,
+      tone: "info",
+    });
+  }
+  // Non-URL-visiting jobs have no incremental count to show — the stage name ("searching",
+  // "extracting", ...) is the only signal there is while running, same as the Overview
+  // dashboard's expanded job panel.
+  if (!isUrlVisitingJob && scrapeStatus === "running") lines.push({ text: `stage: ${stage ?? "running"}`, tone: "default" });
   visitedUrls.forEach((url) => lines.push({ text: `[ 200 OK ] ${url}`, tone: "success" }));
   if (scrapeStatus === "complete") lines.push({ text: "[ DONE ] scrape completed", tone: "success" });
   if (scrapeStatus === "error") lines.push({ text: "[ FAILED ] scrape errored — see toast for details", tone: "danger" });

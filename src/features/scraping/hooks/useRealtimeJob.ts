@@ -7,8 +7,12 @@ import type { ScrapeStatus, ScrapeSummary } from "@/features/scraping/types";
 
 type JobRow = {
   id: string;
+  kind?: string | null;
   status: "queued" | "running" | "done" | "error" | "canceled";
-  progress: { visited?: number; total?: number; current_url?: string } | null;
+  // `stage` (and whatever else a non-search-query job attaches, e.g. `candidates`) only shows
+  // up on tender-source/tender-website/lead jobs — search-query is the only kind that reports
+  // per-URL visited/total/current_url progress.
+  progress: { visited?: number; total?: number; current_url?: string; stage?: string } | null;
   result_summary: { urls_visited?: number; openTenders?: number; closedTenders?: number; totalTenders?: number; leadsFound?: number } | null;
 };
 
@@ -29,6 +33,8 @@ export default function useRealtimeJob(jobId: string | null) {
   const [progress, setProgress] = useState(0);
   const [visitedUrls, setVisitedUrls] = useState<string[]>([]);
   const [totalUrlsToVisit, setTotalUrlsToVisit] = useState(0);
+  const [jobKind, setJobKind] = useState<string | null>(null);
+  const [stage, setStage] = useState<string | null>(null);
   const [summary, setSummary] = useState<ScrapeSummary>(emptySummary);
   const [showSummary, setShowSummary] = useState(false);
   const startTimeRef = useRef<number | null>(null);
@@ -49,6 +55,8 @@ export default function useRealtimeJob(jobId: string | null) {
       if (row.progress?.current_url) {
         setVisitedUrls((prev) => (prev.includes(row.progress!.current_url!) ? prev : [...prev, row.progress!.current_url!]).slice(-5));
       }
+      if (row.kind) setJobKind(row.kind);
+      setStage(row.progress?.stage ?? null);
 
       if (row.status === "done") {
         const timeTaken = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
@@ -85,7 +93,7 @@ export default function useRealtimeJob(jobId: string | null) {
     // Fetch initial state in case the job already progressed before the subscription connected.
     supabase
       .from("scrape_jobs")
-      .select("id, status, progress, result_summary")
+      .select("id, kind, status, progress, result_summary")
       .eq("id", jobId)
       .maybeSingle()
       .then(({ data }) => {
@@ -102,6 +110,8 @@ export default function useRealtimeJob(jobId: string | null) {
     setProgress(0);
     setVisitedUrls([]);
     setTotalUrlsToVisit(0);
+    setJobKind(null);
+    setStage(null);
     setSummary(emptySummary);
   };
 
@@ -111,6 +121,8 @@ export default function useRealtimeJob(jobId: string | null) {
     progress,
     visitedUrls,
     totalUrlsToVisit,
+    jobKind,
+    stage,
     summary,
     setSummary,
     showSummary,

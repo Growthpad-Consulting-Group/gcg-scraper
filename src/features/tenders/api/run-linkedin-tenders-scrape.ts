@@ -1,6 +1,6 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
-import { findLinkedInTenderCandidates, extractLinkedInTender } from "./linkedinTendersApi";
+import { findLinkedInTenderCandidates, extractLinkedInTender, MAX_LINKEDIN_CANDIDATES } from "./linkedinTendersApi";
 import type { ExtractedTender } from "./firecrawlExtract";
 import { matchesKeywords, matchesCountries, matchesSourceContent } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
@@ -8,9 +8,10 @@ import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 
 const TENDER_TYPE = "LinkedIn Tenders";
-// Bounds Firecrawl cost per run — LinkedIn post search itself is cheap ($0.002/post), but each
-// candidate then costs a full extraction call against its resolved destination page.
-const MAX_CANDIDATES_PER_RUN = 12;
+// Confirmed live: back-to-back Firecrawl extraction calls (one per candidate, right after the
+// search phase's own resolve calls) hit a 429 on an account with an 18 req/min ceiling — spacing
+// these out keeps the whole run's Firecrawl call volume under that limit.
+const FIRECRAWL_CALL_SPACING_MS = 3500;
 
 export const runLinkedInTendersScrapeJob = inngest.createFunction(
   {
@@ -42,15 +43,19 @@ export const runLinkedInTendersScrapeJob = inngest.createFunction(
         return (data || []).map((row) => row.phrase as string);
       });
 
+      // findLinkedInTenderCandidates already caps collection at MAX_LINKEDIN_CANDIDATES itself
+      // (paced internally) — this slice is just a defensive backstop, not the real limit.
       const candidates = await step.run("search-posts", () => findLinkedInTenderCandidates(keywords, phrases));
-      const bounded = candidates.slice(0, MAX_CANDIDATES_PER_RUN);
+      const bounded = candidates.slice(0, MAX_LINKEDIN_CANDIDATES);
 
       await step.run("update-progress", async () => {
         await supabase.from("scrape_jobs").update({ progress: { stage: "extracting", candidates: bounded.length } }).eq("id", jobId);
       });
 
       const extracted: { tender: ExtractedTender; markdown: string | null; postUrl: string }[] = [];
-      for (const candidate of bounded) {
+      for (let i = 0; i < bounded.length; i++) {
+        const candidate = bounded[i];
+        if (i > 0) await step.sleep(`space-extract-${i}`, `${FIRECRAWL_CALL_SPACING_MS}ms`);
         const result = await step.run(`extract-${candidate.resolvedUrl}`, () => extractLinkedInTender(candidate));
         if (result) extracted.push({ ...result, postUrl: candidate.postUrl });
       }

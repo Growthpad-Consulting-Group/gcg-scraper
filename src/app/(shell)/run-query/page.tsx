@@ -63,8 +63,19 @@ function RunQueryContent() {
   const [tenderTypes, setTenderTypes] = useState<string[]>([]);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
-  const { scrapeStatus, setScrapeStatus, progress, visitedUrls, totalUrlsToVisit, summary, showSummary, setShowSummary, reset } =
-    useRealtimeJob(jobId);
+  const {
+    scrapeStatus,
+    setScrapeStatus,
+    progress,
+    visitedUrls,
+    totalUrlsToVisit,
+    jobKind: liveJobKind,
+    stage: liveStage,
+    summary,
+    showSummary,
+    setShowSummary,
+    reset,
+  } = useRealtimeJob(jobId);
 
   useEffect(() => {
     const urlTaskId = searchParams?.get("taskId");
@@ -394,6 +405,8 @@ function RunQueryContent() {
                 progress={progress}
                 visitedUrls={visitedUrls}
                 totalUrlsToVisit={totalUrlsToVisit}
+                jobKind={liveJobKind}
+                stage={liveStage}
                 isCanceling={isCanceling}
                 handleCancelScrape={handleCancelScrape}
                 taskId={jobId}

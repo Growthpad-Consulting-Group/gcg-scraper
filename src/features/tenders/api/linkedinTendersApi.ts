@@ -40,6 +40,20 @@ const SHORT_SIGNAL_WORDS = ["tender", "rfp", "rfq", "procurement", "bid"];
 // procurement post's wording.
 const MAX_KEYWORD_QUERIES = 6;
 
+// Confirmed live: a run scanning ~16 queries × 15 posts matched enough candidates to blow past
+// Firecrawl's 18 req/min limit (429 mid-run) — each matched candidate costs one resolve call
+// here, plus one more extraction call later in run-linkedin-tenders-scrape.ts. Capping candidate
+// collection itself (not just the later extraction step) is what actually bounds the request
+// count; the extraction-side cap alone was too late; by then the resolve calls had already fired.
+export const MAX_LINKEDIN_CANDIDATES = 12;
+
+// Firecrawl's 429 already includes its own retry-with-backoff inside extractTenders, but that's
+// meant for an isolated rate-limit blip, not a whole run's worth of back-to-back calls on an
+// account with a low per-minute ceiling — pacing calls this far apart keeps a 12-candidate run
+// (up to 24 Firecrawl calls: one resolve + one extract each) under an 18 req/min limit.
+const FIRECRAWL_CALL_SPACING_MS = 3500;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Trailing quote/punctuation/bracket trimmed off — post text sometimes wraps the URL in quotes
 // ("...https://lnkd.in/eJqgYNMt\"") and the interstitial page prints it inside a markdown link
 // ([url](url)), both of which would otherwise end up baked into the link itself.
@@ -134,8 +148,11 @@ export async function findLinkedInTenderCandidates(
   const posts: LinkedInPost[] = await res.json();
   const candidates: LinkedInTenderCandidate[] = [];
   const seenUrls = new Set<string>();
+  let resolveAttempts = 0;
 
   for (const post of posts) {
+    if (candidates.length >= MAX_LINKEDIN_CANDIDATES) break;
+
     const content = post.content || "";
     if (!content) continue;
 
@@ -150,6 +167,10 @@ export async function findLinkedInTenderCandidates(
     if (!outboundLink || seenUrls.has(outboundLink)) continue;
     seenUrls.add(outboundLink);
 
+    // Paced by attempt count, not success count — a run of failed resolves (dead links, etc.)
+    // would otherwise still burst requests at Firecrawl back-to-back.
+    if (resolveAttempts > 0) await sleep(FIRECRAWL_CALL_SPACING_MS);
+    resolveAttempts++;
     const resolvedUrl = await resolveOutboundLink(outboundLink);
     if (!resolvedUrl) continue;
 
