@@ -2,6 +2,7 @@ import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { parseDocument } from "./firecrawlParse";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
+import { matchesSourceContent } from "./sourceConfigs";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
@@ -53,7 +54,9 @@ export const runDocumentParseJob = inngest.createFunction(
       let closedCount = 0;
 
       const { inserted, open, closed, rows: insertedRows } = await step.run("save-tenders", async () => {
-        const rows = extracted.map((t) => ({
+        const rows = extracted
+          .filter((t) => matchesSourceContent(t, markdown))
+          .map((t) => ({
           title: t.title,
           description: t.description || null,
           closing_date: resolveClosingDate(t.closing_date),

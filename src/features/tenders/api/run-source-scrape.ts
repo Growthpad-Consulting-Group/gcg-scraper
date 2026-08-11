@@ -1,7 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
-import { getSourceConfig, buildRelevanceClause, matchesKeywords } from "./sourceConfigs";
+import { getSourceConfig, buildRelevanceClause, matchesKeywords, matchesSourceContent } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
@@ -46,7 +46,7 @@ export const runSourceScrapeJob = inngest.createFunction(
 
       const { inserted, open: openCount, closed: closedCount, rows: insertedTenders } = await step.run("save-tenders", async () => {
         const rows = extracted
-          .filter((t) => t.source_url && matchesKeywords(t, keywords))
+          .filter((t) => t.source_url && matchesKeywords(t, keywords) && matchesSourceContent(t, markdown))
           .map((t) => ({
             title: t.title,
             description: t.description || null,

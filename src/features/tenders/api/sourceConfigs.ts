@@ -76,8 +76,12 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     prompt:
       "Extract all tender/procurement listings on this page (RFQs, RFPs, EOIs, tender notices — not regular job vacancies), including title, closing/deadline date if shown, and the full URL linking to each individual listing." +
       FIELD_SUFFIX,
-    waitFor: 6000,
-    timeout: 35000,
+    // Bumped from 6000/35000 after a real incident: the page's actual listings render after the
+    // filter UI and didn't finish loading in time, so Firecrawl captured a truncated page (cut
+    // off right at "Showing 1-20 of 53 results", before any real listing) — the model then
+    // fabricated two entirely fake tenders to satisfy the prompt instead of returning empty.
+    waitFor: 10000,
+    timeout: 40000,
   },
   {
     tenderType: "Kenya Treasury",
@@ -194,4 +198,25 @@ export function matchesKeywords(tender: { title: string; description?: string | 
   if (!kw.length) return true;
   const haystack = `${tender.title} ${tender.description || ""} ${tender.category || ""}`.toLowerCase();
   return kw.some((k) => new RegExp(`\\b${escapeRegExp(k)}\\b`, "i").test(haystack));
+}
+
+/** Anti-fabrication backstop: confirmed live incident where a page's real listings hadn't
+ * finished loading when Firecrawl captured it (markdown cut off mid-page, before any actual
+ * listing), and the model invented two complete fake tenders — fake org, fake URL, fake date —
+ * to satisfy the extraction prompt instead of returning an empty list. This rejects any
+ * extracted tender whose title doesn't actually appear (a normalized substring match, tolerant
+ * of whitespace/punctuation differences from extraction) anywhere in the markdown that was
+ * actually scraped — a real listing's title has to be somewhere on the page it came from. */
+export function matchesSourceContent(tender: { title: string }, markdown: string | null): boolean {
+  if (!markdown) return false;
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const normalizedTitle = normalize(tender.title);
+  const normalizedMarkdown = normalize(markdown);
+  if (!normalizedTitle) return false;
+
+  // A handful of leading words is enough to confirm the listing is really on the page, without
+  // requiring an exact full-title match (extraction sometimes trims trailing punctuation/case).
+  const words = normalizedTitle.split(" ");
+  const probe = words.slice(0, Math.min(6, words.length)).join(" ");
+  return normalizedMarkdown.includes(probe);
 }

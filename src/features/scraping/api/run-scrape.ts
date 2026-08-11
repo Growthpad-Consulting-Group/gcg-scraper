@@ -2,6 +2,7 @@ import { inngest } from "./inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { searchWeb } from "./firecrawlSearch";
 import { extractTenders } from "@/features/tenders/api/firecrawlExtract";
+import { matchesSourceContent } from "@/features/tenders/api/sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
 import { isJobCanceled } from "./jobStatus";
 import { notifyTaskOwner } from "./notify";
@@ -135,7 +136,7 @@ export const runScrapeJob = inngest.createFunction(
 
           const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${result.url}`, async () => {
             const rows = extracted
-              .filter((t) => t.source_url || result.url)
+              .filter((t) => (t.source_url || result.url) && matchesSourceContent(t, markdown))
               .map((t) => ({
                 title: t.title,
                 description: t.description || null,

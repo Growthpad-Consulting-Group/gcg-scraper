@@ -1,7 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders, type ExtractOptions } from "./firecrawlExtract";
-import { buildRelevanceClause, matchesKeywords } from "./sourceConfigs";
+import { buildRelevanceClause, matchesKeywords, matchesSourceContent } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
@@ -81,7 +81,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
 
           const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${website.id}`, async () => {
             const rows = extracted
-              .filter((t) => (t.source_url || website.url) && matchesKeywords(t, keywords))
+              .filter((t) => (t.source_url || website.url) && matchesKeywords(t, keywords) && matchesSourceContent(t, markdown))
               .map((t) => ({
                 title: t.title,
                 description: t.description || null,
