@@ -23,9 +23,13 @@ export const runWebsiteScrapeJob = inngest.createFunction(
   // same way to avoid contributing to 429 bursts (see run-source-scrape-job).
   { id: "run-website-scrape-job", retries: 0, triggers: { event: "tenders/website.queued" }, throttle: { limit: 3, period: "1m" } },
   async ({ event, step }) => {
-    const { jobId, websiteId, extractOptions, keywords, countries } = event.data as {
+    const { jobId, websiteId, websiteIds, extractOptions, keywords, countries } = event.data as {
       jobId: string;
       websiteId?: number;
+      /** Targets a specific set of sites regardless of scrape-rotation order — e.g. covering a
+       * batch of newly-added sources without waiting for the normal `last_scraped_at` rotation
+       * to reach them. Takes priority over both `websiteId` and the default batch query. */
+      websiteIds?: number[];
       extractOptions?: ExtractOptions;
       keywords?: string[];
       countries?: string[];
@@ -38,13 +42,15 @@ export const runWebsiteScrapeJob = inngest.createFunction(
 
     try {
       const [{ data: websites }, { data: searchTerms }] = await step.run("fetch-inputs", async () => {
-        const websitesQuery = websiteId
-          ? supabase.from("websites").select("id, name, url, location").eq("id", websiteId)
-          : supabase
-              .from("websites")
-              .select("id, name, url, location")
-              .order("last_scraped_at", { ascending: true, nullsFirst: true })
-              .limit(BATCH_SIZE);
+        const websitesQuery = websiteIds?.length
+          ? supabase.from("websites").select("id, name, url, location").in("id", websiteIds)
+          : websiteId
+            ? supabase.from("websites").select("id, name, url, location").eq("id", websiteId)
+            : supabase
+                .from("websites")
+                .select("id, name, url, location")
+                .order("last_scraped_at", { ascending: true, nullsFirst: true })
+                .limit(BATCH_SIZE);
         return Promise.all([websitesQuery, supabase.from("search_terms").select("term").limit(20)]);
       });
 

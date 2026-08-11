@@ -5,7 +5,10 @@ import type { InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
 import { tenderHref } from "@/shared/lib/slug";
 
 const NO_DEADLINE_SENTINEL = "9999-12-31";
-const LIST_THRESHOLD = 3; // show titles inline up to this many; beyond it, just the count
+// Always list titles inline (a bare count on a 24-tender run told the reader nothing worth
+// acting on), capped so a large batch run doesn't turn into a wall of text — the rest are a
+// "+N more" trailer pointing at the app instead.
+const LIST_LIMIT = 10;
 
 function ordinal(day: number): string {
   if (day >= 11 && day <= 13) return `${day}th`;
@@ -71,16 +74,25 @@ export async function notifyTaskOwner(
   if (!task?.user_id) return;
 
   const label = task.name || job.label || "Scheduled task";
-  const message = `"${label}" found ${tendersFound} new tender${tendersFound === 1 ? "" : "s"}.`;
+  // Sources with a public archive page (e.g. an NGO's multi-year RFP history) routinely turn up
+  // long-closed tenders alongside real ones — a bare count reads as "24 things to act on" when
+  // most weren't, so the open/closed split is surfaced right in the headline instead of buried
+  // in result_summary.
+  const openCount = tenders.filter((t) => t.status === "open").length;
+  const closedCount = tenders.length - openCount;
+  const statusBreakdown = tenders.length ? ` (${openCount} open, ${closedCount} closed)` : "";
+  const message = `"${label}" found ${tendersFound} new tender${tendersFound === 1 ? "" : "s"}${statusBreakdown}.`;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   // job_id lets the in-app notification link straight to this run's results via the Tenders
   // page's existing `?job=` filter, instead of a message with nothing to click through to.
   await supabase.from("notifications").insert({ user_id: task.user_id, message, read: false, job_id: jobId });
 
-  // Enough to be worth listing inline vs. just pointing at the app — past a handful, a list
-  // is noise, not signal.
-  const showList = tendersFound <= LIST_THRESHOLD && tenders.length > 0;
+  // Open tenders first — the ones actually worth acting on shouldn't get pushed off the visible
+  // list by a source's closed-tender archive just because those happened to extract first.
+  const sortedTenders = [...tenders].sort((a, b) => (a.status === "open" ? -1 : 0) - (b.status === "open" ? -1 : 0));
+  const listedTenders = sortedTenders.slice(0, LIST_LIMIT);
+  const remainingCount = tendersFound - listedTenders.length;
 
   // "[Category] Organization · Location" — each piece included only when known, since
   // extraction doesn't always find all three and a blank/lone separator reads worse than
@@ -103,13 +115,13 @@ export async function notifyTaskOwner(
       .filter(Boolean);
     const recipients = [task.user_id, ...extraEmails];
     try {
-      const listHtml = showList
-        ? `<ul>${tenders
+      const listHtml = listedTenders.length
+        ? `<ul>${listedTenders
             .map((t) => {
               const detail = meta(t);
               return `<li><a href="${appUrl}${tenderHref(t)}">${t.title}</a>${detail ? ` — ${detail}` : ""} — ${closingWithUrgency(t)}</li>`;
             })
-            .join("")}</ul>`
+            .join("")}${remainingCount > 0 ? `<li>...and ${remainingCount} more</li>` : ""}</ul>`
         : "";
       await sendEmail({
         to: recipients,
@@ -123,14 +135,15 @@ export async function notifyTaskOwner(
 
   if (task.slack_notifications_enabled) {
     try {
-      const listText = showList
+      const listText = listedTenders.length
         ? "\n" +
-          tenders
+          listedTenders
             .map((t) => {
               const detail = meta(t);
               return `• <${appUrl}${tenderHref(t)}|${t.title}>${detail ? ` — ${detail}` : ""} — ${closingWithUrgency(t)}`;
             })
-            .join("\n")
+            .join("\n") +
+          (remainingCount > 0 ? `\n...and ${remainingCount} more` : "")
         : "";
       await sendSlackMessage(`${message}${listText}\n<${appUrl}/tenders|View tenders>`);
     } catch (err) {
