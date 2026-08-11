@@ -57,8 +57,8 @@ const HeaderAddNewDropdown: FC<HeaderAddNewDropdownProps> = ({ mode, items, onNa
       {isOpen && rect && typeof document !== "undefined" &&
         createPortal(
           <div ref={dropdownRef} style={{ position: "fixed", top: rect.bottom + 8, right: window.innerWidth - rect.right, zIndex: 9999 }}>
-            <GlassPanel mode={mode} className={`w-[400px] rounded-xl ${mode === "dark" ? "bg-gray-900/40" : "bg-white/40"}`}>
-              <div className="grid grid-cols-5 gap-2 p-3">
+            <GlassPanel mode={mode} className={`w-fit max-w-[420px] rounded-xl ${mode === "dark" ? "bg-gray-900/40" : "bg-white/40"}`}>
+              <div className="flex flex-wrap justify-center gap-2 p-3">
                 {items.map((item) => (
                   <button
                     key={item.label}
@@ -66,7 +66,7 @@ const HeaderAddNewDropdown: FC<HeaderAddNewDropdownProps> = ({ mode, items, onNa
                       setIsOpen(false);
                       onNavigate(item.href);
                     }}
-                    className={`flex flex-col items-center justify-center rounded-lg p-2 text-xs font-medium transition-all duration-200 focus:outline-none backdrop-blur-md border ring-1 ring-inset ring-white/20 ${
+                    className={`flex w-20 flex-col items-center justify-center rounded-lg p-2 text-xs font-medium transition-all duration-200 focus:outline-none backdrop-blur-md border ring-1 ring-inset ring-white/20 ${
                       mode === "dark" ? "border-white/10 text-gray-300 hover:bg-white/10 hover:text-white" : "border-white/50 text-gray-700 hover:bg-white/60 hover:text-gray-900"
                     } hover:shadow-sm group`}
                   >
