@@ -60,6 +60,7 @@ const linkedinColumns: LeadColumn<any>[] = [
   { key: "full_name", label: "Name", render: (l) => l.full_name },
   { key: "headline", label: "Headline", render: (l) => l.headline || "—" },
   { key: "current_company", label: "Company", render: (l) => l.current_company || "—" },
+  { key: "email", label: "Email", render: (l) => l.email || "—", mono: true },
   { key: "location", label: "Location", render: (l) => l.location || "—" },
 ];
 

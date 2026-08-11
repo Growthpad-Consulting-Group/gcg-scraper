@@ -1,7 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { getRunStatus, getDatasetItems, abortRun } from "./apify";
-import { startLinkedInSearch } from "./apifyLinkedIn";
+import { startLinkedInSearch, extractLinkedInUsername, enrichLinkedInEmails } from "./apifyLinkedIn";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 
 const MAX_POLLS = 40; // ~10 minutes at 15s apart
@@ -58,18 +58,30 @@ export const runLinkedInScrapeJob = inngest.createFunction(
 
     const profiles = await step.run("fetch-dataset", () => getDatasetItems(datasetId));
 
+    // The search actor only ever returns SERP snippets — no email field exists on it at all.
+    // A separate no-cookie actor visits each found profile to pull a real work email (best
+    // effort: failures here just mean no email, not a failed run).
+    const profileUrls = profiles.map((p: any) => p.linkedinUrl || p.profileUrl || p.url || null);
+    const usernames = [...new Set(profileUrls.map(extractLinkedInUsername).filter((u): u is string => !!u))];
+    const emailsByUsername = usernames.length ? await step.run("enrich-emails", () => enrichLinkedInEmails(usernames)) : {};
+
     const inserted = await step.run("save-leads", async () => {
       if (profiles.length === 0) return 0;
-      const rows = profiles.map((profile: any) => ({
-        job_id: jobId,
-        full_name: profile.fullName || "Unknown",
-        headline: profile.headline || null,
-        location: profile.locationText || profile.location || null,
-        current_company: profile.currentCompany || profile.currentPosition?.[0]?.companyName || null,
-        profile_url: profile.linkedinUrl || profile.profileUrl || profile.url || null,
-        search_query: searchQuery,
-        raw: profile,
-      }));
+      const rows = profiles.map((profile: any, i: number) => {
+        const profileUrl = profileUrls[i];
+        const username = extractLinkedInUsername(profileUrl);
+        return {
+          job_id: jobId,
+          full_name: profile.fullName || "Unknown",
+          headline: profile.headline || null,
+          location: profile.locationText || profile.location || null,
+          current_company: profile.currentCompany || profile.currentPosition?.[0]?.companyName || null,
+          profile_url: profileUrl,
+          email: username ? emailsByUsername[username] ?? null : null,
+          search_query: searchQuery,
+          raw: profile,
+        };
+      });
       const { error } = await supabase.from("linkedin_leads").insert(rows);
       if (error) throw error;
       return rows.length;
