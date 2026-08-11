@@ -25,6 +25,16 @@ function ordinal(day: number): string {
 }
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "18 Aug 2026" — the Slack card's compact date form, vs formatClosingDate's longer "18th
+ * August 2026" prose form used in the summary line and email. */
+function formatShortDate(closingDate: string): string {
+  if (closingDate === NO_DEADLINE_SENTINEL) return "no deadline listed";
+  const parsed = new Date(closingDate);
+  if (isNaN(parsed.getTime())) return closingDate;
+  return `${parsed.getUTCDate()} ${MONTH_NAMES_SHORT[parsed.getUTCMonth()]} ${parsed.getUTCFullYear()}`;
+}
 
 export function formatClosingDate(closingDate: string): string {
   if (closingDate === NO_DEADLINE_SENTINEL) return "no deadline listed";
@@ -33,20 +43,33 @@ export function formatClosingDate(closingDate: string): string {
   return `closes ${ordinal(parsed.getUTCDate())} ${MONTH_NAMES[parsed.getUTCMonth()]} ${parsed.getUTCFullYear()}`;
 }
 
+/** Raw day count until closing — null when there's no meaningful deadline (closed, or no
+ * deadline stated) or it's already passed. Shared by daysLeftLabel (display text) and the Slack
+ * card's urgency marker (🔴 vs ⏰), so both agree on what "urgent" means. */
+function daysUntilClosing(closingDate: string, status: "open" | "closed"): number | null {
+  if (status !== "open" || closingDate === NO_DEADLINE_SENTINEL) return null;
+  const deadline = new Date(closingDate);
+  if (isNaN(deadline.getTime())) return null;
+  const days = Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  return days < 0 ? null : days;
+}
+
 /** "12 days left" — reads faster in a notification than the raw date alone, and mirrors the
  * urgency badge on the tender detail page. Only meaningful for open tenders with a real
  * deadline; whole-day granularity is enough here (unlike the detail page, nobody's deciding
  * whether to act in the next few hours from a Slack ping). */
 export function daysLeftLabel(closingDate: string, status: "open" | "closed"): string | null {
-  if (status !== "open" || closingDate === NO_DEADLINE_SENTINEL) return null;
-  const deadline = new Date(closingDate);
-  if (isNaN(deadline.getTime())) return null;
-  const days = Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  if (days < 0) return null;
+  const days = daysUntilClosing(closingDate, status);
+  if (days === null) return null;
   if (days === 0) return "closes today";
   if (days === 1) return "1 day left";
   return `${days} days left`;
 }
+
+// Days-left threshold for the Slack card's 🔴 urgent marker vs the default ⏰ — matches the
+// Tenders page's "closing soon" badge threshold (7 days), so the same tender reads as urgent
+// consistently across the app.
+const URGENT_DAYS_THRESHOLD = 7;
 
 /**
  * Notifications were previously pure UI — nothing ever inserted a row, and the
@@ -127,17 +150,32 @@ export async function notifyTaskOwner(
 
   if (task.slack_notifications_enabled) {
     try {
-      const listText = listedTenders.length
-        ? "\n" +
-          listedTenders
-            .map((t) => {
-              const detail = meta(t);
-              return `• <${appUrl}${tenderHref(t)}|${t.title}>${detail ? ` — ${detail}` : ""} — ${closingWithUrgency(t)}`;
-            })
-            .join("\n") +
-          (remainingCount > 0 ? `\n...and ${remainingCount} more` : "")
+      // Card per tender — 🔴 replaces the default ⏰ once a deadline is within
+      // URGENT_DAYS_THRESHOLD, so an urgent one doesn't blend in with the rest at a glance.
+      const buildCard = (t: InsertedTenderSummary) => {
+        const days = daysUntilClosing(t.closing_date, t.status);
+        const urgencyLabel = days === null ? null : days === 0 ? "closes today" : days === 1 ? "1 day left" : `${days} days left`;
+        const marker = days !== null && days <= URGENT_DAYS_THRESHOLD ? "🔴" : "⏰";
+        const dateStr = formatShortDate(t.closing_date);
+        const closingLine = urgencyLabel ? `${dateStr} · ${urgencyLabel}` : dateStr;
+
+        return [
+          `<${appUrl}${tenderHref(t)}|${t.title}>`,
+          t.category ? `🏷️ ${t.category}` : null,
+          t.organization ? `🏢 ${t.organization}` : null,
+          t.location ? `📍 ${t.location}` : null,
+          `${marker} Closes: ${closingLine}`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      };
+
+      const cardsText = listedTenders.length
+        ? "\n\n🔔 TENDER NOTIFICATION\n\n" +
+          listedTenders.map(buildCard).join("\n\n") +
+          (remainingCount > 0 ? `\n\n...and ${remainingCount} more` : "")
         : "";
-      await sendSlackMessage(`${message}${listText}\n<${appUrl}/tenders|View tenders>`);
+      await sendSlackMessage(`${message}${cardsText}\n\n<${appUrl}/tenders|View tenders>`);
     } catch (err) {
       console.error("Failed to send tender-found Slack message:", err);
     }
