@@ -176,9 +176,10 @@ export default function ChatWidget() {
           setIsOpen((o) => !o);
           dismissRunQueryHint();
         }}
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+        className="relative flex h-12 w-12 items-center justify-center rounded-full bg-brand-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
         title="Ask about your data"
       >
+        {!isOpen && <span className="absolute inset-0 -z-10 animate-chat-pulse rounded-full bg-brand-500" />}
         <Icon icon={isOpen ? "solar:close-circle-broken" : "solar:chat-round-dots-broken"} width={22} />
       </button>
     </div>
