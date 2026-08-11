@@ -6,7 +6,7 @@ import { Icon } from "@iconify/react";
 /** Tenders had `ExportModal`; leads had nothing. Straight CSV of the current list — no
  * field-picker modal, leads records are already flat and small enough not to need one. */
 export default function LeadsExportButton({ leads, filename }: { leads: Record<string, unknown>[]; filename: string }) {
-  const rows = leads.map(({ raw, job_id, ...rest }) => rest);
+  const rows = leads.map(({ raw, job_id, contacts, ...rest }) => rest);
 
   if (leads.length === 0) return null;
 

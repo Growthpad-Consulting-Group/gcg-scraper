@@ -26,6 +26,32 @@ const gmbColumns: LeadColumn<any>[] = [
   { key: "business_name", label: "Business", render: (l) => l.business_name },
   { key: "category", label: "Category", render: (l) => l.category || "—" },
   { key: "phone", label: "Phone", render: (l) => l.phone || "—", mono: true },
+  { key: "email", label: "Email", render: (l) => l.email || "—", mono: true },
+  {
+    key: "contact",
+    label: "Contact",
+    render: (l) =>
+      l.contact_name ? (
+        <span className="flex flex-col">
+          <span>{l.contact_name}</span>
+          {l.contact_email && <span className="text-xs text-text-lo">{l.contact_email}</span>}
+        </span>
+      ) : (
+        "—"
+      ),
+  },
+  {
+    key: "contact_linkedin",
+    label: "LinkedIn",
+    render: (l) =>
+      l.contact_linkedin ? (
+        <a href={l.contact_linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+          Profile
+        </a>
+      ) : (
+        "—"
+      ),
+  },
   { key: "address", label: "Address", render: (l) => l.address || "—" },
   { key: "rating", label: "Rating", render: (l) => (l.rating ? `${l.rating} (${l.reviews_count ?? 0})` : "—"), mono: true },
 ];
