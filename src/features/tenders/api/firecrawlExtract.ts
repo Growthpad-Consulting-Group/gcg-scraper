@@ -2,6 +2,8 @@
 // Selenium + BeautifulSoup scrapers. Firecrawl handles JS rendering itself and returns
 // already-structured data, so there's no need to hand-maintain CSS selectors per site.
 
+import { firecrawlFetch } from "@/shared/lib/firecrawl";
+
 export type ExtractedTender = {
   title: string;
   closing_date: string | null;
@@ -69,7 +71,7 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 3;
 
 export async function extractTenders(url: string, prompt: string, options?: ExtractOptions): Promise<ExtractResult> {
-  const body = JSON.stringify({
+  const body = {
     url,
     formats: ["markdown", "extract"],
     extract: { schema: EXTRACTION_SCHEMA, prompt },
@@ -80,20 +82,13 @@ export async function extractTenders(url: string, prompt: string, options?: Extr
     ...(options?.excludeTags?.length ? { excludeTags: options.excludeTags } : {}),
     ...(options?.includeTags?.length ? { includeTags: options.includeTags } : {}),
     ...(options?.proxy ? { proxy: options.proxy } : {}),
-  });
+  };
 
   let lastError: Error | undefined;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
 
-    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body,
-    });
+    const res = await firecrawlFetch("/v1/scrape", body);
 
     if (!res.ok) {
       const text = await res.text();
@@ -119,14 +114,7 @@ const DOCUMENT_LINK_PATTERN = /\.pdf(\?|$)|\.docx?(\?|$)|\.xlsx?(\?|$)|\bdownloa
  * and picks out the real document/PDF link, for sources like UNGM where the listing-page
  * extraction can only see the notice URL itself, not its attached files. */
 export async function resolveDocumentLink(url: string): Promise<string | null> {
-  const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ url, formats: ["links"], onlyMainContent: false, waitFor: 5000, timeout: 25000 }),
-  });
+  const res = await firecrawlFetch("/v1/scrape", { url, formats: ["links"], onlyMainContent: false, waitFor: 5000, timeout: 25000 });
   if (!res.ok) return null;
 
   const data = await res.json();

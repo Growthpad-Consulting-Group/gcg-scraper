@@ -4,6 +4,7 @@
 // publicly accessible on the web.
 
 import type { ExtractedTender, ExtractResult } from "./firecrawlExtract";
+import { firecrawlFetch } from "@/shared/lib/firecrawl";
 
 export type ParseOptions = {
   /** Redact PII from returned markdown. Defaults to false. */
@@ -92,13 +93,7 @@ export async function parseDocument(file: File | Blob, fileName: string, options
   formData.append("file", file, fileName);
   formData.append("options", JSON.stringify(parseOptions));
 
-  const res = await fetch("https://api.firecrawl.dev/v2/parse", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
-    },
-    body: formData,
-  });
+  const res = await firecrawlFetch("/v2/parse", formData);
 
   if (!res.ok) {
     throw new Error(`Firecrawl parse failed for "${fileName}": ${res.status} ${await res.text()}`);

@@ -12,6 +12,7 @@
 // against bot protection elsewhere in this app.
 import { extractTenders, type ExtractedTender } from "./firecrawlExtract";
 import { FIELD_SUFFIX } from "./sourceConfigs";
+import { firecrawlFetch } from "@/shared/lib/firecrawl";
 
 const SEARCH_ACTOR_ID = "harvestapi~linkedin-post-search";
 const BASE_URL = "https://api.apify.com/v2";
@@ -82,11 +83,7 @@ function extractOutboundLink(text: string): string | null {
  * "you're leaving LinkedIn" interstitial page, which Firecrawl can render past the 403 a plain
  * HTTP client gets. Returns null if the link doesn't resolve to anything usable. */
 async function resolveOutboundLink(url: string): Promise<string | null> {
-  const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: false, waitFor: 3000, timeout: 25000 }),
-  });
+  const res = await firecrawlFetch("/v1/scrape", { url, formats: ["markdown"], onlyMainContent: false, waitFor: 3000, timeout: 25000 });
   if (!res.ok) return null;
 
   const data = await res.json();
