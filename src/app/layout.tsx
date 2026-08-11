@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Figtree, Inter, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
+import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/contexts/ThemeContext";
 import { NotificationsProvider } from "@/shared/contexts/NotificationsContext";
@@ -78,6 +79,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
         className={`${figtree.variable} ${cloverDisplay.variable} ${inter.variable} ${jetbrainsMono.variable} ${figtree.className}`}
       >
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-EKPS81S015" strategy="afterInteractive" />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-EKPS81S015');
+          `}
+        </Script>
         <ThemeProvider>
           <NotificationsProvider>
             <AppToaster />
