@@ -74,24 +74,16 @@ export async function notifyTaskOwner(
   if (!task?.user_id) return;
 
   const label = task.name || job.label || "Scheduled task";
-  // Sources with a public archive page (e.g. an NGO's multi-year RFP history) routinely turn up
-  // long-closed tenders alongside real ones — a bare count reads as "24 things to act on" when
-  // most weren't, so the open/closed split is surfaced right in the headline instead of buried
-  // in result_summary.
-  const openCount = tenders.filter((t) => t.status === "open").length;
-  const closedCount = tenders.length - openCount;
-  const statusBreakdown = tenders.length ? ` (${openCount} open, ${closedCount} closed)` : "";
-  const message = `"${label}" found ${tendersFound} new tender${tendersFound === 1 ? "" : "s"}${statusBreakdown}.`;
+  const message = `"${label}" found ${tendersFound} new tender${tendersFound === 1 ? "" : "s"}.`;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   // job_id lets the in-app notification link straight to this run's results via the Tenders
   // page's existing `?job=` filter, instead of a message with nothing to click through to.
   await supabase.from("notifications").insert({ user_id: task.user_id, message, read: false, job_id: jobId });
 
-  // Open tenders first — the ones actually worth acting on shouldn't get pushed off the visible
-  // list by a source's closed-tender archive just because those happened to extract first.
-  const sortedTenders = [...tenders].sort((a, b) => (a.status === "open" ? -1 : 0) - (b.status === "open" ? -1 : 0));
-  const listedTenders = sortedTenders.slice(0, LIST_LIMIT);
+  // insertTenderRows already drops closed tenders before they ever reach here, so `tenders` is
+  // always open — no status split needed.
+  const listedTenders = tenders.slice(0, LIST_LIMIT);
   const remainingCount = tendersFound - listedTenders.length;
 
   // "[Category] Organization · Location" — each piece included only when known, since

@@ -87,6 +87,15 @@ export interface InsertResult {
 export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow[]): Promise<InsertResult> {
   if (rows.length === 0) return { inserted: 0, open: 0, closed: 0, rows: [] };
 
+  // Nobody's bidding on a tender whose deadline already passed — sources with a public archive
+  // page (an NGO's multi-year RFP history, some going back to 2022) routinely extract dozens of
+  // long-dead notices alongside real ones. This is an actionable-opportunities tracker, not a
+  // historical archive, so closed tenders are dropped here rather than saved and then hidden by
+  // status filters downstream. Undated tenders use a far-future sentinel (see
+  // NO_DEADLINE_SENTINEL) and always compute as "open", so they're never affected by this.
+  rows = rows.filter((r) => r.status === "open");
+  if (rows.length === 0) return { inserted: 0, open: 0, closed: 0, rows: [] };
+
   const seen = new Set<string>();
   let deduped = rows.filter((r) => (seen.has(r.source_url) ? false : (seen.add(r.source_url), true)));
 
