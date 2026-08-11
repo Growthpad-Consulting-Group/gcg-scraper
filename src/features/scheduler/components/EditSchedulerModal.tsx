@@ -77,7 +77,7 @@ export default function EditSchedulerModal({
   if (!editedTask) return null;
 
   return (
-    <SimpleModal isOpen={isOpen} onClose={onClose} title="Edit Scheduler" mode={mode} noPadding>
+    <SimpleModal isOpen={isOpen} onClose={onClose} title={`Edit Scheduler — ${task?.name || "Untitled"}`} mode={mode} noPadding>
       <TaskForm task={editedTask} setTask={setEditedTask} mode={mode} tenderTypes={tenderTypes} isLoadingParent={isSaving} />
       <div className="border-t border-app-border p-4">
         <FormActions
