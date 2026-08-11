@@ -43,8 +43,15 @@ const cloverDisplay = localFont({
   display: "swap",
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://scraper.growthpad.co.ke";
+
 export const metadata: Metadata = {
-  title: "GCG Scraper",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "GCG Scraper",
+    template: "%s | GCG Scraper",
+  },
+  description: "Growthpad Consulting Group's tender scraping and lead-generation dashboard.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -58,6 +65,17 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "GCG Scraper",
+  },
+  openGraph: {
+    title: "GCG Scraper",
+    description: "Growthpad Consulting Group's tender scraping and lead-generation dashboard.",
+    siteName: "GCG Scraper",
+    type: "website",
+  },
+  // This is an internal, auth-gated tool — nothing here should be indexed or listed.
+  robots: {
+    index: false,
+    follow: false,
   },
 };
 
