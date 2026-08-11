@@ -25,6 +25,8 @@ export default function TaskForm({
   const [isLoadingSearchTerms, setIsLoadingSearchTerms] = useState(false);
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
   const [isLoadingCountries, setIsLoadingCountries] = useState(false);
+  const [linkedinPhraseOptions, setLinkedinPhraseOptions] = useState<string[]>([]);
+  const [isLoadingLinkedinPhrases, setIsLoadingLinkedinPhrases] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(
     task.emailNotificationsEnabled || task.smsNotificationsEnabled || task.slackNotificationsEnabled
@@ -82,6 +84,24 @@ export default function TaskForm({
       }
     };
     fetchCountries();
+  }, []);
+
+  useEffect(() => {
+    const fetchLinkedinPhrases = async () => {
+      setIsLoadingLinkedinPhrases(true);
+      try {
+        const res = await fetch("/api/linkedin-search-phrases");
+        const data = await res.json();
+        setLinkedinPhraseOptions(
+          Array.isArray(data.linkedin_search_phrases) ? data.linkedin_search_phrases.map((p: { phrase: string }) => p.phrase) : []
+        );
+      } catch {
+        setLinkedinPhraseOptions([]);
+      } finally {
+        setIsLoadingLinkedinPhrases(false);
+      }
+    };
+    fetchLinkedinPhrases();
   }, []);
 
   useEffect(() => {
@@ -170,6 +190,25 @@ export default function TaskForm({
           isLoading={isLoadingSearchTerms}
         />
       </div>
+
+      {task.tenderType === "LinkedIn Tenders" && (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-text-hi">
+            Search Phrases{" "}
+            <span className="font-normal text-text-lo">
+              (each one is a separate paid search query per run — fewer phrases means lower cost; defaults to a built-in list if left empty)
+            </span>
+          </label>
+          <MultiCreatableSelect
+            value={task.linkedinSearchPhrases?.length ? task.linkedinSearchPhrases : linkedinPhraseOptions}
+            onChange={(values) => setTask((prev: any) => ({ ...prev, linkedinSearchPhrases: values, linkedin_search_phrases: values }))}
+            options={linkedinPhraseOptions}
+            placeholder="Select or type a search phrase..."
+            mode={mode}
+            isLoading={isLoadingLinkedinPhrases}
+          />
+        </div>
+      )}
 
       {task.tenderType !== "Search Query Tenders" && (
         <div>

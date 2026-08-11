@@ -31,6 +31,7 @@ export default function AddSchedulerModal({
     priority: "Medium",
     searchTerms: initialSearchTerms ?? ([] as string[]),
     countries: [] as string[],
+    linkedinSearchPhrases: [] as string[],
     emailNotificationsEnabled: false,
     smsNotificationsEnabled: false,
     slackNotificationsEnabled: false,
@@ -85,6 +86,7 @@ export default function AddSchedulerModal({
         priority: newTask.priority,
         search_terms: newTask.searchTerms,
         countries: newTask.countries,
+        linkedin_search_phrases: newTask.linkedinSearchPhrases,
         email_notifications_enabled: newTask.emailNotificationsEnabled,
         sms_notifications_enabled: newTask.smsNotificationsEnabled,
         slack_notifications_enabled: newTask.slackNotificationsEnabled,
@@ -110,7 +112,7 @@ export default function AddSchedulerModal({
   };
 
   return (
-    <SimpleModal isOpen={isOpen} onClose={onClose} title="Add Scheduler" mode={mode} noPadding>
+    <SimpleModal isOpen={isOpen} onClose={onClose} title="Add Automation" mode={mode} noPadding>
       <TaskForm task={newTask} setTask={setNewTask} mode={mode} tenderTypes={tenderTypes} isLoadingParent={isSaving} />
       <div className="border-t border-app-border p-4">
         <FormActions

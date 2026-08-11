@@ -131,7 +131,7 @@ export default function OverviewPage() {
                     .map((task) => (
                       <li key={task.task_id}>
                         <Link
-                          href="/scheduler"
+                          href="/automation"
                           className="-mx-2 flex flex-col gap-0.5 rounded-md px-2 py-1 transition-colors hover:bg-surface-2 hover:text-brand-500"
                         >
                           <span className="truncate text-sm text-text-hi">{task.name}</span>

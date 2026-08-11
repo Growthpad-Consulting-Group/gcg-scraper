@@ -29,7 +29,7 @@ export const sidebarNavGroups: NavGroup[] = [
     category: "Automate",
     icon: "solar:calendar-broken",
     items: [
-      { href: "/scheduler", icon: "solar:calendar-broken", label: "Scheduler" },
+      { href: "/automation", icon: "solar:calendar-broken", label: "Automation" },
       { href: "/blocked-domains", icon: "solar:shield-cross-broken", label: "Blocked Domains" },
     ],
   },

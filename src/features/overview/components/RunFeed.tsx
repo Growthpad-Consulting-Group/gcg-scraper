@@ -91,7 +91,7 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
   }
 
   if (jobs.length === 0) {
-    return <p className="h-full text-sm text-text-lo">No runs yet — start one from Run Query or the Scheduler.</p>;
+    return <p className="h-full text-sm text-text-lo">No runs yet — start one from Run Query or Automation.</p>;
   }
 
   return (

@@ -37,7 +37,7 @@ export type SourceConfig = {
 // real category taxonomy, but it's never printed next to any individual tender), which then
 // both over- and under-triggers keyword-based relevance filtering on a value that was never
 // really there.
-const FIELD_SUFFIX =
+export const FIELD_SUFFIX =
   " For each one, also extract the issuing organization/agency named on the page (not the aggregator site itself), location, and budget/value if stated. Also extract a category label, but only if the page explicitly shows one for that listing — leave it blank rather than guessing one from the title. If the listing belongs to a broader project or programme named on the page (multi-project funder sites like World Bank/AfDB), include that project name in the description — a notice's own title is sometimes too generic (e.g. \"CERT Enhancement\") to tell what it's actually for without it.";
 
 export const SOURCE_CONFIGS: SourceConfig[] = [

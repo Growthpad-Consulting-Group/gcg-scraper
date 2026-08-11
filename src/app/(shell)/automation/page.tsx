@@ -27,7 +27,7 @@ interface ScheduledTaskRow extends Omit<ScheduledTask, "task_id"> {
   id: string;
 }
 
-export default function SchedulerPage() {
+export default function AutomationPage() {
   const { resolvedMode: mode } = useTheme();
   const router = useRouter();
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
@@ -262,12 +262,12 @@ export default function SchedulerPage() {
     <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
-          title="Scheduler"
+          title="Automation"
           description="Automated scraping schedules and run history."
           icon="solar:calendar-broken"
           actions={[
             {
-              label: "Add Scheduler",
+              label: "Add Automation",
               icon: "mdi:plus",
               variant: "primary",
               onClick: () => setIsAddModalOpen(true),

@@ -9,13 +9,21 @@ export interface ScheduledTaskRow {
   tender_type: string | null;
   search_terms: string[] | null;
   countries: string[] | null;
+  linkedin_search_phrases?: string[] | null;
 }
 
 /** Shared by the manual "Run Task" button and the cron trigger — one place that decides which
  * scrape flow a task's `tender_type` maps to and kicks it off. */
 export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTaskRow): Promise<string> {
   const tenderType = task.tender_type ?? undefined;
-  const kind = tenderType === "Website Tenders" ? "tender-website" : tenderType && getSourceConfig(tenderType) ? "tender-source" : "search-query";
+  const kind =
+    tenderType === "Website Tenders"
+      ? "tender-website"
+      : tenderType === "LinkedIn Tenders"
+        ? "tender-source"
+        : tenderType && getSourceConfig(tenderType)
+          ? "tender-source"
+          : "search-query";
 
   const { data: job, error } = await supabase
     .from("scrape_jobs")
@@ -28,6 +36,11 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
     await inngest.send({
       name: "tenders/website.queued",
       data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [] },
+    });
+  } else if (tenderType === "LinkedIn Tenders") {
+    await inngest.send({
+      name: "tenders/linkedin-tenders.queued",
+      data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [], searchPhrases: task.linkedin_search_phrases || [] },
     });
   } else if (tenderType && getSourceConfig(tenderType)) {
     await inngest.send({

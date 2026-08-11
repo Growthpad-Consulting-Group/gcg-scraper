@@ -51,7 +51,7 @@ export default function Header({
     () => [
       { label: "Run Query", icon: "solar:database-broken", href: "/run-query?mode=search-query" },
       { label: "Lead Search", icon: "solar:map-point-broken", href: "/run-query?mode=gmb-leads" },
-      { label: "Scheduled Task", icon: "solar:calendar-broken", href: "/scheduler" },
+      { label: "Scheduled Task", icon: "solar:calendar-broken", href: "/automation" },
       { label: "Add Website", icon: "solar:global-broken", href: "/run-query?mode=website" },
     ],
     []

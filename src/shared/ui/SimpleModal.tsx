@@ -152,7 +152,7 @@ function SimpleModal({
             >
               {/* Header */}
               <div
-                className={`relative px-10 py-5 overflow-hidden ${getVariantStyles()}`}
+                className={`relative px-10 py-2 overflow-hidden ${getVariantStyles()}`}
               >
                 <div className="absolute inset-0 opacity-30 pointer-events-none">
                   <div

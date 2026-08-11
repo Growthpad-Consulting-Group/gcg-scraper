@@ -31,6 +31,7 @@ export default function EditSchedulerModal({
         tenderType: task.tender_type || "",
         searchTerms: Array.isArray(task.search_terms) ? task.search_terms : [],
         countries: Array.isArray(task.countries) ? task.countries : [],
+        linkedinSearchPhrases: Array.isArray(task.linkedin_search_phrases) ? task.linkedin_search_phrases : [],
         emailNotificationsEnabled: task.email_notifications_enabled ?? false,
         smsNotificationsEnabled: task.sms_notifications_enabled ?? false,
         slackNotificationsEnabled: task.slack_notifications_enabled ?? false,
@@ -56,6 +57,7 @@ export default function EditSchedulerModal({
           priority: editedTask.priority,
           search_terms: editedTask.searchTerms,
           countries: editedTask.countries,
+          linkedin_search_phrases: editedTask.linkedinSearchPhrases,
           email_notifications_enabled: editedTask.emailNotificationsEnabled,
           sms_notifications_enabled: editedTask.smsNotificationsEnabled,
           slack_notifications_enabled: editedTask.slackNotificationsEnabled,
@@ -77,7 +79,7 @@ export default function EditSchedulerModal({
   if (!editedTask) return null;
 
   return (
-    <SimpleModal isOpen={isOpen} onClose={onClose} title={`Edit Scheduler — ${task?.name || "Untitled"}`} mode={mode} noPadding>
+    <SimpleModal isOpen={isOpen} onClose={onClose} title={`Edit Automation — ${task?.name || "Untitled"}`} mode={mode} noPadding>
       <TaskForm task={editedTask} setTask={setEditedTask} mode={mode} tenderTypes={tenderTypes} isLoadingParent={isSaving} />
       <div className="border-t border-app-border p-4">
         <FormActions

@@ -9,7 +9,7 @@ export const NAV_SHORTCUTS: Record<string, string> = {
   "/tenders": "t",
   "/leads": "l",
   "/run-query": "q",
-  "/scheduler": "s",
+  "/automation": "s",
 };
 
 /** `G` then a letter jumps to the matching section from anywhere in the app. */
