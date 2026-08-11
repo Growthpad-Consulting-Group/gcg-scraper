@@ -57,6 +57,25 @@ const ALIASES: Record<string, string> = {
 const SORTED_NAMES = [...WORLD_COUNTRIES].sort((a, b) => b.length - a.length);
 const SORTED_ALIASES = Object.keys(ALIASES).sort((a, b) => b.length - a.length);
 
+// Task-level `countries` filters accept region labels ("East Africa", "West Africa") alongside
+// specific country names — a tender's own location is always a specific country, so region
+// filters need expanding to their member countries before comparison.
+const REGIONS: Record<string, string[]> = {
+  "east africa": ["Kenya", "Uganda", "Tanzania", "Rwanda", "Burundi", "South Sudan", "Ethiopia", "Somalia", "Djibouti", "Eritrea"],
+  "west africa": [
+    "Ghana", "Nigeria", "Senegal", "Cote d'Ivoire", "Mali", "Burkina Faso", "Benin", "Togo",
+    "Sierra Leone", "Liberia", "Guinea", "Guinea-Bissau", "Gambia", "Niger", "Cabo Verde", "Mauritania",
+  ],
+};
+
+/** Expands a task's configured `countries` filter (which may mix specific countries with region
+ * labels like "East Africa") into a flat, deduped list of specific country names to compare a
+ * tender's own normalized country against. */
+export function expandCountryFilter(countries: string[]): string[] {
+  const expanded = countries.flatMap((c) => REGIONS[c.trim().toLowerCase()] ?? [c.trim()]);
+  return [...new Set(expanded)];
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

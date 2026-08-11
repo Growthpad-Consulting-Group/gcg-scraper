@@ -3,6 +3,7 @@
 // URLs and target sites ported from the retired Python backend's per-source scrapers.
 
 import type { DateFormatHint } from "./tenderRow";
+import { normalizeCountry, expandCountryFilter } from "./countries";
 
 export type SourceConfig = {
   tenderType: string;
@@ -198,6 +199,22 @@ export function matchesKeywords(tender: { title: string; description?: string | 
   if (!kw.length) return true;
   const haystack = `${tender.title} ${tender.description || ""} ${tender.category || ""}`.toLowerCase();
   return kw.some((k) => new RegExp(`\\b${escapeRegExp(k)}\\b`, "i").test(haystack));
+}
+
+/** Deterministic backstop for the country half of `buildRelevanceClause` — confirmed live
+ * incident where a global aggregator (World Bank) task scoped to Kenya/Ghana/East+West Africa
+ * still returned Cambodia and Zambia tenders, because the prompt clause is only a soft hint the
+ * model doesn't reliably enforce (same gap `matchesKeywords` already covers for keywords). Unlike
+ * the keyword backstop, this one can be deterministic because `resolveOptionalFields` already
+ * normalizes each tender's free-text `location` into a specific canonical country. A tender whose
+ * location wasn't recognized as any country is rejected rather than let through — for aggregator
+ * sites the location field reliably names one when a task's countries filter matters at all. */
+export function matchesCountries(tender: { location?: string | null }, countries?: string[] | null): boolean {
+  const cc = (countries || []).map((c) => c.trim()).filter(Boolean);
+  if (!cc.length) return true;
+  const allowed = new Set(expandCountryFilter(cc).map((c) => c.toLowerCase()));
+  const tenderCountry = normalizeCountry(tender.location);
+  return tenderCountry !== null && allowed.has(tenderCountry.toLowerCase());
 }
 
 /** Anti-fabrication backstop: confirmed live incident where a page's real listings hadn't
