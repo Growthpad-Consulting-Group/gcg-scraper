@@ -285,6 +285,7 @@ function TendersContent() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"open" | "closed" | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [typeFilterValue, setTypeFilterValue] = useState<string | null>(typeFilter);
 
@@ -370,13 +371,15 @@ function TendersContent() {
   );
   const typeFilteredTenders = typeFilterValue ? dateFilteredTenders.filter((t) => t.tender_type === typeFilterValue) : dateFilteredTenders;
   const countryFilteredTenders = countryFilter ? typeFilteredTenders.filter((t) => t.country === countryFilter) : typeFilteredTenders;
-  const filteredTenders = categoryFilter ? countryFilteredTenders.filter((t) => t.category === categoryFilter) : countryFilteredTenders;
+  const categoryFilteredTenders = categoryFilter ? countryFilteredTenders.filter((t) => t.category === categoryFilter) : countryFilteredTenders;
+  const filteredTenders = statusFilter ? categoryFilteredTenders.filter((t) => t.status === statusFilter) : categoryFilteredTenders;
 
-  const activeFilterCount = [typeFilterValue, countryFilter, categoryFilter].filter(Boolean).length;
+  const activeFilterCount = [typeFilterValue, countryFilter, categoryFilter, statusFilter].filter(Boolean).length;
   const clearAllFilters = () => {
     setTypeFilterValue(null);
     setCountryFilter(null);
     setCategoryFilter(null);
+    setStatusFilter(null);
     if (typeFilter) router.push("/tenders");
   };
 
@@ -465,6 +468,25 @@ function TendersContent() {
                 <button onClick={() => setSidebarOpen(false)} className="text-text-lo hover:text-text-hi lg:hidden" aria-label="Hide filters">
                   <Icon icon="mdi:close" width={16} />
                 </button>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-text-lo">Status</label>
+                <Select
+                  value={statusFilter ? { value: statusFilter, label: statusFilter === "open" ? "Open" : "Closed" } : null}
+                  onChange={(opt) => setStatusFilter((getSelectValue(opt) as "open" | "closed" | null) || null)}
+                  options={[
+                    { value: "open", label: "Open" },
+                    { value: "closed", label: "Closed" },
+                  ]}
+                  placeholder="All statuses"
+                  isClearable
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={getSelectStyles<{ value: string; label: string }>(mode)}
+                  menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                  menuPosition="fixed"
+                />
               </div>
 
               <div>
