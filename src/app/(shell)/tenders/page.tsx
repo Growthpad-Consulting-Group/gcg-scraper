@@ -616,6 +616,8 @@ function TendersContent() {
               customRowRender={customRowRender}
               hideEmptyColumns={false}
               fullPageHeight={false}
+              stickyHeader
+              stickyTopOffset={0}
               enableRefresh
               onRefresh={fetchTenders}
               showBulkBar
