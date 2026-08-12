@@ -43,8 +43,10 @@ export const runWebsiteScrapeJob = inngest.createFunction(
     };
     const supabase = createServerSupabaseClient();
 
+    // `.neq` guard: without it, a cancel landing while the job is still queued/starting gets
+    // silently overwritten back to "running" by this very step (confirmed live elsewhere).
     await step.run("mark-running", async () => {
-      await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "starting" } }).eq("id", jobId);
+      await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "starting" } }).eq("id", jobId).neq("status", "canceled");
     });
 
     try {

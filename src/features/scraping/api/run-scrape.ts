@@ -77,9 +77,18 @@ export const runScrapeJob = inngest.createFunction(
 
     const supabase = createServerSupabaseClient();
 
+    // Confirmed live: without the `.neq` guard here, a cancel that lands while the job is still
+    // queued/starting gets silently overwritten back to "running" by this very step — cancellation
+    // was previously only checked before the extract phase, leaving the search phase (often the
+    // longest-running one, and the one most likely to be mid-flight when someone hits Cancel)
+    // completely unable to be stopped.
     await step.run("mark-running", async () => {
-      await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "searching" } }).eq("id", jobId);
+      await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "searching" } }).eq("id", jobId).neq("status", "canceled");
     });
+
+    if (await step.run("check-canceled-before-search", () => isJobCanceled(supabase, jobId))) {
+      return { jobId, tendersFound: 0, canceled: true };
+    }
 
     try {
       const perQueryLimit = isMultiQuery ? MULTI_QUERY_PER_TERM_LIMIT : resultsLimit || RESULTS_LIMIT;

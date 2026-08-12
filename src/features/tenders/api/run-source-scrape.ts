@@ -6,6 +6,7 @@ import { getSourceConfig, buildRelevanceClause, matchesKeywords, matchesCountrie
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
+import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 
 export const runSourceScrapeJob = inngest.createFunction(
   {
@@ -33,9 +34,15 @@ export const runSourceScrapeJob = inngest.createFunction(
       return { jobId, error: "unknown_source" };
     }
 
+    // `.neq` guard: without it, a cancel landing while the job is still queued/starting gets
+    // silently overwritten back to "running" by this very step (confirmed live elsewhere).
     await step.run("mark-running", async () => {
-      await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "extracting" } }).eq("id", jobId);
+      await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "extracting" } }).eq("id", jobId).neq("status", "canceled");
     });
+
+    if (await step.run("check-canceled-before-extract", () => isJobCanceled(supabase, jobId))) {
+      return { jobId, tendersFound: 0, canceled: true };
+    }
 
     try {
       // PPIP's listing page has no real per-tender links for the LLM to extract (confirmed
