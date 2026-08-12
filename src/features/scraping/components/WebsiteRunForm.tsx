@@ -60,6 +60,9 @@ export default function WebsiteRunForm({
   countries = [],
   selectedCountries = [],
   onSelectedCountriesChange,
+  keywordOptions = [],
+  selectedKeywords = [],
+  onSelectedKeywordsChange,
 }: {
   url: string;
   setUrl: (v: string) => void;
@@ -79,6 +82,12 @@ export default function WebsiteRunForm({
    * (confirmed live: without this, an ad-hoc scan had zero geographic scoping at all). */
   selectedCountries?: string[];
   onSelectedCountriesChange?: (values: string[]) => void;
+  /** The curated GCG keyword list, offered as suggestions — same list run-website-scrape.ts falls
+   * back to server-side when nothing's picked here, so leaving this empty still filters, it just
+   * isn't visible/editable per-run without this control. */
+  keywordOptions?: string[];
+  selectedKeywords?: string[];
+  onSelectedKeywordsChange?: (values: string[]) => void;
 }) {
   const canRun = url.trim().length > 0;
   const urlExamples = useMemo(() => {
@@ -176,10 +185,10 @@ export default function WebsiteRunForm({
         <button
           type="button"
           onClick={() => setShowDetails((v) => !v)}
-          className="flex items-center gap-1 text-xs text-text-lo hover:text-text-hi transition-colors"
+          className="flex items-center gap-1 text-sm text-text-lo hover:text-text-hi transition-colors"
         >
           <Icon icon={showDetails ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={12} />
-          {showDetails ? "Hide details" : "Add name, location & countries"}
+          {showDetails ? "Hide details" : "Add name, location, keywords & countries"}
         </button>
       </div>
 
@@ -188,6 +197,21 @@ export default function WebsiteRunForm({
           <div className="flex flex-col gap-2 sm:flex-row">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={`${inputClass} flex-1`} />
             <LocationInput value={location} onChange={setLocation} countries={countries} mode={mode} className="w-full sm:w-56 shrink-0" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-text-lo">
+              Keywords{" "}
+              <span className="italic">
+                (optional — narrows saved results to these topics; defaults to the full GCG keyword list if left empty)
+              </span>
+            </label>
+            <MultiCreatableSelect
+              value={selectedKeywords}
+              onChange={(values) => onSelectedKeywordsChange?.(values)}
+              options={keywordOptions}
+              placeholder="Select or type a keyword..."
+              mode={mode ?? "light"}
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs text-text-lo">

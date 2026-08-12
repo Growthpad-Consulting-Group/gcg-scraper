@@ -32,9 +32,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: website, error: fetchError } = await supabase.from("websites").select("id, name").eq("id", id).maybeSingle();
   if (fetchError || !website) return NextResponse.json({ error: fetchError?.message || "Website not found" }, { status: 404 });
 
-  // No `keywords` here — this ad-hoc path has none of its own, and run-website-scrape.ts
-  // already falls back to the curated global search_terms list (used as both the LLM prompt
-  // hint and the deterministic backstop filter) when keywords isn't set.
+  // If left unset (empty selection in the UI), run-website-scrape.ts falls back to the curated
+  // global search_terms list server-side — same list, just not overridden per-run here.
+  const keywords = stringArray(body?.keywords);
   const countries = stringArray(body?.countries);
 
   const { data: job, error } = await supabase
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .single();
   if (error || !job) return NextResponse.json({ error: error?.message || "Failed to create job" }, { status: 500 });
 
-  await inngest.send({ name: "tenders/website.queued", data: { jobId: job.id, websiteId: website.id, extractOptions, countries } });
+  await inngest.send({ name: "tenders/website.queued", data: { jobId: job.id, websiteId: website.id, extractOptions, keywords, countries } });
 
   return NextResponse.json({ jobId: job.id });
 }
