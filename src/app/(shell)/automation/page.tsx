@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import Select from "react-select";
 import PageHeader from "@/shared/ui/PageHeader";
 import Badge from "@/shared/ui/Badge";
 import { Icon } from "@iconify/react";
@@ -13,6 +14,7 @@ import ConfirmDeleteModal from "@/shared/ui/ConfirmDeleteModal";
 import LogsModal, { type TaskLogEntry } from "@/features/scheduler/components/LogsModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import { getSourceConfig } from "@/features/tenders/api/sourceConfigs";
+import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
 
 interface ScheduledTask {
   task_id: number;
@@ -41,6 +43,7 @@ export default function AutomationPage() {
   const [currentTaskName, setCurrentTaskName] = useState("");
   const [currentTask, setCurrentTask] = useState<ScheduledTask | null>(null);
   const [logs, setLogs] = useState<TaskLogEntry[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   const fetchTenderTypes = useCallback(async () => {
     try {
@@ -251,6 +254,14 @@ export default function AutomationPage() {
     { value: "disabled", label: "Disabled" },
   ];
 
+  // Derived from the tasks actually present, not the full /api/tender-types list — a type with
+  // no scheduled task yet shouldn't show up as a filter option with nothing to filter to.
+  const typeOptions = useMemo(
+    () => [...new Set(tasks.map((t) => t.tender_type).filter((t): t is string => !!t))].sort(),
+    [tasks]
+  );
+  const filteredTasks = typeFilter ? tasks.filter((t) => t.tender_type === typeFilter) : tasks;
+
   const handleDeleteTaskItem = async (task: ScheduledTaskRow) => {
     const res = await fetch(`/api/scheduled-tasks/${task.id}`, { method: "DELETE" });
     const data = await res.json();
@@ -276,7 +287,7 @@ export default function AutomationPage() {
         />
 
         <GenericTable<ScheduledTaskRow>
-          data={tasks.map((t) => ({
+          data={filteredTasks.map((t) => ({
             ...t,
             id: String(t.task_id),
             status: t.is_enabled ? "enabled" : "disabled",
@@ -294,6 +305,22 @@ export default function AutomationPage() {
           exportTitle="Scheduled Tasks"
           enableDateFilter
           statusOptions={statusOptions}
+          extraFilters={
+            <Select
+              value={typeFilter ? { value: typeFilter, label: typeFilter } : null}
+              onChange={(opt) => setTypeFilter(getSelectValue(opt) || null)}
+              options={typeOptions.map((t) => ({ value: t, label: t }))}
+              placeholder="Filter by type…"
+              isClearable
+              isSearchable
+              noOptionsMessage={() => "No types found"}
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={getSelectStyles<{ value: string; label: string }>(mode)}
+              menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+              menuPosition="fixed"
+            />
+          }
           enableRefresh
           onRefresh={fetchTasks}
           onDelete={handleDeleteTaskItem}
