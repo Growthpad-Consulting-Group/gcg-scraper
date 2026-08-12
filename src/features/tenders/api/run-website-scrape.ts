@@ -9,10 +9,12 @@ import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 import { mapWithConcurrency } from "@/shared/lib/concurrency";
 
 const TENDER_TYPE = "Website Tenders";
-// Firecrawl's account limit is 18 req/min — confirmed live elsewhere (LinkedIn Tenders) that a
-// wider burst than that reliably 429s. 8 in flight leaves headroom under that ceiling given each
-// extract call takes a few seconds anyway (rarely all 8 land in the same one-second window).
-const MAX_CONCURRENT_EXTRACTS = 8;
+// Confirmed live (twice, on run-scrape.ts's search and extract steps): the job-level `throttle`
+// config only limits how many *jobs* start per minute, not how many Firecrawl calls run
+// concurrently once several jobs happen to be executing at once — a single job's own concurrency
+// has to assume sibling jobs could be calling Firecrawl in the same window too, so this stays
+// conservative rather than sized to what one job alone could get away with.
+const MAX_CONCURRENT_EXTRACTS = 4;
 // Scraping all rows in `websites` in a single run isn't practical (Firecrawl cost/time); each
 // scheduled run processes a bounded batch instead, ordered oldest-checked-first (nulls — never
 // checked — sort first) so repeated runs rotate through the full list instead of always hitting

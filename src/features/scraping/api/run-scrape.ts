@@ -11,11 +11,15 @@ import { mapWithConcurrency } from "@/shared/lib/concurrency";
 
 const TENDER_TYPE = "Search Query Tenders";
 const RESULTS_LIMIT = 10;
-// Firecrawl's account limit is 18 req/min — confirmed live elsewhere (LinkedIn Tenders) that a
-// wider burst than that reliably 429s. MULTI_QUERY_TOTAL_CAP alone (15) is already borderline;
-// bounding in-flight extracts keeps this run from eating the whole per-minute budget on its own,
-// leaving headroom for whatever else might be running in the same window.
-const MAX_CONCURRENT_EXTRACTS = 8;
+// Confirmed live (twice): Firecrawl's /v1/scrape and /v1/search endpoints each have their own
+// ~18-27 req/min ceiling, and the job-level `throttle` config only limits how many *jobs* start
+// per minute — it doesn't cap how many Firecrawl calls run concurrently once several jobs happen
+// to be executing at the same time (e.g. several Weekly tasks all becoming due together). A
+// single job's own bounded concurrency has to assume 2-3 sibling jobs could be making calls in
+// the same window too, so this stays conservative rather than sized to what one job alone could
+// get away with.
+const MAX_CONCURRENT_EXTRACTS = 4;
+const MAX_CONCURRENT_SEARCHES = 4;
 // A scheduled task can have several distinct search terms selected — each needs its own actual
 // search (searching "term1 term2 term3" as one combined string dilutes relevance into a
 // meaningless bag-of-words query). Multiple searches multiply Firecrawl usage though, so each
@@ -80,7 +84,7 @@ export const runScrapeJob = inngest.createFunction(
     try {
       const perQueryLimit = isMultiQuery ? MULTI_QUERY_PER_TERM_LIMIT : resultsLimit || RESULTS_LIMIT;
       const searchResults = await step.run("search", async () => {
-        const batches = await Promise.all(queryList.map((q) => searchWeb(q, perQueryLimit)));
+        const batches = await mapWithConcurrency(queryList, MAX_CONCURRENT_SEARCHES, (q) => searchWeb(q, perQueryLimit));
         const seen = new Set<string>();
         const merged = batches.flat().filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true)));
         return isMultiQuery ? merged.slice(0, MULTI_QUERY_TOTAL_CAP) : merged;
