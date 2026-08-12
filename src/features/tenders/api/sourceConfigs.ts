@@ -4,6 +4,7 @@
 
 import type { DateFormatHint } from "./tenderRow";
 import { normalizeCountry, expandCountryFilter } from "./countries";
+import { normalizeSpellingVariants, expandAcronymVariants } from "./textVariants";
 
 export type SourceConfig = {
   tenderType: string;
@@ -193,12 +194,19 @@ function escapeRegExp(value: string): string {
  *
  * Uses word-boundary matching, not plain substring — short keyword abbreviations like "IT" and
  * "PR" otherwise false-positive inside unrelated words ("condIT ioners", "PReventive"), which
- * silently let irrelevant tenders through undetected. */
+ * silently let irrelevant tenders through undetected.
+ *
+ * Spelling (organisation/organization, programme/program, ...) and acronym/full-form
+ * (PR/"public relations", MEL/"monitoring evaluation and learning", ...) variants are matched
+ * interchangeably — a keyword list written in one spelling shouldn't miss a tender that happens
+ * to use the other. */
 export function matchesKeywords(tender: { title: string; description?: string | null; category?: string | null }, keywords?: string[] | null): boolean {
   const kw = (keywords || []).map((k) => k.trim().toLowerCase()).filter(Boolean);
   if (!kw.length) return true;
-  const haystack = `${tender.title} ${tender.description || ""} ${tender.category || ""}`.toLowerCase();
-  return kw.some((k) => new RegExp(`\\b${escapeRegExp(k)}\\b`, "i").test(haystack));
+  const haystack = normalizeSpellingVariants(`${tender.title} ${tender.description || ""} ${tender.category || ""}`.toLowerCase());
+  return kw.some((k) =>
+    expandAcronymVariants(k).some((variant) => new RegExp(`\\b${escapeRegExp(normalizeSpellingVariants(variant))}\\b`, "i").test(haystack))
+  );
 }
 
 /** Deterministic backstop for the country half of `buildRelevanceClause` — confirmed live

@@ -13,6 +13,7 @@
 import { extractTenders, type ExtractedTender } from "./firecrawlExtract";
 import { FIELD_SUFFIX } from "./sourceConfigs";
 import { firecrawlFetch } from "@/shared/lib/firecrawl";
+import { normalizeSpellingVariants, expandAcronymVariants } from "./textVariants";
 
 const SEARCH_ACTOR_ID = "harvestapi~linkedin-post-search";
 const BASE_URL = "https://api.apify.com/v2";
@@ -75,13 +76,19 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Spelling (organisation/organization, ...) and acronym/full-form (PR/"public relations", ...)
+// variants match interchangeably — a post that only ever writes "programme" shouldn't fall
+// outside a phrase list spelled "program", and vice versa.
 function matchesProcurementPhrase(text: string, phrases: string[]): boolean {
-  const normalized = text.toLowerCase();
-  return phrases.some((phrase) => normalized.includes(phrase.toLowerCase()));
+  const normalized = normalizeSpellingVariants(text.toLowerCase());
+  return phrases.some((phrase) =>
+    expandAcronymVariants(phrase).some((variant) => normalized.includes(normalizeSpellingVariants(variant.toLowerCase())))
+  );
 }
 
 function matchesShortSignal(text: string): boolean {
-  return SHORT_SIGNAL_WORDS.some((word) => new RegExp(`\\b${escapeRegExp(word)}\\b`, "i").test(text));
+  const normalized = normalizeSpellingVariants(text);
+  return SHORT_SIGNAL_WORDS.some((word) => new RegExp(`\\b${escapeRegExp(normalizeSpellingVariants(word))}\\b`, "i").test(normalized));
 }
 
 /** Pulls the link out of a post's text worth following — LinkedIn always wraps outbound links in
