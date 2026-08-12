@@ -25,7 +25,14 @@ const MAX_CONCURRENT_SEARCHES = 4;
 // meaningless bag-of-words query). Multiple searches multiply Firecrawl usage though, so each
 // term gets a smaller per-term result count, and the merged, deduped total across all of a
 // task's terms is capped regardless of how many terms it has.
-const MULTI_QUERY_PER_TERM_LIMIT = 3;
+//
+// Raised from 3: confirmed live that for narrower compound queries, the top 3 results are often
+// entirely dominated by already-blocked tender-aggregator/social sites (tendersontime.com,
+// facebook.com, scribd.com, ...), while genuine unblocked results (tenders.go.ke, government
+// portals) rank 5th-10th and never got reached at all. This doesn't raise extraction cost
+// proportionally — MULTI_QUERY_TOTAL_CAP still bounds what actually gets extracted, this just
+// gives real results further down the rankings a chance to surface before that cap is applied.
+const MULTI_QUERY_PER_TERM_LIMIT = 6;
 const MULTI_QUERY_TOTAL_CAP = 15;
 
 /** Extracts the bare hostname from a URL, stripping www. prefix for consistent matching. */
