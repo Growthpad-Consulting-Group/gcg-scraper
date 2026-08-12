@@ -210,21 +210,19 @@ export default function TaskForm({
         </div>
       )}
 
-      {task.tenderType !== "Search Query Tenders" && (
-        <div>
-          <label className="mb-2 block text-sm font-medium text-text-hi">
-            Countries / Regions <span className="font-normal text-text-lo">(optional — narrows results to these markets)</span>
-          </label>
-          <MultiCreatableSelect
-            value={task.countries || []}
-            onChange={(values) => setTask((prev: any) => ({ ...prev, countries: values }))}
-            options={countryOptions}
-            placeholder="Select or type a country/region..."
-            mode={mode}
-            isLoading={isLoadingCountries}
-          />
-        </div>
-      )}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-text-hi">
+          Countries / Regions <span className="font-normal text-text-lo">(optional — narrows results to these markets)</span>
+        </label>
+        <MultiCreatableSelect
+          value={task.countries || []}
+          onChange={(values) => setTask((prev: any) => ({ ...prev, countries: values }))}
+          options={countryOptions}
+          placeholder="Select or type a country/region..."
+          mode={mode}
+          isLoading={isLoadingCountries}
+        />
+      </div>
 
       <div className="flex items-center space-x-3">
         <label className="text-sm font-medium text-text-hi">Enable Notifications?</label>
