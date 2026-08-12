@@ -460,7 +460,7 @@ function TendersContent() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
           {sidebarOpen && (
             <aside className="flex h-fit flex-col gap-4 rounded-lg border border-app-border bg-surface p-4 lg:sticky lg:top-4">
               <div className="flex items-center justify-between">
