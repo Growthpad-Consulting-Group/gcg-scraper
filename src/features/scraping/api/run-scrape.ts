@@ -2,7 +2,7 @@ import { inngest } from "./inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { searchWeb } from "./firecrawlSearch";
 import { extractTenders } from "@/features/tenders/api/firecrawlExtract";
-import { matchesSourceContent } from "@/features/tenders/api/sourceConfigs";
+import { matchesSourceContent, matchesCountries } from "@/features/tenders/api/sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
 import { isJobCanceled } from "./jobStatus";
 import { notifyTaskOwner } from "./notify";
@@ -70,12 +70,13 @@ export const runScrapeJob = inngest.createFunction(
     // behavior — Firecrawl's /search endpoint replaces per-engine SERP scraping entirely.
     // `query` (single string) is the ad-hoc Run Query path (/api/jobs) — unchanged, one search.
     // `queries` (array) is the scheduled multi-term path (startTaskRun.ts) — one search per term.
-    const { jobId, query, queries, resultsLimit } = event.data as {
+    const { jobId, query, queries, resultsLimit, countries } = event.data as {
       jobId: string;
       query?: string;
       queries?: string[];
       engines?: string[];
       resultsLimit?: number;
+      countries?: string[];
     };
     const queryList = queries?.length ? queries : query ? [query] : [];
     const isMultiQuery = queryList.length > 1;
@@ -162,7 +163,7 @@ export const runScrapeJob = inngest.createFunction(
 
           const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${result.url}`, async () => {
             const rows = extracted
-              .filter((t) => (t.source_url || result.url) && matchesSourceContent(t, markdown))
+              .filter((t) => (t.source_url || result.url) && matchesCountries(t, countries) && matchesSourceContent(t, markdown))
               .map((t) => ({
                 title: t.title,
                 description: t.description || null,
@@ -194,8 +195,17 @@ export const runScrapeJob = inngest.createFunction(
           });
       });
 
+      // Confirmed live: a job canceled mid-extraction still had its already-found tenders emailed/
+      // Slacked out, even though mark-done's own update correctly no-op'd (the `.neq` guard below)
+      // and left result_summary/the UI's "items" count showing nothing — notify ran unconditionally
+      // right after, using the in-memory results collected before cancellation was noticed, so the
+      // DB row and the notification the user actually saw told two different stories. Notify (and
+      // the "done" log line) now skip entirely once canceled, same as every other outcome here.
+      if (await step.run("check-canceled-before-done", () => isJobCanceled(supabase, jobId))) {
+        return { jobId, visited, tendersFound: totalInserted, canceled: true };
+      }
+
       await step.run("mark-done", async () => {
-        // Skip if a cancel landed mid-batch.
         await supabase
           .from("scrape_jobs")
           .update({

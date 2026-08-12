@@ -50,13 +50,18 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
   } else {
     // Each selected term gets searched separately (see run-scrape.ts) rather than joined into
     // one combined string — a search engine can't usefully match "term1 term2 term3" as a bag
-    // of unrelated phrases the way a human reads a task's term list. Countries are appended as
-    // extra keywords on each term's own query (not cross-multiplied into a separate search per
-    // country) — same intent as "digital marketing tender Kenya" typed into a search box,
-    // without multiplying the already-per-term search count.
-    const currentYear = new Date().getFullYear();
-    const queries = (task.search_terms || []).map((term) => [currentYear, term, ...(task.countries || [])].join(" ").trim());
-    await inngest.send({ name: "scrape/job.queued", data: { jobId: job.id, queries } });
+    // of unrelated phrases the way a human reads a task's term list.
+    //
+    // Terms are sent as-is now, not appended with year/countries — confirmed live that doing so
+    // broke the curated quoted-phrase queries (e.g. GCG's keyword library queries already end in
+    // "Kenya" or "East Africa" as appropriate; piling on "2026 ... Kenya Kenya Ghana East Africa
+    // West Africa" made the query over-constrained and returned zero results). Country scoping
+    // is now a deterministic post-extraction backstop in run-scrape.ts instead (matchesCountries,
+    // same pattern every other source already uses) rather than a soft keyword baked into the
+    // query text, which never actually constrained results to begin with (confirmed live: a task
+    // scoped to Kenya/Ghana/East+West Africa still returned genuine Equatorial Guinea/Europe/
+    // Global tenders, since a page merely mentioning "Kenya" in passing still matches).
+    await inngest.send({ name: "scrape/job.queued", data: { jobId: job.id, queries: task.search_terms || [], countries: task.countries || [] } });
   }
 
   await supabase.from("scheduled_tasks").update({ last_run: new Date().toISOString() }).eq("task_id", task.task_id);
