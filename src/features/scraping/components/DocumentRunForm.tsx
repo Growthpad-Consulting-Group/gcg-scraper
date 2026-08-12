@@ -99,7 +99,7 @@ export default function DocumentRunForm({
       <p className="text-xs text-text-lo">
         Upload a document to extract tender data — PDF, DOCX, XLSX, HTML or CSV, up to {MAX_SIZE_MB} MB.
       </p>
-      <p className="text-xs text-text-lo">
+      <p className="text-sm text-text-lo">
         Pulls every tender, RFP, RFQ, or procurement notice mentioned in the document: title, issuing
         organization, closing date, location, budget/value, a category label, and any listing or
         downloadable-document links found in the text — same fields as every other source, just read
@@ -162,7 +162,8 @@ export default function DocumentRunForm({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
         <Popover
           trigger={(open) => (
             <span
@@ -215,6 +216,7 @@ export default function DocumentRunForm({
             </div>
           </div>
         </Popover>
+        </div>
 
         <Button
           size="sm"
