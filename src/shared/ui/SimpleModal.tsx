@@ -148,7 +148,7 @@ function SimpleModal({
           >
             <GlassPanel
               mode={mode}
-              className={`rounded-3xl overflow-hidden ${mode === "dark" ? "bg-gray-900/50" : "bg-white/50"}`}
+              className={`rounded-3xl overflow-hidden ${mode === "dark" ? "bg-gray-900/50" : "bg-white/70"}`}
             >
               {/* Header */}
               <div
@@ -182,7 +182,7 @@ function SimpleModal({
                     {rightElement}
                     <button
                       onClick={handleClose}
-                      className="group p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all duration-500 transform hover:scale-110 active:scale-90 border border-white/10 hover:border-white/20 shadow-lg"
+                      className="group p-2 bg-white/10 hover:bg-white/20 rounded-2xl transition-all duration-500 transform hover:scale-110 active:scale-90 border border-white/10 hover:border-white/20 shadow-lg"
                     >
                       <Icon
                         icon="solar:close-circle-broken"

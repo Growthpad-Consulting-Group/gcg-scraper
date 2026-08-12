@@ -50,7 +50,7 @@ export default function MultiCreatableSelect({
       {value.length > 0 && (
         <div className="mt-2 flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-md border border-app-border p-2">
           {value.map((v) => (
-            <span key={v} className="flex items-center gap-1 rounded-full bg-surface-2 px-2 py-1 text-xs text-text-hi">
+            <span key={v} className="flex items-center gap-1 rounded-full bg-surface-2 px-2 py-1 text-sm text-text-hi">
               {v}
               <button type="button" onClick={() => onChange(value.filter((x) => x !== v))} className="text-text-lo hover:text-text-hi" aria-label={`Remove ${v}`}>
                 <Icon icon="solar:close-circle-broken" width={14} height={14} />

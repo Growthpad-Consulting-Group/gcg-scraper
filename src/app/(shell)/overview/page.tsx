@@ -86,13 +86,13 @@ export default function OverviewPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link href="/tenders">
-              <Button size="sm" variant="secondary">
+              <Button size="md" variant="secondary">
                 <Icon icon="solar:document-text-broken" width={16} />
                 View Tenders
               </Button>
             </Link>
             <Link href="/run-query">
-              <Button size="sm">
+              <Button size="md">
                 <Icon icon="solar:play-circle-broken" width={16} />
                 New Query
               </Button>
