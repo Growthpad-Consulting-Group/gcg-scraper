@@ -1,7 +1,8 @@
+import { apifyFetchRotating } from "@/shared/lib/apify";
+
 // harvestapi/linkedin-profile-search hits a hard "10 free runs" cap on Apify's free plan;
 // this actor (no-cookie, SERP-based) doesn't have that restriction and returns equivalent data.
 const ACTOR_ID = "fabri-lab~linkedin-public-search-lead-extractor";
-const BASE_URL = "https://api.apify.com/v2";
 
 // Separate no-cookie actor used only to enrich profiles the search above already found, with a
 // work email — this search actor itself never returns one (it's SERP-snippet based, not a real
@@ -12,19 +13,17 @@ const BASE_URL = "https://api.apify.com/v2";
 const ENRICH_ACTOR_ID = "apimaestro~linkedin-profile-batch-scraper-no-cookies-required";
 
 export async function startLinkedInSearch(searchQuery: string, locations: string[], maxItems = 25) {
-  const res = await fetch(`${BASE_URL}/acts/${ACTOR_ID}/runs?token=${process.env.APIFY_API_TOKEN}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      searchQuery,
-      locations: locations.length > 0 ? locations : undefined,
-      maxItems,
-      profileScraperMode: "Short",
-    }),
+  const { res, apiKey } = await apifyFetchRotating(`/acts/${ACTOR_ID}/runs`, {
+    searchQuery,
+    locations: locations.length > 0 ? locations : undefined,
+    maxItems,
+    profileScraperMode: "Short",
   });
   if (!res.ok) throw new Error(`Failed to start LinkedIn Apify run: ${res.status} ${await res.text()}`);
   const { data } = await res.json();
-  return { runId: data.id as string, datasetId: data.defaultDatasetId as string };
+  // Must reuse this same key for every later call scoped to this run (status polling, abort,
+  // dataset fetch) — a different account's token can't see this run at all.
+  return { runId: data.id as string, datasetId: data.defaultDatasetId as string, apiKey };
 }
 
 /** Pulls the `/in/{username}` slug out of a LinkedIn profile URL — the enrichment actor takes
@@ -42,11 +41,9 @@ export function extractLinkedInUsername(url: string | null | undefined): string 
 export async function enrichLinkedInEmails(usernames: string[]): Promise<Record<string, string | null>> {
   if (!usernames.length) return {};
 
-  const res = await fetch(`${BASE_URL}/acts/${ENRICH_ACTOR_ID}/run-sync-get-dataset-items?token=${process.env.APIFY_API_TOKEN}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ usernames, includeEmail: true }),
-  });
+  // Self-contained run-sync call (no run/dataset id to track across requests), so it's safe to
+  // rotate keys freely here rather than pinning to whichever key started an unrelated run.
+  const { res } = await apifyFetchRotating(`/acts/${ENRICH_ACTOR_ID}/run-sync-get-dataset-items`, { usernames, includeEmail: true });
   if (!res.ok) return {};
 
   const items: any[] = await res.json();

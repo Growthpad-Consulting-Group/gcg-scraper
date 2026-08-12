@@ -25,18 +25,18 @@ export const runLinkedInScrapeJob = inngest.createFunction(
       await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "starting" } }).eq("id", jobId);
     });
 
-    const { runId, datasetId } = await step.run("start-apify-run", () =>
+    const { runId, datasetId, apiKey } = await step.run("start-apify-run", () =>
       maxResults ? startLinkedInSearch(searchQuery, locations, maxResults) : startLinkedInSearch(searchQuery, locations)
     );
 
     let status: string = "RUNNING";
     for (let i = 0; i < MAX_POLLS; i++) {
       if (await step.run(`check-canceled-${i}`, () => isJobCanceled(supabase, jobId))) {
-        await step.run("abort-apify-run", () => abortRun(runId));
+        await step.run("abort-apify-run", () => abortRun(runId, apiKey));
         return { jobId, leadsFound: 0, status: "canceled" };
       }
 
-      status = await step.run(`poll-${i}`, () => getRunStatus(runId));
+      status = await step.run(`poll-${i}`, () => getRunStatus(runId, apiKey));
       if (status !== "RUNNING" && status !== "READY") break;
 
       await step.run(`progress-${i}`, async () => {
@@ -56,7 +56,7 @@ export const runLinkedInScrapeJob = inngest.createFunction(
       return { jobId, leadsFound: 0, apifyStatus: status };
     }
 
-    const profiles = await step.run("fetch-dataset", () => getDatasetItems(datasetId));
+    const profiles = await step.run("fetch-dataset", () => getDatasetItems(datasetId, apiKey));
 
     // The search actor only ever returns SERP snippets — no email field exists on it at all.
     // A separate no-cookie actor visits each found profile to pull a real work email (best

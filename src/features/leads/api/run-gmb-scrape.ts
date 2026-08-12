@@ -18,18 +18,18 @@ export const runGmbScrapeJob = inngest.createFunction(
       await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "starting" } }).eq("id", jobId);
     });
 
-    const { runId, datasetId } = await step.run("start-apify-run", () =>
+    const { runId, datasetId, apiKey } = await step.run("start-apify-run", () =>
       startGoogleMapsRun(searchString, maxResults || 30, countryCode)
     );
 
     let status: string = "RUNNING";
     for (let i = 0; i < MAX_POLLS; i++) {
       if (await step.run(`check-canceled-${i}`, () => isJobCanceled(supabase, jobId))) {
-        await step.run("abort-apify-run", () => abortRun(runId));
+        await step.run("abort-apify-run", () => abortRun(runId, apiKey));
         return { jobId, status: "canceled" };
       }
 
-      status = await step.run(`poll-${i}`, () => getRunStatus(runId));
+      status = await step.run(`poll-${i}`, () => getRunStatus(runId, apiKey));
       if (status !== "RUNNING" && status !== "READY") break;
 
       await step.run(`progress-${i}`, async () => {
@@ -49,7 +49,7 @@ export const runGmbScrapeJob = inngest.createFunction(
       return { jobId, status };
     }
 
-    const places = await step.run("fetch-dataset", () => getDatasetItems(datasetId));
+    const places = await step.run("fetch-dataset", () => getDatasetItems(datasetId, apiKey));
 
     const inserted = await step.run("save-leads", async () => {
       if (places.length === 0) return 0;

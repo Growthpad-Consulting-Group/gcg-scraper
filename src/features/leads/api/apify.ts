@@ -1,5 +1,6 @@
+import { apifyFetchRotating, apifyUrl } from "@/shared/lib/apify";
+
 const ACTOR_ID = "compass~crawler-google-places";
-const BASE_URL = "https://api.apify.com/v2";
 
 export type LeadEnrichmentContact = {
   fullName?: string;
@@ -33,48 +34,46 @@ type GoogleMapsPlace = {
 };
 
 export async function startGoogleMapsRun(searchString: string, maxCrawledPlaces = 30, countryCode?: string) {
-  const res = await fetch(`${BASE_URL}/acts/${ACTOR_ID}/runs?token=${process.env.APIFY_API_TOKEN}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      searchString,
-      maxCrawledPlaces,
-      // Hard geo-filter (ISO 3166-1 alpha-2) on top of baking the location into searchString —
-      // the text alone is a soft hint to Google Maps and can occasionally return results outside
-      // the intended country; countryCode is a real actor-level constraint. Omitted (rather than
-      // guessed) when the location text doesn't resolve to a recognizable country.
-      ...(countryCode ? { countryCode } : {}),
-      proxyConfig: { useApifyProxy: true },
-      // Cheap add-on ($0.002/place vs $0.004/place base) that visits each business's own website
-      // to pull a contact email — Google Maps listings themselves never expose one.
-      scrapeContacts: true,
-      // Business leads enrichment ($0.005/lead) — finds named employees (name, title, work
-      // email, phone, LinkedIn profile) for each place. Capped at 3/place to bound cost. Places
-      // without a website just won't have anything to enrich from — left un-filtered rather than
-      // excluding no-website places outright, since those are still valid leads on their own
-      // (phone/address), just without contact enrichment.
-      maximumLeadsEnrichmentRecords: 3,
-    }),
+  const { res, apiKey } = await apifyFetchRotating(`/acts/${ACTOR_ID}/runs`, {
+    searchString,
+    maxCrawledPlaces,
+    // Hard geo-filter (ISO 3166-1 alpha-2) on top of baking the location into searchString —
+    // the text alone is a soft hint to Google Maps and can occasionally return results outside
+    // the intended country; countryCode is a real actor-level constraint. Omitted (rather than
+    // guessed) when the location text doesn't resolve to a recognizable country.
+    ...(countryCode ? { countryCode } : {}),
+    proxyConfig: { useApifyProxy: true },
+    // Cheap add-on ($0.002/place vs $0.004/place base) that visits each business's own website
+    // to pull a contact email — Google Maps listings themselves never expose one.
+    scrapeContacts: true,
+    // Business leads enrichment ($0.005/lead) — finds named employees (name, title, work
+    // email, phone, LinkedIn profile) for each place. Capped at 3/place to bound cost. Places
+    // without a website just won't have anything to enrich from — left un-filtered rather than
+    // excluding no-website places outright, since those are still valid leads on their own
+    // (phone/address), just without contact enrichment.
+    maximumLeadsEnrichmentRecords: 3,
   });
   if (!res.ok) throw new Error(`Failed to start Apify run: ${res.status} ${await res.text()}`);
   const { data } = await res.json();
-  return { runId: data.id as string, datasetId: data.defaultDatasetId as string };
+  // The key that started this run must be reused for every later call scoped to it (status
+  // polling, abort, dataset fetch) — a different account's token can't see this run at all.
+  return { runId: data.id as string, datasetId: data.defaultDatasetId as string, apiKey };
 }
 
-export async function getRunStatus(runId: string) {
-  const res = await fetch(`${BASE_URL}/actor-runs/${runId}?token=${process.env.APIFY_API_TOKEN}`);
+export async function getRunStatus(runId: string, apiKey: string) {
+  const res = await fetch(apifyUrl(`/actor-runs/${runId}`, apiKey));
   if (!res.ok) throw new Error(`Failed to check Apify run status: ${res.status} ${await res.text()}`);
   const { data } = await res.json();
   return data.status as "READY" | "RUNNING" | "SUCCEEDED" | "FAILED" | "ABORTED" | "TIMED-OUT";
 }
 
-export async function abortRun(runId: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/actor-runs/${runId}/abort?token=${process.env.APIFY_API_TOKEN}`, { method: "POST" });
+export async function abortRun(runId: string, apiKey: string): Promise<void> {
+  const res = await fetch(apifyUrl(`/actor-runs/${runId}/abort`, apiKey), { method: "POST" });
   if (!res.ok) throw new Error(`Failed to abort Apify run: ${res.status} ${await res.text()}`);
 }
 
-export async function getDatasetItems(datasetId: string): Promise<GoogleMapsPlace[]> {
-  const res = await fetch(`${BASE_URL}/datasets/${datasetId}/items?token=${process.env.APIFY_API_TOKEN}`);
+export async function getDatasetItems(datasetId: string, apiKey: string): Promise<GoogleMapsPlace[]> {
+  const res = await fetch(apifyUrl(`/datasets/${datasetId}/items`, apiKey));
   if (!res.ok) throw new Error(`Failed to fetch Apify dataset: ${res.status} ${await res.text()}`);
   return res.json();
 }
