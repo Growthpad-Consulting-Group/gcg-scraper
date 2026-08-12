@@ -478,11 +478,18 @@ function TendersContent() {
           </div>
         )}
 
-        <div className={`grid grid-cols-1 gap-4 lg:items-start ${sidebarOpen ? "lg:grid-cols-[220px_minmax(0,1fr)]" : ""}`}>
-          {sidebarOpen && (
-            <aside className="flex h-fit flex-col gap-4 rounded-lg border border-app-border bg-surface p-4 lg:sticky lg:top-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          {/* Always mounted (rather than conditionally rendered) so width/opacity can transition
+              smoothly, matching the main nav Sidebar's transition-all duration-300 pattern —
+              a mount/unmount can't animate. Hidden outright on mobile via `hidden` when closed,
+              since there's no side-by-side layout there to shrink into. */}
+          <aside
+            className={`flex h-fit shrink-0 flex-col gap-4 overflow-hidden rounded-lg border border-app-border bg-surface transition-all duration-300 ease-in-out lg:sticky lg:top-4 ${
+              sidebarOpen ? "p-4 lg:w-[220px] lg:opacity-100" : "hidden lg:block lg:w-0 lg:border-0 lg:p-0 lg:opacity-0"
+            }`}
+          >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Filters</span>
+                <span className="whitespace-nowrap font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Filters</span>
                 <button onClick={() => setSidebarOpen(false)} className="text-text-lo hover:text-text-hi" aria-label="Hide filters">
                   <Icon icon="mdi:close" width={16} />
                 </button>
@@ -567,10 +574,9 @@ function TendersContent() {
                   Clear {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"}
                 </button>
               )}
-            </aside>
-          )}
+          </aside>
 
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
