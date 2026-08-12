@@ -212,6 +212,12 @@ function buildColumns(
         ),
     },
     {
+      Header: "Country",
+      accessor: "country",
+      sortable: true,
+      render: (_row, value) => (value ? <span className="whitespace-nowrap">{value}</span> : <span className="text-gray-400">—</span>),
+    },
+    {
       Header: "Closing",
       accessor: "closing_date",
       sortable: true,
