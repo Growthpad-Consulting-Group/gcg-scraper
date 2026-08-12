@@ -28,11 +28,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <CommandPaletteProvider>
-      <div className="flex min-h-screen flex-col bg-canvas">
-        <div className="flex flex-1">
+      {/* Fixed to the viewport height with `main` as the single internal scroll region — needed
+          so position:sticky works for anything inside main (e.g. the Tenders page's filter
+          sidebar). Previously `main` had overflow-hidden with no height constraint anywhere above
+          it, which silently breaks sticky (it becomes the sticky containing block but never
+          itself scrolls, since the *document* was scrolling instead) without providing any actual
+          clipping benefit — every flex ancestor down to `main` needs min-h-0 too, since flex items
+          default to min-height:auto and won't shrink/scroll without it. */}
+      <div className="flex h-screen flex-col overflow-hidden bg-canvas">
+        <div className="flex min-h-0 flex-1">
           <Sidebar isOpen={!!isSidebarOpen} mode={mode} onLogout={handleLogout} toggleSidebar={toggleSidebar} user={user} loading={userLoading} />
 
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <Header
               toggleSidebar={toggleSidebar}
               isSidebarOpen={!!isSidebarOpen}
@@ -47,7 +54,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               onClearAll={clearAllNotifications}
             />
 
-            <main className="flex-1 overflow-hidden p-6 transition-all duration-300 md:p-8">
+            <main className="flex-1 overflow-y-auto p-6 transition-all duration-300 md:p-8">
               <ViewTransition name="page" share="auto" enter="auto" exit="auto">
                 {children}
               </ViewTransition>

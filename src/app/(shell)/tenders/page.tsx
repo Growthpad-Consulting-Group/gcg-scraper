@@ -478,15 +478,7 @@ function TendersContent() {
           </div>
         )}
 
-        {/* `main` in AppShell has overflow-hidden, which silently breaks position:sticky for any
-            descendant bound to it as the containing scroll block (a well-known CSS gotcha: sticky
-            needs its nearest overflow!=visible ancestor to be the thing that actually scrolls).
-            Giving this grid its own bounded height + overflow-y-auto makes it the real scrolling
-            container instead, so the sidebar can stick within it — scoped to this page only,
-            without touching the shared AppShell layout every other page also renders through.
-            GenericTable's own fullPageHeight scroll region is turned off below so there's only
-            one scroll owner here instead of two competing height budgets clipping each other. */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:h-[calc(100vh-var(--header-height)-32px)] lg:items-start lg:overflow-y-auto">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
           {sidebarOpen && (
             <aside className="flex h-fit flex-col gap-4 rounded-lg border border-app-border bg-surface p-4 lg:sticky lg:top-4">
               <div className="flex items-center justify-between">
@@ -615,9 +607,7 @@ function TendersContent() {
               }}
               customRowRender={customRowRender}
               hideEmptyColumns={false}
-              fullPageHeight={false}
-              stickyHeader
-              stickyTopOffset={0}
+              fullPageHeight={true}
               enableRefresh
               onRefresh={fetchTenders}
               showBulkBar
