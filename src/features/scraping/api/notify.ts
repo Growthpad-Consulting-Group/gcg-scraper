@@ -183,10 +183,10 @@ export async function notifyTaskOwner(
 
   if (task.slack_notifications_enabled) {
     try {
+      // No separate banner line — the message above ("found N tenders") already says this, a
+      // second "TENDER NOTIFICATION" header directly under it was pure repetition.
       const cardsText = listedTenders.length
-        ? "\n\n🔔 TENDER NOTIFICATION\n\n" +
-          listedTenders.map((t) => buildTenderSlackCard(t, appUrl)).join("\n\n") +
-          (remainingCount > 0 ? `\n\n...and ${remainingCount} more` : "")
+        ? "\n\n" + listedTenders.map((t) => buildTenderSlackCard(t, appUrl)).join("\n\n") + (remainingCount > 0 ? `\n\n...and ${remainingCount} more` : "")
         : "";
       await sendSlackMessage(`${message}${cardsText}\n\n<${appUrl}/tenders|View tenders>`);
     } catch (err) {

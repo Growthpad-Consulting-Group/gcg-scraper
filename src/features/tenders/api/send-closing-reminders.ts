@@ -34,9 +34,10 @@ export const sendClosingRemindersJob = inngest.createFunction(
 
     await step.run("send-slack-reminder", async () => {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      // No separate "CLOSING SOON REMINDER" banner — the header line already says this.
       const header = `⏰ ${tenders.length} tender${tenders.length === 1 ? "" : "s"} closing within ${REMINDER_WINDOW_DAYS} days`;
       const cards = tenders.map((t) => buildTenderSlackCard(t, appUrl)).join("\n\n");
-      await sendSlackMessage(`${header}\n\n🔔 CLOSING SOON REMINDER\n\n${cards}\n\n<${appUrl}/tenders|View tenders>`);
+      await sendSlackMessage(`${header}\n\n${cards}\n\n<${appUrl}/tenders|View tenders>`);
     });
 
     await step.run("mark-reminded", async () => {
