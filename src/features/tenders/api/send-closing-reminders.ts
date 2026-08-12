@@ -1,8 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { sendSlackMessage } from "@/shared/lib/slack";
-import { daysLeftLabel } from "@/features/scraping/api/notify";
-import { tenderHref } from "@/shared/lib/slug";
+import { buildTenderSlackCard } from "@/features/scraping/api/notify";
 
 // A tender is only ever announced once, when first found — nothing prompted anyone to check
 // back before it closed. This catches open tenders closing within this window that haven't
@@ -21,7 +20,7 @@ export const sendClosingRemindersJob = inngest.createFunction(
     const tenders = await step.run("find-closing-soon", async () => {
       const { data, error } = await supabase
         .from("tenders")
-        .select("id, title, organization, location, closing_date, status")
+        .select("id, title, category, organization, location, closing_date, status")
         .eq("status", "open")
         .is("reminder_sent_at", null)
         .gte("closing_date", today)
@@ -35,13 +34,9 @@ export const sendClosingRemindersJob = inngest.createFunction(
 
     await step.run("send-slack-reminder", async () => {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-      const lines = tenders.map((t) => {
-        const detail = [t.organization, t.location].filter(Boolean).join(" · ");
-        const urgency = daysLeftLabel(t.closing_date, t.status as "open" | "closed");
-        return `• <${appUrl}${tenderHref(t)}|${t.title}>${detail ? ` — ${detail}` : ""}${urgency ? ` — ${urgency}` : ""}`;
-      });
-      const header = `⏰ ${tenders.length} tender${tenders.length === 1 ? "" : "s"} closing within ${REMINDER_WINDOW_DAYS} days:`;
-      await sendSlackMessage(`${header}\n${lines.join("\n")}`);
+      const header = `⏰ ${tenders.length} tender${tenders.length === 1 ? "" : "s"} closing within ${REMINDER_WINDOW_DAYS} days`;
+      const cards = tenders.map((t) => buildTenderSlackCard(t, appUrl)).join("\n\n");
+      await sendSlackMessage(`${header}\n\n🔔 CLOSING SOON REMINDER\n\n${cards}\n\n<${appUrl}/tenders|View tenders>`);
     });
 
     await step.run("mark-reminded", async () => {

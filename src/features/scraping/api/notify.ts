@@ -71,6 +71,39 @@ export function daysLeftLabel(closingDate: string, status: "open" | "closed"): s
 // consistently across the app.
 const URGENT_DAYS_THRESHOLD = 7;
 
+export type TenderCardFields = {
+  title: string;
+  category?: string | null;
+  organization?: string | null;
+  location?: string | null;
+  closing_date: string;
+  status: "open" | "closed";
+};
+
+/** Shared card format for every Slack tender notification (new-tender alerts here, and the
+ * separate closing-soon reminder job) — pulled out to one place after the two drifted out of
+ * sync once before. 🔴 replaces the default ⏰ once a deadline is within URGENT_DAYS_THRESHOLD,
+ * so an urgent one doesn't blend in with the rest at a glance. */
+export function buildTenderSlackCard(t: TenderCardFields & { id: number | string }, appUrl: string): string {
+  const days = daysUntilClosing(t.closing_date, t.status);
+  const urgencyLabel = days === null ? null : days === 0 ? "closes today" : days === 1 ? "1 day left" : `${days} days left`;
+  const marker = days !== null && days <= URGENT_DAYS_THRESHOLD ? "🔴" : "⏰";
+  const dateStr = formatShortDate(t.closing_date);
+  // "closes today" already says everything the date would — showing both reads as redundant
+  // ("Closes: 12 Aug 2026 · closes today"), so the date drops out for that one case.
+  const closingLine = days === 0 ? "closes today" : urgencyLabel ? `${dateStr} · ${urgencyLabel}` : dateStr;
+
+  return [
+    `<${appUrl}${tenderHref(t)}|${t.title}>`,
+    t.category ? `🏷️ ${t.category}` : null,
+    t.organization ? `🏢 ${t.organization}` : null,
+    t.location ? `📍 ${t.location}` : null,
+    `${marker} Closes: ${closingLine}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 /**
  * Notifications were previously pure UI — nothing ever inserted a row, and the
  * email/SMS/Slack toggles on a task did nothing. Called from each scrape flow's mark-done step;
@@ -150,29 +183,9 @@ export async function notifyTaskOwner(
 
   if (task.slack_notifications_enabled) {
     try {
-      // Card per tender — 🔴 replaces the default ⏰ once a deadline is within
-      // URGENT_DAYS_THRESHOLD, so an urgent one doesn't blend in with the rest at a glance.
-      const buildCard = (t: InsertedTenderSummary) => {
-        const days = daysUntilClosing(t.closing_date, t.status);
-        const urgencyLabel = days === null ? null : days === 0 ? "closes today" : days === 1 ? "1 day left" : `${days} days left`;
-        const marker = days !== null && days <= URGENT_DAYS_THRESHOLD ? "🔴" : "⏰";
-        const dateStr = formatShortDate(t.closing_date);
-        const closingLine = urgencyLabel ? `${dateStr} · ${urgencyLabel}` : dateStr;
-
-        return [
-          `<${appUrl}${tenderHref(t)}|${t.title}>`,
-          t.category ? `🏷️ ${t.category}` : null,
-          t.organization ? `🏢 ${t.organization}` : null,
-          t.location ? `📍 ${t.location}` : null,
-          `${marker} Closes: ${closingLine}`,
-        ]
-          .filter(Boolean)
-          .join("\n");
-      };
-
       const cardsText = listedTenders.length
         ? "\n\n🔔 TENDER NOTIFICATION\n\n" +
-          listedTenders.map(buildCard).join("\n\n") +
+          listedTenders.map((t) => buildTenderSlackCard(t, appUrl)).join("\n\n") +
           (remainingCount > 0 ? `\n\n...and ${remainingCount} more` : "")
         : "";
       await sendSlackMessage(`${message}${cardsText}\n\n<${appUrl}/tenders|View tenders>`);
