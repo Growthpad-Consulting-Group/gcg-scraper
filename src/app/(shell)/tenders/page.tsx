@@ -61,15 +61,6 @@ function tenderStatusBadge(tender: Tender): { label: string; status: BadgeStatus
   return { label: tender.status || "unknown", status: "neutral" };
 }
 
-function sourceLabel(url?: string | null): string {
-  if (!url) return "—";
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
 /** Returns the best downloadable file URL for this tender, or null. */
 function fileLink(tender: Tender): string | null {
   if (tender.document_url) return tender.document_url;
@@ -214,12 +205,6 @@ function buildColumns(
         ),
     },
     {
-      Header: "Country",
-      accessor: "country",
-      sortable: true,
-      render: (_row, value) => (value ? <span className="whitespace-nowrap">{value}</span> : <span className="text-gray-400">—</span>),
-    },
-    {
       Header: "Closing",
       accessor: "closing_date",
       sortable: true,
@@ -229,14 +214,6 @@ function buildColumns(
         ) : (
           <span className="text-gray-400">—</span>
         ),
-    },
-    {
-      Header: "Source",
-      accessor: "source_url",
-      sortable: false,
-      render: (row) => (
-        <Badge status="neutral">{sourceLabel(row.source_url)}</Badge>
-      ),
     },
     {
       Header: "Doc",
