@@ -13,6 +13,10 @@ export type ExtractedTender = {
   category?: string | null;
   location?: string | null;
   budget?: number | null;
+  /** ISO 4217 currency code the budget is denominated in (e.g. "USD", "KES", "GHS") — extracted
+   * alongside budget instead of alongside it being silently discarded; a bare number is
+   * ambiguous across an app now spanning many countries' tenders. */
+  currency?: string | null;
   document_url?: string | null;
 };
 
@@ -40,6 +44,7 @@ const EXTRACTION_SCHEMA = {
           category: { type: "string", description: "Sector/category, e.g. 'IT', 'Construction', 'Consultancy', 'Supplies' — a short label, not a sentence" },
           location: { type: "string", description: "Country or city the tender applies to, if stated" },
           budget: { type: "number", description: "Estimated value/budget as a plain number (no currency symbol or commas) if stated, otherwise omit" },
+          currency: { type: "string", description: "The 3-letter ISO 4217 currency code the budget is stated in (e.g. USD, KES, GHS, EUR) if a budget is given — infer from a currency symbol/code shown, otherwise omit rather than guessing" },
           document_url: { type: "string", description: "Direct URL to the downloadable tender document/PDF, if different from source_url (the listing page)" },
         },
         required: ["title"],

@@ -36,6 +36,7 @@ interface Tender {
   organization?: string | null;
   category?: string | null;
   budget?: number | null;
+  currency?: string | null;
   document_url?: string | null;
   raw_content?: string | null;
   format?: string | null;
@@ -82,9 +83,10 @@ function fileIcon(format?: string | null): string {
   return "solar:file-download-broken";
 }
 
-function formatBudget(budget?: number | null): string | null {
+function formatBudget(budget?: number | null, currency?: string | null): string | null {
   if (budget == null) return null;
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
+  const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
+  return currency ? `${currency} ${formatted}` : formatted;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +120,7 @@ function TenderDetail({ tender }: { tender: Tender }) {
           {([
             ["Organization", tender.organization],
             ["Category", tender.category],
-            ["Budget", formatBudget(tender.budget)],
+            ["Budget", formatBudget(tender.budget, tender.currency)],
             ["Location", tender.location],
             ["Country", tender.country],
             ["Type", tender.tender_type],

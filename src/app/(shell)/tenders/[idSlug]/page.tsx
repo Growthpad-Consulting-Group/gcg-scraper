@@ -28,6 +28,7 @@ interface Tender {
   organization?: string | null;
   category?: string | null;
   budget?: number | null;
+  currency?: string | null;
   document_url?: string | null;
   document_checked_at?: string | null;
   raw_content?: string | null;
@@ -40,9 +41,10 @@ function statusBadge(status?: string): { label: string; status: BadgeStatus } {
   return { label: status || "unknown", status: "neutral" };
 }
 
-function formatBudget(budget?: number | null): string | null {
+function formatBudget(budget?: number | null, currency?: string | null): string | null {
   if (budget == null) return null;
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
+  const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
+  return currency ? `${currency} ${formatted}` : formatted;
 }
 
 /** null once closed/no date — deadline urgency only makes sense for tenders still open. Shows
@@ -228,7 +230,7 @@ export default function TenderDetailPage() {
               {[
                 ["Organization", tender.organization],
                 ["Category", tender.category],
-                ["Budget", formatBudget(tender.budget)],
+                ["Budget", formatBudget(tender.budget, tender.currency)],
                 ["Location", tender.location],
                 [
                   "Closing date",

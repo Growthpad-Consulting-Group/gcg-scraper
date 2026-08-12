@@ -48,6 +48,10 @@ const EXTRACTION_SCHEMA = {
             type: "number",
             description: "Estimated value/budget as a plain number (no currency symbol) if stated, otherwise omit",
           },
+          currency: {
+            type: "string",
+            description: "The 3-letter ISO 4217 currency code the budget is stated in (e.g. USD, KES, GHS, EUR) if a budget is given — infer from a currency symbol/code shown, otherwise omit rather than guessing",
+          },
           document_url: {
             type: "string",
             description: "Direct URL to a downloadable tender document/PDF if referenced in the content",

@@ -25,6 +25,9 @@ export interface TenderRow {
    * (e.g. a region like "East Africa"), rather than guessing. */
   country: string | null;
   budget: number | null;
+  /** ISO 4217 code (e.g. "USD", "KES") — see ExtractedTender.currency. Only ever set alongside a
+   * real budget; a currency with no amount attached is meaningless. */
+  currency: string | null;
   document_url: string | null;
   raw_content: string | null;
   job_id: string | null;
@@ -34,16 +37,21 @@ export interface TenderRow {
  * extraction output before it hits the DB. */
 export function resolveOptionalFields(
   t: ExtractedTender
-): Pick<TenderRow, "organization" | "category" | "location" | "country" | "budget" | "document_url"> {
+): Pick<TenderRow, "organization" | "category" | "location" | "country" | "budget" | "currency" | "document_url"> {
   const location = t.location?.trim().slice(0, 100) || null;
+  // The model defaults unstated numbers to 0 rather than omitting the field — treat 0 as
+  // "not provided" too, since a genuine $0 tender is not a real case worth distinguishing.
+  const budget = typeof t.budget === "number" && isFinite(t.budget) && t.budget > 0 ? t.budget : null;
+  // A plausible ISO 4217 code is exactly 3 letters — anything else (a stray symbol, a full
+  // country name) is more likely a fabrication than a real code, and worse than just omitting it.
+  const currency = budget && t.currency && /^[A-Za-z]{3}$/.test(t.currency.trim()) ? t.currency.trim().toUpperCase() : null;
   return {
     organization: t.organization?.trim() || null,
     category: t.category?.trim() || null,
     location,
     country: normalizeCountry(location),
-    // The model defaults unstated numbers to 0 rather than omitting the field — treat 0 as
-    // "not provided" too, since a genuine $0 tender is not a real case worth distinguishing.
-    budget: typeof t.budget === "number" && isFinite(t.budget) && t.budget > 0 ? t.budget : null,
+    budget,
+    currency,
     document_url: t.document_url?.trim() || null,
   };
 }
