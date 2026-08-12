@@ -14,6 +14,12 @@ const ACCEPTED_MIME_TYPES = new Set([
 ]);
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB — Firecrawl's hard limit
+const PDF_MODES = new Set(["fast", "auto", "ocr"]);
+
+function clampNumber(value: unknown, min: number, max: number): number | undefined {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.min(Math.max(n, min), max) : undefined;
+}
 
 export async function POST(req: NextRequest) {
   const supabase = createServerSupabaseClient();
@@ -29,6 +35,16 @@ export async function POST(req: NextRequest) {
   if (!file || !(file instanceof File)) {
     return NextResponse.json({ error: "A 'file' field is required" }, { status: 400 });
   }
+
+  // Sent as a JSON string field alongside the file, not a separate JSON body — the request is
+  // already multipart/form-data because of the file itself.
+  const rawOptions = JSON.parse((formData.get("parseOptions") as string) || "{}");
+  const pdfMode = typeof rawOptions.pdfMode === "string" && PDF_MODES.has(rawOptions.pdfMode) ? rawOptions.pdfMode : undefined;
+  const parseOptions = {
+    timeout: clampNumber(rawOptions.timeout, 1_000, 300_000),
+    pdfMode,
+    maxPages: clampNumber(rawOptions.maxPages, 1, 2000),
+  };
 
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json({ error: "File exceeds the 50 MB limit" }, { status: 413 });
@@ -65,6 +81,7 @@ export async function POST(req: NextRequest) {
       fileName: file.name,
       mimeType: file.type,
       fileBase64: base64,
+      parseOptions,
     },
   });
 

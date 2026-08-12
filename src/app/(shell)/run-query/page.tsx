@@ -10,7 +10,7 @@ import { useTheme } from "@/shared/contexts/ThemeContext";
 import QueryComposer from "@/features/scraping/components/QueryComposer";
 import WebsiteRunForm, { type WebsiteSource } from "@/features/scraping/components/WebsiteRunForm";
 import LeadRunForm from "@/features/scraping/components/LeadRunForm";
-import DocumentRunForm from "@/features/scraping/components/DocumentRunForm";
+import DocumentRunForm, { type DocumentParseOptions } from "@/features/scraping/components/DocumentRunForm";
 import RunModeSwitcher, { isRunMode, type RunMode } from "@/features/scraping/components/RunModeSwitcher";
 import RunConsole from "@/features/scraping/components/RunConsole";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
@@ -216,11 +216,12 @@ function RunQueryContent() {
     }
   };
 
-  const handleRunDocument = async (file: File) => {
+  const handleRunDocument = async (file: File, parseOptions: DocumentParseOptions) => {
     toast.loading("Uploading document...", { id: "document-start" });
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("parseOptions", JSON.stringify(parseOptions));
       const res = await fetch("/api/jobs/document", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start document parse");

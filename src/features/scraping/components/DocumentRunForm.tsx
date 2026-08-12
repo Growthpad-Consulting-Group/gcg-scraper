@@ -4,6 +4,15 @@ import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import Button from "@/shared/ui/Button";
 import GlassPanel from "@/shared/ui/GlassPanel";
+import Popover from "@/shared/ui/Popover";
+
+export type DocumentParseOptions = {
+  timeout?: number;
+  pdfMode?: "fast" | "auto" | "ocr";
+  maxPages?: number;
+};
+
+const optionInputClass = "h-8 w-28 rounded-md border border-app-border bg-canvas px-2 text-sm text-text-hi outline-none focus:border-brand-500";
 
 const ACCEPTED_EXTENSIONS = ".pdf,.doc,.docx,.xls,.xlsx,.html,.htm,.csv";
 const ACCEPTED_MIME_TYPES = new Set([
@@ -39,13 +48,16 @@ export default function DocumentRunForm({
   mode,
 }: {
   isRunning: boolean;
-  onRun: (file: File) => void;
+  onRun: (file: File, parseOptions: DocumentParseOptions) => void;
   mode?: "light" | "dark";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [pdfMode, setPdfMode] = useState<"" | "fast" | "auto" | "ocr">("");
+  const [maxPages, setMaxPages] = useState("");
+  const [timeout, setTimeoutMs] = useState("");
 
   const validate = (f: File): string | null => {
     if (!ACCEPTED_MIME_TYPES.has(f.type) && f.type !== "") {
@@ -86,6 +98,12 @@ export default function DocumentRunForm({
     <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <p className="text-xs text-text-lo">
         Upload a document to extract tender data — PDF, DOCX, XLSX, HTML or CSV, up to {MAX_SIZE_MB} MB.
+      </p>
+      <p className="text-xs text-text-lo">
+        Pulls every tender, RFP, RFQ, or procurement notice mentioned in the document: title, issuing
+        organization, closing date, location, budget/value, a category label, and any listing or
+        downloadable-document links found in the text — same fields as every other source, just read
+        straight from the file instead of a live page.
       </p>
 
       {/* Drop zone — hidden once a file is selected */}
@@ -144,8 +162,72 @@ export default function DocumentRunForm({
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => file && onRun(file)} disabled={isRunning || !file}>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Popover
+          trigger={(open) => (
+            <span
+              className={`flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
+                open ? "border-brand-500 text-brand-500" : "border-app-border text-text-lo hover:border-text-lo"
+              }`}
+            >
+              <Icon icon="solar:tuning-2-broken" width={16} />
+            </span>
+          )}
+          className="w-80"
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-text-hi">Options</span>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-sm text-text-hi">PDF mode</label>
+              <select
+                value={pdfMode}
+                onChange={(e) => setPdfMode(e.target.value as typeof pdfMode)}
+                className="h-9 rounded-md border border-app-border bg-canvas px-2 text-sm text-text-hi outline-none focus:border-brand-500"
+              >
+                <option value="">Auto (default)</option>
+                <option value="fast">Fast — text-based PDFs only, quickest</option>
+                <option value="auto">Auto — detects scanned vs text</option>
+                <option value="ocr">OCR — force for scanned/image-only PDFs</option>
+              </select>
+              <p className="text-xs text-text-lo">
+                Use OCR if a scanned tender PDF comes back with no or garbled text — Auto doesn&apos;t
+                always catch it.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm text-text-hi">Max pages</label>
+              <div className="flex items-center gap-1">
+                <input type="number" min={1} value={maxPages} onChange={(e) => setMaxPages(e.target.value)} placeholder="all" className={optionInputClass} />
+                <span className="text-xs text-text-lo">pages</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm text-text-hi">Timeout</label>
+              <div className="flex items-center gap-1">
+                <input type="number" min={0} value={timeout} onChange={(e) => setTimeoutMs(e.target.value)} placeholder="60000" className={optionInputClass} />
+                <span className="text-xs text-text-lo">ms</span>
+              </div>
+            </div>
+          </div>
+        </Popover>
+
+        <Button
+          size="sm"
+          onClick={() =>
+            file &&
+            onRun(file, {
+              pdfMode: pdfMode || undefined,
+              maxPages: maxPages ? Number(maxPages) : undefined,
+              timeout: timeout ? Number(timeout) : undefined,
+            })
+          }
+          disabled={isRunning || !file}
+        >
           <Icon
             icon={isRunning ? "mdi:loading" : "solar:play-circle-broken"}
             width={15}

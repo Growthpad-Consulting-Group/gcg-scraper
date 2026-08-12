@@ -1,6 +1,6 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
-import { parseDocument } from "./firecrawlParse";
+import { parseDocument, type ParseOptions } from "./firecrawlParse";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
 import { matchesSourceContent } from "./sourceConfigs";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
@@ -12,11 +12,12 @@ const TENDER_TYPE = "Document Tenders";
 export const runDocumentParseJob = inngest.createFunction(
   { id: "run-document-parse-job", retries: 0, triggers: { event: "tenders/document.queued" } },
   async ({ event, step }) => {
-    const { jobId, fileName, mimeType, fileBase64 } = event.data as {
+    const { jobId, fileName, mimeType, fileBase64, parseOptions } = event.data as {
       jobId: string;
       fileName: string;
       mimeType: string;
       fileBase64: string;
+      parseOptions?: ParseOptions;
     };
 
     const supabase = createServerSupabaseClient();
@@ -38,7 +39,7 @@ export const runDocumentParseJob = inngest.createFunction(
         // to Firecrawl as multipart/form-data.
         const buffer = Buffer.from(fileBase64, "base64");
         const blob = new Blob([buffer], { type: mimeType });
-        return parseDocument(blob, fileName);
+        return parseDocument(blob, fileName, parseOptions);
       });
 
       await step.run("update-progress", async () => {
