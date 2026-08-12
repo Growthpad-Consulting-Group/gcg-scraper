@@ -307,6 +307,15 @@ function TendersContent() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [typeFilterValue, setTypeFilterValue] = useState<string | null>(typeFilter);
+
+  // Keep the dropdown in sync if arriving fresh via a ?type= link (e.g. from Overview's Sources
+  // list) after the component's already mounted, without fighting the user's own later choice.
+  useEffect(() => {
+    setTypeFilterValue(typeFilter);
+  }, [typeFilter]);
 
   const fetchTenders = useCallback(async () => {
     setIsLoading(true);
@@ -374,8 +383,25 @@ function TendersContent() {
     () => [...new Set(tenders.map((t) => t.country).filter((v): v is string => !!v?.trim()))].sort(),
     [tenders]
   );
-  const typeFilteredTenders = typeFilter ? dateFilteredTenders.filter((t) => t.tender_type === typeFilter) : dateFilteredTenders;
-  const filteredTenders = countryFilter ? typeFilteredTenders.filter((t) => t.country === countryFilter) : typeFilteredTenders;
+  const typeOptions = useMemo(
+    () => [...new Set(tenders.map((t) => t.tender_type).filter((v): v is string => !!v?.trim()))].sort(),
+    [tenders]
+  );
+  const categoryOptions = useMemo(
+    () => [...new Set(tenders.map((t) => t.category).filter((v): v is string => !!v?.trim()))].sort(),
+    [tenders]
+  );
+  const typeFilteredTenders = typeFilterValue ? dateFilteredTenders.filter((t) => t.tender_type === typeFilterValue) : dateFilteredTenders;
+  const countryFilteredTenders = countryFilter ? typeFilteredTenders.filter((t) => t.country === countryFilter) : typeFilteredTenders;
+  const filteredTenders = categoryFilter ? countryFilteredTenders.filter((t) => t.category === categoryFilter) : countryFilteredTenders;
+
+  const activeFilterCount = [typeFilterValue, countryFilter, categoryFilter].filter(Boolean).length;
+  const clearAllFilters = () => {
+    setTypeFilterValue(null);
+    setCountryFilter(null);
+    setCategoryFilter(null);
+    if (typeFilter) router.push("/tenders");
+  };
 
   const columns = buildColumns(expandedId, setExpandedId);
 
@@ -454,67 +480,126 @@ function TendersContent() {
           </div>
         )}
 
-        {typeFilter && (
-          <div className="flex flex-wrap items-center gap-2 rounded-md border border-app-border bg-surface px-3 py-2 text-sm">
-            <Badge status="info">Filtered</Badge>
-            <span className="text-text-hi">Source: {typeFilter}</span>
-            <span className="font-mono text-[11px] text-text-lo">{filteredTenders.length} tenders</span>
-            <button onClick={() => router.push("/tenders")} className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
-              <Icon icon="mdi:close" width={12} />
-              Clear filter
-            </button>
-          </div>
-        )}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
+          {sidebarOpen && (
+            <aside className="flex h-fit flex-col gap-4 rounded-lg border border-app-border bg-surface p-4 lg:sticky lg:top-4">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Filters</span>
+                <button onClick={() => setSidebarOpen(false)} className="text-text-lo hover:text-text-hi lg:hidden" aria-label="Hide filters">
+                  <Icon icon="mdi:close" width={16} />
+                </button>
+              </div>
 
-        <GenericTable<Tender>
-          data={filteredTenders}
-          columns={columns}
-          loading={isLoading}
-          title="Tenders"
-          emptyMessage="No tenders found. Run a scrape job to populate results."
-          selectable
-          searchable
-          searchPlaceholder="Search tenders…"
-          enableDateFilter
-          enableStatusPills={false} // we handle status rendering ourselves via Badge
-          statusOptions={statusOptions}
-          extraFilters={
-            <Select
-              value={countryFilter ? { value: countryFilter, label: countryFilter } : null}
-              onChange={(opt) => setCountryFilter(getSelectValue(opt) || null)}
-              options={countryOptions.map((c) => ({ value: c, label: c }))}
-              placeholder="Filter by country…"
-              isClearable
-              isSearchable
-              noOptionsMessage={() => "No countries found"}
-              className="react-select-container"
-              classNamePrefix="react-select"
-              styles={getSelectStyles<{ value: string; label: string }>(mode)}
-              menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-              menuPosition="fixed"
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-text-lo">Source</label>
+                <Select
+                  value={typeFilterValue ? { value: typeFilterValue, label: typeFilterValue } : null}
+                  onChange={(opt) => setTypeFilterValue(getSelectValue(opt) || null)}
+                  options={typeOptions.map((t) => ({ value: t, label: t }))}
+                  placeholder="All sources"
+                  isClearable
+                  isSearchable
+                  noOptionsMessage={() => "No sources found"}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={getSelectStyles<{ value: string; label: string }>(mode)}
+                  menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                  menuPosition="fixed"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-text-lo">Country</label>
+                <Select
+                  value={countryFilter ? { value: countryFilter, label: countryFilter } : null}
+                  onChange={(opt) => setCountryFilter(getSelectValue(opt) || null)}
+                  options={countryOptions.map((c) => ({ value: c, label: c }))}
+                  placeholder="All countries"
+                  isClearable
+                  isSearchable
+                  noOptionsMessage={() => "No countries found"}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={getSelectStyles<{ value: string; label: string }>(mode)}
+                  menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                  menuPosition="fixed"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-text-lo">Category</label>
+                <Select
+                  value={categoryFilter ? { value: categoryFilter, label: categoryFilter } : null}
+                  onChange={(opt) => setCategoryFilter(getSelectValue(opt) || null)}
+                  options={categoryOptions.map((c) => ({ value: c, label: c }))}
+                  placeholder="All categories"
+                  isClearable
+                  isSearchable
+                  noOptionsMessage={() => "No categories found"}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={getSelectStyles<{ value: string; label: string }>(mode)}
+                  menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                  menuPosition="fixed"
+                />
+              </div>
+
+              {activeFilterCount > 0 && (
+                <button onClick={clearAllFilters} className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
+                  <Icon icon="mdi:close" width={12} />
+                  Clear {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"}
+                </button>
+              )}
+            </aside>
+          )}
+
+          <div className="flex flex-col gap-4">
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="flex w-fit items-center gap-1.5 rounded-md border border-app-border bg-surface px-3 py-1.5 text-sm text-text-hi hover:border-text-lo"
+              >
+                <Icon icon="solar:filter-broken" width={14} />
+                Show filters
+                {activeFilterCount > 0 && <Badge status="info">{activeFilterCount}</Badge>}
+              </button>
+            )}
+
+            <GenericTable<Tender>
+              data={filteredTenders}
+              columns={columns}
+              loading={isLoading}
+              title="Tenders"
+              emptyMessage="No tenders found. Run a scrape job to populate results."
+              selectable
+              searchable
+              searchPlaceholder="Search tenders…"
+              enableDateFilter
+              enableStatusPills={false} // we handle status rendering ourselves via Badge
+              statusOptions={statusOptions}
+              showExportButton
+              exportType="tenders"
+              exportTitle="Tenders"
+              actions={actions}
+              onDelete={handleDeleteTender}
+              confirmDelete
+              deleteConfirmationProps={{
+                itemType: "tender",
+                message: (item) => `"${item?.title || "this tender"}"`,
+                suppressToast: false,
+              }}
+              customRowRender={customRowRender}
+              hideEmptyColumns={false}
+              fullPageHeight={true}
+              enableRefresh
+              onRefresh={fetchTenders}
+              showBulkBar
+              getRowClassName={(row) =>
+                expandedId === row.id ? "bg-blue-50/30 dark:bg-gcg-orange/5" : ""
+              }
             />
-          }
-          showExportButton
-          exportType="tenders"
-          exportTitle="Tenders"
-          actions={actions}
-          onDelete={handleDeleteTender}
-          confirmDelete
-          deleteConfirmationProps={{
-            itemType: "tender",
-            message: (item) => `"${item?.title || "this tender"}"`,
-            suppressToast: false,
-          }}
-          customRowRender={customRowRender}
-          hideEmptyColumns={false}
-          fullPageHeight={true}
-          enableRefresh
-          onRefresh={fetchTenders}
-          showBulkBar
-          getRowClassName={(row) =>
-            expandedId === row.id ? "bg-blue-50/30 dark:bg-gcg-orange/5" : ""
-          }
-        />
+          </div>
+        </div>
 
         {!isLoading && tenders.length < total && (
           <Button
