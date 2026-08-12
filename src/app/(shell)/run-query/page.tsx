@@ -45,6 +45,7 @@ function RunQueryContent() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [websiteName, setWebsiteName] = useState("");
   const [websiteLocation, setWebsiteLocation] = useState("");
+  const [websiteCountries, setWebsiteCountries] = useState<string[]>([]);
   const [isAddingWebsite, setIsAddingWebsite] = useState(false);
   const [websiteSources, setWebsiteSources] = useState<WebsiteSource[]>([]);
 
@@ -197,7 +198,7 @@ function RunQueryContent() {
       const scanRes = await fetch(`/api/websites/${createData.website.id}/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ extractOptions }),
+        body: JSON.stringify({ extractOptions, countries: websiteCountries }),
       });
       const scanData = await scanRes.json();
       if (!scanRes.ok) throw new Error(scanData.error || "Failed to start scan");
@@ -355,6 +356,8 @@ function RunQueryContent() {
                   setWebsiteLocation(s.location || "");
                 }}
                 countries={countries.map((c) => c.country_name)}
+                selectedCountries={websiteCountries}
+                onSelectedCountriesChange={setWebsiteCountries}
               />
             </div>
 

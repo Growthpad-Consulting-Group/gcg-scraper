@@ -9,6 +9,7 @@ import Popover from "@/shared/ui/Popover";
 import GlassPanel from "@/shared/ui/GlassPanel";
 import useTypewriterPlaceholder from "@/shared/hooks/useTypewriterPlaceholder";
 import LocationInput from "./LocationInput";
+import MultiCreatableSelect from "@/shared/ui/MultiCreatableSelect";
 import { getSelectStyles } from "@/utils/selectStyles";
 import type { ExtractOptions } from "@/features/tenders/api/firecrawlExtract";
 
@@ -57,6 +58,8 @@ export default function WebsiteRunForm({
   sources = [],
   onSelectSource,
   countries = [],
+  selectedCountries = [],
+  onSelectedCountriesChange,
 }: {
   url: string;
   setUrl: (v: string) => void;
@@ -72,6 +75,10 @@ export default function WebsiteRunForm({
   onSelectSource?: (source: WebsiteSource) => void;
   /** Powers the location field's autocomplete suggestions — stays free text, just easier to fill in. */
   countries?: string[];
+  /** Scopes results to these countries — same deterministic backstop filter scheduled tasks use
+   * (confirmed live: without this, an ad-hoc scan had zero geographic scoping at all). */
+  selectedCountries?: string[];
+  onSelectedCountriesChange?: (values: string[]) => void;
 }) {
   const canRun = url.trim().length > 0;
   const urlExamples = useMemo(() => {
@@ -127,8 +134,8 @@ export default function WebsiteRunForm({
   return (
     <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <div className="flex items-center justify-between pb-2">
-        <span className="text-xs text-text-lo">Scrape a new URL, or pick one you're already tracking.</span>
-        <Link href="/website-sources" className="flex items-center gap-1 text-xs text-brand-500 hover:underline">
+        <span className="text-sm text-text-lo">Scrape a new URL, or pick one you're already tracking.</span>
+        <Link href="/website-sources" className="flex items-center gap-1 text-sm text-brand-500 hover:underline">
           View tracked sources
           <Icon icon="solar:arrow-right-broken" width={12} />
         </Link>
@@ -172,14 +179,28 @@ export default function WebsiteRunForm({
           className="flex items-center gap-1 text-xs text-text-lo hover:text-text-hi transition-colors"
         >
           <Icon icon={showDetails ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={12} />
-          {showDetails ? "Hide details" : "Add name & location"}
+          {showDetails ? "Hide details" : "Add name, location & countries"}
         </button>
       </div>
 
       {showDetails && (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={`${inputClass} flex-1`} />
-          <LocationInput value={location} onChange={setLocation} countries={countries} mode={mode} className="w-full sm:w-56 shrink-0" />
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={`${inputClass} flex-1`} />
+            <LocationInput value={location} onChange={setLocation} countries={countries} mode={mode} className="w-full sm:w-56 shrink-0" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-text-lo">
+              Countries / Regions <span className="italic">(optional — narrows saved results to these markets)</span>
+            </label>
+            <MultiCreatableSelect
+              value={selectedCountries}
+              onChange={(values) => onSelectedCountriesChange?.(values)}
+              options={countries}
+              placeholder="Select or type a country/region..."
+              mode={mode ?? "light"}
+            />
+          </div>
         </div>
       )}
 

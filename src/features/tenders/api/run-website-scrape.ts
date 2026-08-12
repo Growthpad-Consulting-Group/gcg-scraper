@@ -60,13 +60,23 @@ export const runWebsiteScrapeJob = inngest.createFunction(
                 .select("id, name, url, location")
                 .order("last_scraped_at", { ascending: true, nullsFirst: true })
                 .limit(BATCH_SIZE);
-        return Promise.all([websitesQuery, supabase.from("search_terms").select("term").limit(20)]);
+        // No `.limit` — this is the curated GCG keyword list (228 terms), not a handful of
+        // suggestions; capping it arbitrarily would silently drop most of the list for ad-hoc
+        // scans (confirmed live: a flat `.limit(20)` here meant 208 of 228 terms were never used
+        // at all, with no ordering to even make the cutoff deliberate).
+        return Promise.all([websitesQuery, supabase.from("search_terms").select("term")]);
       });
 
       // Task-level keywords (from the scheduled task's search terms) take priority over the
-      // global search_terms table when the task owner has specified their own.
-      const globalTerms = (searchTerms || []).map((t) => t.term).join(", ");
-      const terms = keywords && keywords.length ? keywords.join(", ") : globalTerms;
+      // global search_terms table when the task owner has specified their own — but the global
+      // list is also the *only* source for the ad-hoc "Scan Now" path (Run Query's website mode),
+      // which never has task-level keywords at all. Previously this list only fed the LLM's prompt
+      // hint string; the actual deterministic backstop filter below never saw these terms because
+      // it read the raw `keywords` param directly, which is empty for ad-hoc scans — meaning that
+      // path had zero real relevance filtering regardless of what this table contained.
+      const globalTerms = (searchTerms || []).map((t) => t.term);
+      const effectiveKeywords = keywords && keywords.length ? keywords : globalTerms;
+      const terms = effectiveKeywords.join(", ");
       const countryClause = buildRelevanceClause(undefined, countries);
       const buildPrompt = (location?: string | null) =>
         `This is a business/organization website. Look for any tenders, RFPs, RFQs, or procurement opportunities mentioned anywhere on the page (related to topics like: ${terms || "general procurement"}). Extract each one found, with its title, closing/deadline date if shown, the full URL to the tender/notice if available (otherwise use the page URL), the direct document/PDF link if different, the issuing organization (usually this website's own organization unless stated otherwise), a short category label, location, and budget/value if stated.${
@@ -98,7 +108,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
 
           const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${website.id}`, async () => {
             const rows = extracted
-              .filter((t) => (t.source_url || website.url) && matchesKeywords(t, keywords) && matchesCountries(t, countries) && matchesSourceContent(t, markdown))
+              .filter((t) => (t.source_url || website.url) && matchesKeywords(t, effectiveKeywords) && matchesCountries(t, countries) && matchesSourceContent(t, markdown))
               .map((t) => ({
                 title: t.title,
                 description: t.description || null,
