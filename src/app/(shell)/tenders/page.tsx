@@ -355,24 +355,42 @@ function TendersContent() {
       })
     : tenders;
 
+  // Cascading facets: each sidebar dropdown's options come from tenders matching every *other*
+  // active facet (not itself), so e.g. picking a Country narrows which Categories are even
+  // possible instead of always listing every value across the whole dataset — picking Kenya then
+  // seeing a Category with zero Kenyan tenders would otherwise silently dead-end the user.
+  type FacetKey = "type" | "country" | "category" | "status";
+  const applyFacets = useCallback(
+    (skip: FacetKey | null) => {
+      let list = dateFilteredTenders;
+      if (skip !== "type" && typeFilterValue) list = list.filter((t) => t.tender_type === typeFilterValue);
+      if (skip !== "country" && countryFilter) list = list.filter((t) => t.country === countryFilter);
+      if (skip !== "category" && categoryFilter) list = list.filter((t) => t.category === categoryFilter);
+      if (skip !== "status" && statusFilter) list = list.filter((t) => t.status === statusFilter);
+      return list;
+    },
+    [dateFilteredTenders, typeFilterValue, countryFilter, categoryFilter, statusFilter]
+  );
+
   // Normalized `country` (see countries.ts:normalizeCountry), not the raw free-text `location` —
   // "Nairobi, Kenya" and "Kenya" both filter as one "Kenya" instead of two near-duplicate options.
   const countryOptions = useMemo(
-    () => [...new Set(tenders.map((t) => t.country).filter((v): v is string => !!v?.trim()))].sort(),
-    [tenders]
+    () => [...new Set(applyFacets("country").map((t) => t.country).filter((v): v is string => !!v?.trim()))].sort(),
+    [applyFacets]
   );
   const typeOptions = useMemo(
-    () => [...new Set(tenders.map((t) => t.tender_type).filter((v): v is string => !!v?.trim()))].sort(),
-    [tenders]
+    () => [...new Set(applyFacets("type").map((t) => t.tender_type).filter((v): v is string => !!v?.trim()))].sort(),
+    [applyFacets]
   );
   const categoryOptions = useMemo(
-    () => [...new Set(tenders.map((t) => t.category).filter((v): v is string => !!v?.trim()))].sort(),
-    [tenders]
+    () => [...new Set(applyFacets("category").map((t) => t.category).filter((v): v is string => !!v?.trim()))].sort(),
+    [applyFacets]
   );
-  const typeFilteredTenders = typeFilterValue ? dateFilteredTenders.filter((t) => t.tender_type === typeFilterValue) : dateFilteredTenders;
-  const countryFilteredTenders = countryFilter ? typeFilteredTenders.filter((t) => t.country === countryFilter) : typeFilteredTenders;
-  const categoryFilteredTenders = categoryFilter ? countryFilteredTenders.filter((t) => t.category === categoryFilter) : countryFilteredTenders;
-  const filteredTenders = statusFilter ? categoryFilteredTenders.filter((t) => t.status === statusFilter) : categoryFilteredTenders;
+  const statusOptionValues = useMemo(
+    () => new Set(applyFacets("status").map((t) => t.status)),
+    [applyFacets]
+  );
+  const filteredTenders = applyFacets(null);
 
   const activeFilterCount = [typeFilterValue, countryFilter, categoryFilter, statusFilter].filter(Boolean).length;
   const clearAllFilters = () => {
@@ -478,7 +496,7 @@ function TendersContent() {
                   options={[
                     { value: "open", label: "Open" },
                     { value: "closed", label: "Closed" },
-                  ]}
+                  ].filter((o) => statusOptionValues.has(o.value))}
                   placeholder="All statuses"
                   isClearable
                   className="react-select-container"
