@@ -29,6 +29,7 @@ export default function EditSchedulerModal({
       setEditedTask({
         ...task,
         tenderType: task.tender_type || "",
+        runTime: task.run_time || "09:00",
         searchTerms: Array.isArray(task.search_terms) ? task.search_terms : [],
         countries: Array.isArray(task.countries) ? task.countries : [],
         linkedinSearchPhrases: Array.isArray(task.linkedin_search_phrases) ? task.linkedin_search_phrases : [],
@@ -54,6 +55,7 @@ export default function EditSchedulerModal({
           name: editedTask.name,
           tender_type: editedTask.tenderType,
           frequency: editedTask.frequency,
+          run_time: editedTask.runTime || null,
           priority: editedTask.priority,
           search_terms: editedTask.searchTerms,
           countries: editedTask.countries,

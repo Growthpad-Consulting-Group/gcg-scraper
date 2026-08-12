@@ -441,206 +441,270 @@ function TendersContent() {
   );
 
   return (
-      <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <PageHeader
-          title="Tenders"
-          description="All tenders collected so far — click into any one to see which run found it."
-          icon="solar:case-minimalistic-broken"
-          actions={[
-            {
-              label: "Add Source",
-              icon: "solar:upload-broken",
-              onClick: () => router.push("/website-sources"),
-            },
-          ]}
+    <div className="mx-auto flex max-w-7xl flex-col gap-4">
+      <PageHeader
+        title="Tenders"
+        description="All tenders collected so far — click into any one to see which run found it."
+        icon="solar:case-minimalistic-broken"
+        actions={[
+          {
+            label: "Add Source",
+            icon: "solar:upload-broken",
+            onClick: () => router.push("/website-sources"),
+          },
+        ]}
+      />
+
+      {jobFilter && (
+        <RunFilterBanner
+          jobId={jobFilter}
+          onClear={() => router.push("/tenders")}
+          resultsNoun="tenders"
         />
+      )}
 
-        {jobFilter && (
-          <RunFilterBanner
-            jobId={jobFilter}
-            onClear={() => router.push("/tenders")}
-            resultsNoun="tenders"
-          />
-        )}
+      {dateFilter && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-app-border bg-surface px-3 py-2 text-sm">
+          <Badge status="info">Filtered</Badge>
+          <span className="text-text-hi">
+            Tenders scraped on{" "}
+            {new Date(`${dateFilter}T00:00:00`).toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+          <span className="font-mono text-[11px] text-text-lo">
+            {filteredTenders.length} tenders
+          </span>
+          <button
+            onClick={() => router.push("/tenders")}
+            className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
+          >
+            <Icon icon="mdi:close" width={12} />
+            Clear filter
+          </button>
+        </div>
+      )}
 
-        {dateFilter && (
-          <div className="flex flex-wrap items-center gap-2 rounded-md border border-app-border bg-surface px-3 py-2 text-sm">
-            <Badge status="info">Filtered</Badge>
-            <span className="text-text-hi">
-              Tenders scraped on{" "}
-              {new Date(`${dateFilter}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
-            </span>
-            <span className="font-mono text-[11px] text-text-lo">{filteredTenders.length} tenders</span>
-            <button onClick={() => router.push("/tenders")} className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
-              <Icon icon="mdi:close" width={12} />
-              Clear filter
-            </button>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          {/* Always mounted (rather than conditionally rendered) so width/opacity can transition
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {/* Always mounted (rather than conditionally rendered) so width/opacity can transition
               smoothly, matching the main nav Sidebar's transition-all duration-300 pattern —
               a mount/unmount can't animate. Hidden outright on mobile via `hidden` when closed,
               since there's no side-by-side layout there to shrink into. */}
-          <aside
-            className={`flex h-fit shrink-0 flex-col gap-4 overflow-hidden rounded-lg border border-app-border bg-surface transition-all duration-300 ease-in-out lg:sticky lg:top-4 ${
-              sidebarOpen ? "p-4 lg:w-[220px] lg:opacity-100" : "hidden lg:block lg:w-0 lg:border-0 lg:p-0 lg:opacity-0"
-            }`}
-          >
-              <div className="flex items-center justify-between">
-                <span className="whitespace-nowrap font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Filters</span>
-                <button onClick={() => setSidebarOpen(false)} className="text-text-lo hover:text-text-hi" aria-label="Hide filters">
-                  <Icon icon="mdi:close" width={16} />
-                </button>
-              </div>
+        <aside
+          className={`flex h-fit shrink-0 flex-col gap-4 overflow-hidden rounded-2xl border border-app-border px-6 py-5 shadow-lg shadow-gray-400/10 bg-surface transition-all duration-300 ease-in-out lg:sticky lg:top-4 ${
+            sidebarOpen
+              ? "p-4 lg:w-[220px] lg:opacity-100"
+              : "hidden lg:block lg:w-0 lg:border-0 lg:p-0 lg:opacity-0"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="whitespace-nowrap font-mono text-xs font-medium uppercase tracking-wide text-text-lo">
+              Filters
+            </span>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="text-text-lo hover:text-text-hi"
+              aria-label="Hide filters"
+            >
+              <Icon icon="mdi:close" width={16} />
+            </button>
+          </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-text-lo">Status</label>
-                <Select
-                  value={statusFilter ? { value: statusFilter, label: statusFilter === "open" ? "Open" : "Closed" } : null}
-                  onChange={(opt) => setStatusFilter((getSelectValue(opt) as "open" | "closed" | null) || null)}
-                  options={[
-                    { value: "open", label: "Open" },
-                    { value: "closed", label: "Closed" },
-                  ].filter((o) => statusOptionValues.has(o.value))}
-                  placeholder="All statuses"
-                  isClearable
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={getSelectStyles<{ value: string; label: string }>(mode)}
-                  menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                  menuPosition="fixed"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-text-lo">Source</label>
-                <Select
-                  value={typeFilterValue ? { value: typeFilterValue, label: typeFilterValue } : null}
-                  onChange={(opt) => setTypeFilterValue(getSelectValue(opt) || null)}
-                  options={typeOptions.map((t) => ({ value: t, label: t }))}
-                  placeholder="All sources"
-                  isClearable
-                  isSearchable
-                  noOptionsMessage={() => "No sources found"}
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={getSelectStyles<{ value: string; label: string }>(mode)}
-                  menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                  menuPosition="fixed"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-text-lo">Country</label>
-                <Select
-                  value={countryFilter ? { value: countryFilter, label: countryFilter } : null}
-                  onChange={(opt) => setCountryFilter(getSelectValue(opt) || null)}
-                  options={countryOptions.map((c) => ({ value: c, label: c }))}
-                  placeholder="All countries"
-                  isClearable
-                  isSearchable
-                  noOptionsMessage={() => "No countries found"}
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={getSelectStyles<{ value: string; label: string }>(mode)}
-                  menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                  menuPosition="fixed"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-text-lo">Category</label>
-                <Select
-                  value={categoryFilter ? { value: categoryFilter, label: categoryFilter } : null}
-                  onChange={(opt) => setCategoryFilter(getSelectValue(opt) || null)}
-                  options={categoryOptions.map((c) => ({ value: c, label: c }))}
-                  placeholder="All categories"
-                  isClearable
-                  isSearchable
-                  noOptionsMessage={() => "No categories found"}
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={getSelectStyles<{ value: string; label: string }>(mode)}
-                  menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                  menuPosition="fixed"
-                />
-              </div>
-
-              {activeFilterCount > 0 && (
-                <button onClick={clearAllFilters} className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
-                  <Icon icon="mdi:close" width={12} />
-                  Clear {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"}
-                </button>
-              )}
-          </aside>
-
-          <div className="flex min-w-0 flex-1 flex-col gap-4">
-            {!sidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="flex w-fit items-center gap-1.5 rounded-md border border-app-border bg-surface px-3 py-1.5 text-sm text-text-hi hover:border-text-lo"
-              >
-                <Icon icon="solar:filter-broken" width={14} />
-                Show filters
-                {activeFilterCount > 0 && <Badge status="info">{activeFilterCount}</Badge>}
-              </button>
-            )}
-
-            <GenericTable<Tender>
-              data={filteredTenders}
-              columns={columns}
-              loading={isLoading}
-              title="Tenders"
-              emptyMessage="No tenders found. Run a scrape job to populate results."
-              selectable
-              searchable
-              searchPlaceholder="Search tenders…"
-              enableDateFilter
-              enableStatusPills={false} // we handle status rendering ourselves via Badge
-              statusOptions={statusOptions}
-              showExportButton
-              exportType="tenders"
-              exportTitle="Tenders"
-              actions={actions}
-              onDelete={handleDeleteTender}
-              confirmDelete
-              deleteConfirmationProps={{
-                itemType: "tender",
-                message: (item) => `"${item?.title || "this tender"}"`,
-                suppressToast: false,
-              }}
-              customRowRender={customRowRender}
-              hideEmptyColumns={false}
-              fullPageHeight={true}
-              enableRefresh
-              onRefresh={fetchTenders}
-              showBulkBar
-              getRowClassName={(row) =>
-                expandedId === row.id ? "bg-blue-50/30 dark:bg-gcg-orange/5" : ""
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-lo">
+              Status
+            </label>
+            <Select
+              value={
+                statusFilter
+                  ? {
+                      value: statusFilter,
+                      label: statusFilter === "open" ? "Open" : "Closed",
+                    }
+                  : null
               }
+              onChange={(opt) =>
+                setStatusFilter(
+                  (getSelectValue(opt) as "open" | "closed" | null) || null,
+                )
+              }
+              options={[
+                { value: "open", label: "Open" },
+                { value: "closed", label: "Closed" },
+              ].filter((o) => statusOptionValues.has(o.value))}
+              placeholder="All statuses"
+              isClearable
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={getSelectStyles<{ value: string; label: string }>(mode)}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : undefined
+              }
+              menuPosition="fixed"
             />
           </div>
-        </div>
 
-        {!isLoading && tenders.length < total && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={loadMore}
-            disabled={isLoadingMore}
-            className="self-center"
-          >
-            <Icon
-              icon={isLoadingMore ? "mdi:loading" : "mdi:chevron-down"}
-              width={16}
-              className={isLoadingMore ? "animate-spin" : ""}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-lo">
+              Source
+            </label>
+            <Select
+              value={
+                typeFilterValue
+                  ? { value: typeFilterValue, label: typeFilterValue }
+                  : null
+              }
+              onChange={(opt) =>
+                setTypeFilterValue(getSelectValue(opt) || null)
+              }
+              options={typeOptions.map((t) => ({ value: t, label: t }))}
+              placeholder="All sources"
+              isClearable
+              isSearchable
+              noOptionsMessage={() => "No sources found"}
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={getSelectStyles<{ value: string; label: string }>(mode)}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : undefined
+              }
+              menuPosition="fixed"
             />
-            Load more ({tenders.length} of {total})
-          </Button>
-        )}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-lo">
+              Country
+            </label>
+            <Select
+              value={
+                countryFilter
+                  ? { value: countryFilter, label: countryFilter }
+                  : null
+              }
+              onChange={(opt) => setCountryFilter(getSelectValue(opt) || null)}
+              options={countryOptions.map((c) => ({ value: c, label: c }))}
+              placeholder="All countries"
+              isClearable
+              isSearchable
+              noOptionsMessage={() => "No countries found"}
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={getSelectStyles<{ value: string; label: string }>(mode)}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : undefined
+              }
+              menuPosition="fixed"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-lo">
+              Category
+            </label>
+            <Select
+              value={
+                categoryFilter
+                  ? { value: categoryFilter, label: categoryFilter }
+                  : null
+              }
+              onChange={(opt) => setCategoryFilter(getSelectValue(opt) || null)}
+              options={categoryOptions.map((c) => ({ value: c, label: c }))}
+              placeholder="All categories"
+              isClearable
+              isSearchable
+              noOptionsMessage={() => "No categories found"}
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={getSelectStyles<{ value: string; label: string }>(mode)}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : undefined
+              }
+              menuPosition="fixed"
+            />
+          </div>
+
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearAllFilters}
+              className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
+            >
+              <Icon icon="mdi:close" width={12} />
+              Clear {activeFilterCount} filter
+              {activeFilterCount === 1 ? "" : "s"}
+            </button>
+          )}
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex w-fit items-center gap-1.5 rounded-md border border-app-border bg-surface px-3 py-1.5 text-sm text-text-hi hover:border-text-lo"
+            >
+              <Icon icon="solar:filter-broken" width={14} />
+              Show filters
+              {activeFilterCount > 0 && (
+                <Badge status="info">{activeFilterCount}</Badge>
+              )}
+            </button>
+          )}
+
+          <GenericTable<Tender>
+            data={filteredTenders}
+            columns={columns}
+            loading={isLoading}
+            title="Tenders"
+            emptyMessage="No tenders found. Run a scrape job to populate results."
+            selectable
+            searchable
+            searchPlaceholder="Search tenders…"
+            enableDateFilter
+            enableStatusPills={false} // we handle status rendering ourselves via Badge
+            statusOptions={statusOptions}
+            showExportButton
+            exportType="tenders"
+            exportTitle="Tenders"
+            actions={actions}
+            onDelete={handleDeleteTender}
+            confirmDelete
+            deleteConfirmationProps={{
+              itemType: "tender",
+              message: (item) => `"${item?.title || "this tender"}"`,
+              suppressToast: false,
+            }}
+            customRowRender={customRowRender}
+            hideEmptyColumns={false}
+            fullPageHeight={true}
+            enableRefresh
+            onRefresh={fetchTenders}
+            showBulkBar
+            getRowClassName={(row) =>
+              expandedId === row.id ? "bg-blue-50/30 dark:bg-gcg-orange/5" : ""
+            }
+          />
+        </div>
       </div>
+
+      {!isLoading && tenders.length < total && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={loadMore}
+          disabled={isLoadingMore}
+          className="self-center"
+        >
+          <Icon
+            icon={isLoadingMore ? "mdi:loading" : "mdi:chevron-down"}
+            width={16}
+            className={isLoadingMore ? "animate-spin" : ""}
+          />
+          Load more ({tenders.length} of {total})
+        </Button>
+      )}
+    </div>
   );
 }
 

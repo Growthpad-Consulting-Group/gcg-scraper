@@ -2,6 +2,7 @@ import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { startGoogleMapsRun, getRunStatus, getDatasetItems, abortRun } from "./apify";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
+import { extractCountryCode } from "@/shared/lib/countryCodes";
 
 const MAX_POLLS = 40; // ~10 minutes at 15s apart, generous for an Apify Google Maps run
 
@@ -11,13 +12,14 @@ export const runGmbScrapeJob = inngest.createFunction(
     const { jobId, searchTerm, location, maxResults } = event.data as { jobId: string; searchTerm: string; location: string; maxResults?: number };
     const supabase = createServerSupabaseClient();
     const searchString = location ? `${searchTerm} in ${location}` : searchTerm;
+    const countryCode = extractCountryCode(location);
 
     await step.run("mark-running", async () => {
       await supabase.from("scrape_jobs").update({ status: "running", progress: { stage: "starting" } }).eq("id", jobId);
     });
 
     const { runId, datasetId } = await step.run("start-apify-run", () =>
-      maxResults ? startGoogleMapsRun(searchString, maxResults) : startGoogleMapsRun(searchString)
+      startGoogleMapsRun(searchString, maxResults || 30, countryCode)
     );
 
     let status: string = "RUNNING";

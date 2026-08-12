@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { startTaskRun } from "./startTaskRun";
 import { nextRunAt } from "../lib/frequency";
 
-export function isDue(task: { frequency: string | null; last_run: string | null }): boolean {
+export function isDue(task: { frequency: string | null; last_run: string | null; run_time?: string | null }): boolean {
   return nextRunAt(task).getTime() <= Date.now();
 }
 
@@ -20,7 +20,7 @@ export const checkScheduledTasksJob = inngest.createFunction(
     const { data: tasks, error } = await step.run("fetch-enabled-tasks", async () => {
       return supabase
         .from("scheduled_tasks")
-        .select("task_id, name, tender_type, search_terms, countries, linkedin_search_phrases, frequency, last_run")
+        .select("task_id, name, tender_type, search_terms, countries, linkedin_search_phrases, frequency, run_time, last_run")
         .eq("is_enabled", true);
     });
     if (error) throw error;

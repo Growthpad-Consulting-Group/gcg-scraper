@@ -21,6 +21,7 @@ interface ScheduledTask {
   name: string;
   tender_type?: string;
   frequency: string;
+  run_time?: string | null;
   is_enabled: boolean;
   last_run: string | null;
 }
@@ -180,7 +181,10 @@ export default function AutomationPage() {
       sortable: true,
       render: (row) => (
         <div className="flex flex-col">
-          <span className="text-text-hi">{row.frequency}</span>
+          <span className="text-text-hi">
+            {row.frequency}
+            {row.run_time && <span className="font-mono text-[11px] text-text-lo"> · {row.run_time} UTC</span>}
+          </span>
           {row.tender_type && <span className="font-mono text-[11px] text-text-lo">{row.tender_type}</span>}
         </div>
       ),

@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     sms_notifications_enabled,
     slack_notifications_enabled,
     custom_emails,
+    run_time,
   } = body;
 
   if (!name || !frequency) {
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
       sms_notifications_enabled: !!sms_notifications_enabled,
       slack_notifications_enabled: !!slack_notifications_enabled,
       custom_emails: custom_emails || "",
+      run_time: run_time || null,
     })
     .select("*")
     .single();

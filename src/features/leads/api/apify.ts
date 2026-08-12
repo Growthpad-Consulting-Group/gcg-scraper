@@ -32,13 +32,18 @@ type GoogleMapsPlace = {
   [key: string]: unknown;
 };
 
-export async function startGoogleMapsRun(searchString: string, maxCrawledPlaces = 30) {
+export async function startGoogleMapsRun(searchString: string, maxCrawledPlaces = 30, countryCode?: string) {
   const res = await fetch(`${BASE_URL}/acts/${ACTOR_ID}/runs?token=${process.env.APIFY_API_TOKEN}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       searchString,
       maxCrawledPlaces,
+      // Hard geo-filter (ISO 3166-1 alpha-2) on top of baking the location into searchString —
+      // the text alone is a soft hint to Google Maps and can occasionally return results outside
+      // the intended country; countryCode is a real actor-level constraint. Omitted (rather than
+      // guessed) when the location text doesn't resolve to a recognizable country.
+      ...(countryCode ? { countryCode } : {}),
       proxyConfig: { useApifyProxy: true },
       // Cheap add-on ($0.002/place vs $0.004/place base) that visits each business's own website
       // to pull a contact email — Google Maps listings themselves never expose one.

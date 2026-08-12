@@ -28,6 +28,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     sms_notifications_enabled,
     slack_notifications_enabled,
     custom_emails,
+    run_time,
   } = body;
 
   const supabase = createServerSupabaseClient();
@@ -45,6 +46,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       sms_notifications_enabled,
       slack_notifications_enabled,
       custom_emails,
+      run_time: run_time || null,
     })
     .eq("task_id", id)
     .select("*")

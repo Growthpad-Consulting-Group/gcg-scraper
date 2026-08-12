@@ -5,6 +5,10 @@ import { useState, useEffect } from "react";
 import MultiCreatableSelect from "@/shared/ui/MultiCreatableSelect";
 
 const inputClass = "w-full rounded-lg border border-app-border bg-canvas p-2 text-sm text-text-hi focus:outline-none focus:ring-2 focus:ring-brand-500";
+// A fixed clock time only makes sense for whole-day frequencies — mirrors the same set in
+// features/scheduler/lib/frequency.ts (kept separate since that file is deliberately
+// Inngest/Supabase-import-free for reuse in the cron due-check).
+const TIME_OF_DAY_FREQUENCIES = new Set(["Daily", "Weekly", "Monthly"]);
 const pillClass = "flex items-center gap-1 rounded-full bg-surface-2 px-2 py-1 text-sm text-text-hi";
 const secondaryButtonClass = "rounded-lg bg-surface-2 px-3 py-1 text-text-hi hover:bg-app-border";
 
@@ -163,6 +167,15 @@ export default function TaskForm({
           <option value="Monthly">Monthly</option>
         </select>
       </div>
+
+      {TIME_OF_DAY_FREQUENCIES.has(task.frequency) && (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-text-hi">
+            Run Time <span className="font-normal text-text-lo">(UTC — pins the run to this time instead of just "every 24h from last run")</span>
+          </label>
+          <input type="time" name="runTime" value={task.runTime || "09:00"} onChange={handleInputChange} className={inputClass} />
+        </div>
+      )}
 
       <div>
         <label className="mb-2 block text-sm font-medium text-text-hi">Priority</label>

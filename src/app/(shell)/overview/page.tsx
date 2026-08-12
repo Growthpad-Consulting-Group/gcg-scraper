@@ -19,6 +19,7 @@ interface ScheduledTask {
   name: string;
   tender_type: string | null;
   frequency: string;
+  run_time?: string | null;
   last_run: string | null;
   is_enabled: boolean;
 }
