@@ -478,12 +478,18 @@ function TendersContent() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+        {/* `main` in AppShell has overflow-hidden, which silently breaks position:sticky for any
+            descendant bound to it as the containing scroll block (a well-known CSS gotcha: sticky
+            needs its nearest overflow!=visible ancestor to be the thing that actually scrolls).
+            Giving this grid its own bounded height + overflow-y-auto makes it the real scrolling
+            container instead, so the sidebar can stick within it — scoped to this page only,
+            without touching the shared AppShell layout every other page also renders through. */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:h-[calc(100vh-var(--header-height)-220px)] lg:items-start lg:overflow-y-auto">
           {sidebarOpen && (
             <aside className="flex h-fit flex-col gap-4 rounded-lg border border-app-border bg-surface p-4 lg:sticky lg:top-4">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs font-medium uppercase tracking-wide text-text-lo">Filters</span>
-                <button onClick={() => setSidebarOpen(false)} className="text-text-lo hover:text-text-hi lg:hidden" aria-label="Hide filters">
+                <button onClick={() => setSidebarOpen(false)} className="text-text-lo hover:text-text-hi" aria-label="Hide filters">
                   <Icon icon="mdi:close" width={16} />
                 </button>
               </div>
