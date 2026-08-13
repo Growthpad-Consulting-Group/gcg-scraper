@@ -231,17 +231,32 @@ export function matchesCountries(tender: { location?: string | null }, countries
  * to satisfy the extraction prompt instead of returning an empty list. This rejects any
  * extracted tender whose title doesn't actually appear (a normalized substring match, tolerant
  * of whitespace/punctuation differences from extraction) anywhere in the markdown that was
- * actually scraped — a real listing's title has to be somewhere on the page it came from. */
-export function matchesSourceContent(tender: { title: string }, markdown: string | null): boolean {
+ * actually scraped — a real listing's title has to be somewhere on the page it came from.
+ *
+ * Also confirmed live: title-only wasn't enough. A tenderyetu detail page for tender A had a
+ * "Related posts:" footer linking to tender B by title — the model treated that link as a second
+ * real tender, invented an organization for it from the title text alone (title mentioned "KTB",
+ * so it guessed "Kenya Tourism Board"), and even took tender B's URL from that link rather than
+ * the page actually scraped. Title-only passed (the related-post's title genuinely is on the
+ * page), so this also requires a stated organization to appear in the markdown — a fabricated org
+ * guessed from a title rarely matches real page text verbatim, while a genuinely-extracted one
+ * almost always does. */
+export function matchesSourceContent(tender: { title: string; organization?: string | null }, markdown: string | null): boolean {
   if (!markdown) return false;
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const normalizedTitle = normalize(tender.title);
   const normalizedMarkdown = normalize(markdown);
+
+  const normalizedTitle = normalize(tender.title);
   if (!normalizedTitle) return false;
 
   // A handful of leading words is enough to confirm the listing is really on the page, without
   // requiring an exact full-title match (extraction sometimes trims trailing punctuation/case).
   const words = normalizedTitle.split(" ");
   const probe = words.slice(0, Math.min(6, words.length)).join(" ");
-  return normalizedMarkdown.includes(probe);
+  if (!normalizedMarkdown.includes(probe)) return false;
+
+  const normalizedOrg = normalize(tender.organization || "");
+  if (normalizedOrg && !normalizedMarkdown.includes(normalizedOrg)) return false;
+
+  return true;
 }

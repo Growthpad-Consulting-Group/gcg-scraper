@@ -131,7 +131,13 @@ export const runScrapeJob = inngest.createFunction(
         return { jobId, visited: 0, tendersFound: 0, canceled: true };
       }
 
-      const prompt = `Extract any tender, RFP, RFQ, or procurement opportunity details from this page relevant to: "${queryLabel}". Include title, closing/deadline date if shown, the full URL linking to the specific tender/notice, the direct document/PDF link if different, the issuing organization, a short category label, location, and budget/value if stated.`;
+      // Confirmed live: a tenderyetu detail page for one tender had a "Related posts:" footer
+      // linking to a *different* tender by title elsewhere on the site — the model extracted that
+      // linked title as a second real tender and invented an organization/URL for it from context
+      // alone, since it had no actual page content about it. The explicit exclusion below is a
+      // best-effort prompt-level defense; matchesSourceContent's organization check (sourceConfigs.ts)
+      // is the deterministic backstop that actually catches it when the model doesn't comply.
+      const prompt = `Extract any tender, RFP, RFQ, or procurement opportunity details from this page relevant to: "${queryLabel}". Only extract the tender(s) this page's own main content is actually about — never a tender you only see mentioned in a "related posts", "you may also like", navigation, or sidebar link to another page. Include title, closing/deadline date if shown, the full URL linking to the specific tender/notice, the direct document/PDF link if different, the issuing organization, a short category label, location, and budget/value if stated.`;
 
       let visited = 0;
       let totalInserted = 0;

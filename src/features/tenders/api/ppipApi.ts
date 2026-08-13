@@ -42,10 +42,12 @@ export async function fetchPpipTenders(): Promise<{ tenders: ExtractedTender[]; 
     document_url: null,
   }));
 
-  // matchesSourceContent expects the tender's title to appear in the scraped markdown as its
-  // anti-fabrication check — since this data comes straight from PPIP's own API (not an LLM
-  // guess), synthesize a markdown record of the raw API response as that ground truth instead.
-  const markdown = rows.map((row) => `${row.title} ${row.tender_ref ?? ""}`).join("\n");
+  // matchesSourceContent expects the tender's title AND organization to appear in the scraped
+  // markdown as its anti-fabrication check — since this data comes straight from PPIP's own API
+  // (not an LLM guess), synthesize a markdown record of the raw API response as that ground truth
+  // instead, including the procuring entity name so the organization check doesn't reject genuine
+  // PPIP data for having no LLM-scraped page to point at.
+  const markdown = rows.map((row) => `${row.title} ${row.tender_ref ?? ""} ${row.pe?.name ?? ""}`).join("\n");
 
   return { tenders, markdown };
 }
