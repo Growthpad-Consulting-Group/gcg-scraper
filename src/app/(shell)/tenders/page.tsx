@@ -84,7 +84,7 @@ function formatBudget(budget?: number | null, currency?: string | null): string 
 // TenderDetail — inline expanded row
 // ---------------------------------------------------------------------------
 
-function TenderDetail({ tender }: { tender: Tender }) {
+function TenderDetail({ tender, isLoadingRaw }: { tender: Tender; isLoadingRaw: boolean }) {
   const [view, setView] = useState<"parsed" | "raw">("parsed");
 
   return (
@@ -142,6 +142,10 @@ function TenderDetail({ tender }: { tender: Tender }) {
             </div>
           ))}
         </dl>
+      ) : isLoadingRaw ? (
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 text-sm text-gray-400">
+          Loading raw content…
+        </div>
       ) : (
         <LogPanel
           autoScroll={false}
@@ -283,6 +287,7 @@ function TendersContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [loadingRawContentId, setLoadingRawContentId] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"open" | "closed" | null>(null);
@@ -330,6 +335,25 @@ function TendersContent() {
   useEffect(() => {
     fetchTenders();
   }, [fetchTenders]);
+
+  // raw_content is deliberately excluded from the list fetch (api/tenders/route.ts) — it's a full
+  // scraped-page markdown dump only ever shown for the one row currently expanded, so it's fetched
+  // on demand here instead of downloaded for all 500 rows on every page load.
+  useEffect(() => {
+    if (!expandedId) return;
+    const row = tenders.find((t) => t.id === expandedId);
+    if (!row || row.raw_content !== undefined) return;
+
+    setLoadingRawContentId(expandedId);
+    fetch(`/api/tenders/${expandedId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.tender) return;
+        setTenders((prev) => prev.map((t) => (t.id === expandedId ? { ...t, raw_content: data.tender.raw_content ?? null } : t)));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingRawContentId((id) => (id === expandedId ? null : id)));
+  }, [expandedId, tenders]);
 
   const handleDeleteTender = async (tender: Tender) => {
     const loadingToastId = toast.loading("Deleting tender...");
@@ -433,7 +457,7 @@ function TendersContent() {
             colSpan={columns.length + 2} // +2 for checkbox + actions cols
             className="border-b border-slate-100 dark:border-slate-800/60 p-0"
           >
-            <TenderDetail tender={row} />
+            <TenderDetail tender={row} isLoadingRaw={loadingRawContentId === row.id} />
           </td>
         </tr>
       )}
