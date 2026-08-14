@@ -2,6 +2,7 @@ import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
 import { fetchPpipTenders } from "./ppipApi";
+import { fetchReliefwebTenders } from "./reliefwebApi";
 import { getSourceConfig, buildRelevanceClause, matchesKeywords, matchesCountries, matchesSourceContent } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
@@ -48,8 +49,12 @@ export const runSourceScrapeJob = inngest.createFunction(
       // PPIP's listing page has no real per-tender links for the LLM to extract (confirmed
       // live: a fabricated source_url made it into the DB) — its own JSON API gives real
       // numeric ids and structured fields instead, so it skips the scrape+extract path entirely.
+      // ReliefWeb Jobs similarly moved off the scraped+LLM-extracted page to ReliefWeb's own API
+      // (real closing dates/org names/URLs, no risk of the model inventing a listing from a
+      // sidebar link — see #446's post-mortem in sourceConfigs.ts's matchesSourceContent).
       const { tenders: extracted, markdown } = await step.run("extract", () => {
         if (tenderType === "PPIP") return fetchPpipTenders();
+        if (tenderType === "ReliefWeb Jobs") return fetchReliefwebTenders();
         const relevanceClause = buildRelevanceClause(keywords, countries);
         const prompt = relevanceClause ? `${config.prompt} ${relevanceClause}` : config.prompt;
         return extractTenders(config.url, prompt, { waitFor: config.waitFor, timeout: config.timeout, proxy: config.proxy });
