@@ -21,13 +21,29 @@ type PpipApiResponse = {
   data: PpipApiTender[];
 };
 
-export async function fetchPpipTenders(): Promise<{ tenders: ExtractedTender[]; markdown: string }> {
-  const res = await fetch("https://tenders.go.ke/api/active-tenders", {
-    headers: { Accept: "application/json", Referer: "https://tenders.go.ke/tenders" },
-  });
-  if (!res.ok) throw new Error(`PPIP active-tenders API failed: ${res.status}`);
+// This task is Daily — with no retry, a single rate-limit response failed the entire run and the
+// next attempt was 24h away. A short backoff-and-retry (mirrors firecrawlExtract.ts's pattern)
+// covers a transient block without adding meaningful latency to a fast JSON-API call.
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
 
-  const data = (await res.json()) as PpipApiResponse;
+export async function fetchPpipTenders(): Promise<{ tenders: ExtractedTender[]; markdown: string }> {
+  let lastError: Error | undefined;
+  let res: Response | undefined;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
+
+    res = await fetch("https://tenders.go.ke/api/active-tenders", {
+      headers: { Accept: "application/json", Referer: "https://tenders.go.ke/tenders" },
+    });
+    if (res.ok) break;
+
+    lastError = new Error(`PPIP active-tenders API failed: ${res.status}`);
+    if (!RETRYABLE_STATUSES.has(res.status)) throw lastError;
+  }
+  if (!res!.ok) throw lastError!;
+
+  const data = (await res!.json()) as PpipApiResponse;
   const rows = Array.isArray(data?.data) ? data.data : [];
 
   const tenders: ExtractedTender[] = rows.map((row) => ({

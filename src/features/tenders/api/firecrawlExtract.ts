@@ -72,7 +72,10 @@ export type ExtractOptions = {
   proxy?: "basic" | "stealth";
 };
 
-const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+// 408 (SCRAPE_TIMEOUT) included alongside rate-limit/server-error statuses — confirmed live that a
+// heavy page (UNDP's ~200KB+ notice board) can time out on an otherwise-fine run even with an
+// already-raised per-source timeout; a transient slow load is worth a retry, not an immediate fail.
+const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 const MAX_RETRIES = 3;
 
 export async function extractTenders(url: string, prompt: string, options?: ExtractOptions): Promise<ExtractResult> {
