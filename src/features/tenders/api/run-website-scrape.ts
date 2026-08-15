@@ -1,7 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders, type ExtractOptions } from "./firecrawlExtract";
-import { buildRelevanceClause, matchesKeywords, matchesCountries, matchesSourceContent } from "./sourceConfigs";
+import { buildRelevanceClause, classifyRejection, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
@@ -91,6 +91,8 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       let processed = 0;
       let openCount = 0;
       let closedCount = 0;
+      let totalExtracted = 0;
+      const rejectionCounts: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
       const insertedTenders: InsertedTenderSummary[] = [];
 
       // Bounded concurrency, not one-shot Promise.all across the whole batch — confirmed live
@@ -106,30 +108,41 @@ export const runWebsiteScrapeJob = inngest.createFunction(
             }
           });
 
-          const { inserted, open, closed, rows: insertedRows } = await step.run(`save-${website.id}`, async () => {
-            const rows = extracted
-              .filter((t) => (t.source_url || website.url) && matchesKeywords(t, effectiveKeywords) && matchesCountries(t, countries) && matchesSourceContent(t, markdown))
-              .map((t) => ({
-                title: t.title,
-                description: t.description || null,
-                closing_date: resolveClosingDate(t.closing_date),
-                source_url: t.source_url || website.url,
-                status: computeStatus(t.closing_date ?? null),
-                tender_type: TENDER_TYPE,
-                format: "HTML",
-                scraped_at: new Date().toISOString(),
-                raw_content: markdown,
-                job_id: jobId,
-                ...resolveOptionalFields(t),
-              }));
+          const { inserted, open, closed, rows: insertedRows, siteRejections } = await step.run(`save-${website.id}`, async () => {
+            const siteRejections: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+            const rows = extracted.flatMap((t) => {
+              const reason = classifyRejection(t, { keywords: effectiveKeywords, countries, markdown, fallbackUrl: website.url });
+              if (reason) {
+                siteRejections[reason] += 1;
+                return [];
+              }
+              return [
+                {
+                  title: t.title,
+                  description: t.description || null,
+                  closing_date: resolveClosingDate(t.closing_date),
+                  source_url: t.source_url || website.url,
+                  status: computeStatus(t.closing_date ?? null),
+                  tender_type: TENDER_TYPE,
+                  format: "HTML",
+                  scraped_at: new Date().toISOString(),
+                  raw_content: markdown,
+                  job_id: jobId,
+                  ...resolveOptionalFields(t),
+                },
+              ];
+            });
 
-            return insertTenderRows(supabase, rows);
+            const result_ = await insertTenderRows(supabase, rows);
+            return { ...result_, siteRejections };
           });
 
           processed += 1;
           totalInserted += inserted;
           openCount += open;
           closedCount += closed;
+          totalExtracted += extracted.length;
+          (Object.keys(siteRejections) as RejectionReason[]).forEach((r) => (rejectionCounts[r] += siteRejections[r]));
           insertedTenders.push(...insertedRows);
 
           await step.run(`progress-${website.id}`, async () => {
@@ -146,7 +159,17 @@ export const runWebsiteScrapeJob = inngest.createFunction(
           .update({
             status: "done",
             finished_at: new Date().toISOString(),
-            result_summary: { tendersFound: totalInserted, totalTenders: totalInserted, websitesProcessed: processed, openTenders: openCount, closedTenders: closedCount },
+            result_summary: {
+              tendersFound: totalInserted,
+              totalTenders: totalInserted,
+              totalExtracted,
+              websitesProcessed: processed,
+              openTenders: openCount,
+              closedTenders: closedCount,
+              passedFilters: totalExtracted - Object.values(rejectionCounts).reduce((a, b) => a + b, 0),
+              droppedAsDuplicate: totalExtracted - Object.values(rejectionCounts).reduce((a, b) => a + b, 0) - totalInserted,
+              ...(rejectionSummary(rejectionCounts) ? { rejectedBy: rejectionSummary(rejectionCounts) } : {}),
+            },
           })
           .eq("id", jobId)
           .neq("status", "canceled");

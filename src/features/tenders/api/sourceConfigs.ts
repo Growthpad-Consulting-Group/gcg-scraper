@@ -260,3 +260,41 @@ export function matchesSourceContent(tender: { title: string; organization?: str
 
   return true;
 }
+
+/** Which backstop rejected an extracted tender, or null if it passed all of them — every scrape
+ * pipeline was applying matchesKeywords/matchesCountries/matchesSourceContent as a single chained
+ * `.filter()`, so a "10 extracted, 0 new" run gave no way to tell whether that was a keyword
+ * mismatch, a country mismatch, a fabrication rejection, or (downstream, in insertTenderRows) a
+ * plain duplicate — surfaced in each job's result_summary/log so that's answerable without a
+ * database query. Checked cheapest/most-diagnostic-first: a missing URL or wrong country are
+ * structural, while keyword and source-content checks are where "is my list too strict?"
+ * questions actually get answered. */
+export type RejectionReason = "no_url" | "country" | "keywords" | "source_content";
+
+export function classifyRejection(
+  tender: { title: string; source_url?: string | null; description?: string | null; category?: string | null; organization?: string | null; location?: string | null },
+  opts: { keywords?: string[] | null; countries?: string[] | null; markdown: string | null; fallbackUrl?: string; skipKeywords?: boolean }
+): RejectionReason | null {
+  if (!(tender.source_url || opts.fallbackUrl)) return "no_url";
+  if (!matchesCountries(tender, opts.countries)) return "country";
+  if (!opts.skipKeywords && !matchesKeywords(tender, opts.keywords)) return "keywords";
+  if (!matchesSourceContent(tender, opts.markdown)) return "source_content";
+  return null;
+}
+
+const EMPTY_REJECTION_COUNTS: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+
+/** Human-readable summary of rejection counts for a job's result_summary/log line — omits reasons
+ * that didn't reject anything, so a clean run doesn't clutter the log with "0 by X, 0 by Y". */
+export function rejectionSummary(counts: Partial<Record<RejectionReason, number>>): string | null {
+  const labels: Record<RejectionReason, string> = {
+    no_url: "no URL",
+    country: "country mismatch",
+    keywords: "keyword mismatch",
+    source_content: "not verifiably on the page",
+  };
+  const parts = (Object.keys(EMPTY_REJECTION_COUNTS) as RejectionReason[])
+    .filter((r) => (counts[r] ?? 0) > 0)
+    .map((r) => `${counts[r]} ${labels[r]}`);
+  return parts.length ? parts.join(", ") : null;
+}

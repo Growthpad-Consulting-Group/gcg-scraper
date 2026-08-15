@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
 import { fetchPpipTenders } from "./ppipApi";
 import { fetchReliefwebTenders } from "./reliefwebApi";
-import { getSourceConfig, buildRelevanceClause, matchesKeywords, matchesCountries, matchesSourceContent } from "./sourceConfigs";
+import { getSourceConfig, buildRelevanceClause, classifyRejection, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
@@ -60,26 +60,37 @@ export const runSourceScrapeJob = inngest.createFunction(
         return extractTenders(config.url, prompt, { waitFor: config.waitFor, timeout: config.timeout, proxy: config.proxy });
       });
 
-      const { inserted, open: openCount, closed: closedCount, rows: insertedTenders } = await step.run("save-tenders", async () => {
-        const rows = extracted
-          .filter((t) => t.source_url && matchesKeywords(t, keywords) && matchesCountries(t, countries) && matchesSourceContent(t, markdown))
-          .map((t) => ({
-            title: t.title,
-            description: t.description || null,
-            closing_date: resolveClosingDate(t.closing_date, config.dateFormat),
-            source_url: t.source_url as string,
-            status: computeStatus(t.closing_date ?? null, config.dateFormat),
-            tender_type: tenderType,
-            format: t.source_url?.toLowerCase().endsWith(".pdf") ? "PDF" : t.source_url?.toLowerCase().endsWith(".docx") ? "DOCX" : "HTML",
-            scraped_at: new Date().toISOString(),
-            raw_content: markdown,
-            job_id: jobId,
-            ...resolveOptionalFields(t),
-            ...(config.skipBudget ? { budget: null } : {}),
-          }));
+      const { inserted, open: openCount, closed: closedCount, rows: insertedTenders, rejectionCounts } = await step.run("save-tenders", async () => {
+        const rejectionCounts: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+        const rows = extracted.flatMap((t) => {
+          const reason = classifyRejection(t, { keywords, countries, markdown });
+          if (reason) {
+            rejectionCounts[reason] += 1;
+            return [];
+          }
+          return [
+            {
+              title: t.title,
+              description: t.description || null,
+              closing_date: resolveClosingDate(t.closing_date, config.dateFormat),
+              source_url: t.source_url as string,
+              status: computeStatus(t.closing_date ?? null, config.dateFormat),
+              tender_type: tenderType,
+              format: t.source_url?.toLowerCase().endsWith(".pdf") ? "PDF" : t.source_url?.toLowerCase().endsWith(".docx") ? "DOCX" : "HTML",
+              scraped_at: new Date().toISOString(),
+              raw_content: markdown,
+              job_id: jobId,
+              ...resolveOptionalFields(t),
+              ...(config.skipBudget ? { budget: null } : {}),
+            },
+          ];
+        });
 
-        return insertTenderRows(supabase, rows);
+        const result = await insertTenderRows(supabase, rows);
+        return { ...result, rejectionCounts };
       });
+
+      const passedFilters = extracted.length - Object.values(rejectionCounts).reduce((a, b) => a + b, 0);
 
       await step.run("mark-done", async () => {
         await supabase
@@ -87,7 +98,16 @@ export const runSourceScrapeJob = inngest.createFunction(
           .update({
             status: "done",
             finished_at: new Date().toISOString(),
-            result_summary: { tendersFound: inserted, totalTenders: inserted, totalExtracted: extracted.length, openTenders: openCount, closedTenders: closedCount },
+            result_summary: {
+              tendersFound: inserted,
+              totalTenders: inserted,
+              totalExtracted: extracted.length,
+              openTenders: openCount,
+              closedTenders: closedCount,
+              passedFilters,
+              droppedAsDuplicate: passedFilters - inserted,
+              ...(rejectionSummary(rejectionCounts) ? { rejectedBy: rejectionSummary(rejectionCounts) } : {}),
+            },
           })
           .eq("id", jobId)
           .neq("status", "canceled");

@@ -2,7 +2,7 @@ import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { findLinkedInTenderCandidates, extractLinkedInTender, MAX_LINKEDIN_CANDIDATES } from "./linkedinTendersApi";
 import type { ExtractedTender } from "./firecrawlExtract";
-import { matchesKeywords, matchesCountries, matchesSourceContent } from "./sourceConfigs";
+import { classifyRejection, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
@@ -73,31 +73,36 @@ export const runLinkedInTendersScrapeJob = inngest.createFunction(
         if (result) extracted.push({ ...result, postUrl: candidate.postUrl });
       }
 
-      const { inserted, open: openCount, closed: closedCount, rows: insertedTenders } = await step.run("save-tenders", async () => {
-        const rows = extracted
-          .filter(
-            (e) =>
-              e.tender.source_url &&
-              matchesKeywords(e.tender, keywords) &&
-              matchesCountries(e.tender, countries) &&
-              matchesSourceContent(e.tender, e.markdown)
-          )
-          .map((e) => ({
-            title: e.tender.title,
-            description: e.tender.description || null,
-            closing_date: resolveClosingDate(e.tender.closing_date),
-            source_url: e.tender.source_url as string,
-            status: computeStatus(e.tender.closing_date ?? null),
-            tender_type: TENDER_TYPE,
-            format: e.tender.source_url?.toLowerCase().endsWith(".pdf") ? "PDF" : "HTML",
-            scraped_at: new Date().toISOString(),
-            raw_content: e.markdown,
-            job_id: jobId,
-            ...resolveOptionalFields(e.tender),
-          }));
+      const { inserted, open: openCount, closed: closedCount, rows: insertedTenders, rejectionCounts } = await step.run("save-tenders", async () => {
+        const rejectionCounts: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+        const rows = extracted.flatMap((e) => {
+          const reason = classifyRejection(e.tender, { keywords, countries, markdown: e.markdown });
+          if (reason) {
+            rejectionCounts[reason] += 1;
+            return [];
+          }
+          return [
+            {
+              title: e.tender.title,
+              description: e.tender.description || null,
+              closing_date: resolveClosingDate(e.tender.closing_date),
+              source_url: e.tender.source_url as string,
+              status: computeStatus(e.tender.closing_date ?? null),
+              tender_type: TENDER_TYPE,
+              format: e.tender.source_url?.toLowerCase().endsWith(".pdf") ? "PDF" : "HTML",
+              scraped_at: new Date().toISOString(),
+              raw_content: e.markdown,
+              job_id: jobId,
+              ...resolveOptionalFields(e.tender),
+            },
+          ];
+        });
 
-        return insertTenderRows(supabase, rows);
+        const result = await insertTenderRows(supabase, rows);
+        return { ...result, rejectionCounts };
       });
+
+      const passedFilters = extracted.length - Object.values(rejectionCounts).reduce((a, b) => a + b, 0);
 
       await step.run("mark-done", async () => {
         await supabase
@@ -112,6 +117,9 @@ export const runLinkedInTendersScrapeJob = inngest.createFunction(
               candidatesChecked: bounded.length,
               openTenders: openCount,
               closedTenders: closedCount,
+              passedFilters,
+              droppedAsDuplicate: passedFilters - inserted,
+              ...(rejectionSummary(rejectionCounts) ? { rejectedBy: rejectionSummary(rejectionCounts) } : {}),
             },
           })
           .eq("id", jobId)

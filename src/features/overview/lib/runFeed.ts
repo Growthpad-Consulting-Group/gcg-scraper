@@ -59,6 +59,13 @@ export function resultSummaryLines(job: RunJob): string[] {
   }
   if (typeof s.totalExtracted === "number" && s.totalExtracted !== s.tendersFound) {
     lines.push(`extracted ${s.totalExtracted} raw, ${s.tendersFound ?? 0} new after de-dup/filtering`);
+    // Breaks down *why* raw extractions didn't become new tenders — which backstop rejected them
+    // (rejectedBy) vs. how many passed every filter but were already in the DB (droppedAsDuplicate)
+    // — so "0 new" is diagnosable from the job log instead of needing a database query.
+    if (typeof s.rejectedBy === "string") lines.push(`rejected: ${s.rejectedBy}`);
+    if (typeof s.droppedAsDuplicate === "number" && s.droppedAsDuplicate > 0) {
+      lines.push(`${s.droppedAsDuplicate} passed all filters but already existed (duplicate)`);
+    }
   }
   if (typeof s.leadsFound === "number") lines.push(`leads found: ${s.leadsFound}`);
   if (typeof s.websitesProcessed === "number") lines.push(`websites processed: ${s.websitesProcessed}`);
