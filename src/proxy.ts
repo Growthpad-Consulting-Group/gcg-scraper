@@ -15,6 +15,10 @@ export async function proxy(req: NextRequest) {
     // Hit by an external cron (e.g. cron-job.org), not a logged-in browser — protects itself
     // with its own CRON_SECRET check instead of a session cookie.
     pathname.startsWith("/api/cron") ||
+    // MCP server (for ChatGPT/Codex/Claude) — authenticates via its own OAuth bearer token /
+    // shared secret, not the app's session cookie. See src/features/mcp.
+    pathname.startsWith("/api/mcp") ||
+    pathname.startsWith("/.well-known") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/icons") ||
