@@ -1,146 +1,77 @@
 # GCG Tender Dashboard — Known Gaps & Missing Features
 
-Audit compiled from live end-to-end testing (2026-08-04 – 2026-08-05). Each item is verified
-against actual code, not assumed. Severity is about impact on the app doing its one job: finding
-tenders and telling the right person about them on time.
+Refreshed 2026-08-15 against current code + git history. Original audit was 2026-08-04–05; most of
+that list has since shipped (see "Resolved since the last audit" below). Severity is about impact
+on the app doing its one job: finding tenders and telling the right person about them on time.
 
 Status legend: 🔴 broken/missing entirely · 🟡 works but degraded/limited · 🟢 fixed & verified
 
 ---
 
-## 1. Automation
+## Open gaps
 
-### 🟢 Scheduled tasks never ran automatically
-Added `check-scheduled-tasks.ts`, an Inngest **cron** function (`*/15 * * * *`) that checks every
-enabled task's `frequency` + `last_run` and starts it via the shared `startTaskRun()` helper (also
-used by the manual "Run Task" button, so the two paths can't drift). `isDue()` unit-tested.
-
-### 🟢 In-app notifications were never created
-`notify.ts`, wired into all three scrape flows' mark-done step. Fires for task-linked runs with
-`tendersFound > 0`. Live-verified.
-
-### 🟢 Email notifications did nothing
-Sends via shared `sendEmail()` (`src/shared/lib/mailer.ts`) when `email_notifications_enabled`, to
-the task owner plus parsed `custom_emails`. Live-verified.
-
-### 🟡 Slack notifications — code done, not live-tested
-Posts via `sendSlackMessage()` (`src/shared/lib/slack.ts`, incoming webhook) when
-`slack_notifications_enabled`. Needs `SLACK_WEBHOOK_URL` set — no webhook URL was available to
-test against this session. Fire a real test once one exists.
-
-### 🔴 SMS notifications still do nothing
+### 🔴 SMS notifications do nothing
 `sms_notifications_enabled` is stored and collected in the UI but nothing sends an SMS — no
-provider (Twilio etc.) wired up anywhere. Explicitly out of scope for now.
+provider (Twilio etc.) wired up anywhere. Unchanged since the last audit; explicitly out of scope.
 
-### 🟢 Scheduler run history was empty
-`task_logs` (read by `LogsModal`) had nothing writing to it. `logTaskEvent`/`logJobOutcome`
-(`src/features/scheduler/api/taskLog.ts`) now log run-started/finished/failed against the task.
-Live-verified.
+### 🟡 MCP access (ChatGPT/Codex/Claude) is all-or-nothing
+`/api/mcp` (added 2026-08-15) gives any client holding `MCP_LOGIN_SECRET` full read access to
+every tender and lead, with no per-user identity and no logging of who queried what through it.
+Acceptable for one person using it directly; would need real per-user tokens and query logging
+before handing the secret to more than one person.
 
----
+### 🟡 Firecrawl API version drift — mitigated, not eliminated
+Endpoints are explicitly version-pinned (`/v1/scrape`, `/v1/search`, `/v2/parse` — not "latest"),
+so this isn't unpinned drift risk. The real risk is Firecrawl changing a `200 OK` response's
+*shape* under an unchanged endpoint — already confirmed live once (`/v1/search`'s `data` field
+moved from a bare array to `{ web: [...] }` under some accounts; both shapes are now handled).
+When that happens, extraction/search/parse silently return `0 results` — indistinguishable from a
+genuinely empty page without checking the raw response by hand.
 
-## 2. Scraping pipeline
+Improved today: `firecrawlExtract.ts`, `firecrawlParse.ts`, and `firecrawlSearch.ts` now
+`console.warn` the raw response (truncated) whenever a `200` doesn't match the expected shape, so
+"0 new tenders" is diagnosable from the job log without re-deriving this investigation. Still no
+schema validation (e.g. zod) on the response — a deliberate scope call, not an oversight: the
+warn-and-degrade-to-empty behavior is the same either way, this only makes the failure visible.
 
-### 🟢 Run Query produced zero tenders
-Now uses Firecrawl `/search` + `extractTenders` + insert. Live-verified: 46 real tenders from one
-query.
-
-### 🟢 `closing_date` NOT NULL crash
-Falls back to a sentinel via `resolveClosingDate()`. Unit-tested.
-
-### 🟢 Jobs stuck at `running` forever on error
-All three flows now have a catch-all that marks `error` on failure.
-
-### 🟢 Race condition on `source_url` insert
-`upsert` + `ignoreDuplicates` via shared `insertTenderRows()`, which also filters near-duplicates
-(normalized title + closing_date) and returns accurate open/closed counts for what was *actually*
-inserted post-filter — an earlier version of this session's own near-dup filter caused the
-returned counts to drift from reality; caught via live test, fixed, re-verified (46/46 matched).
-
-### 🟢 No real cancellation
-Real `/api/jobs/[id]/cancel` endpoint + cooperative cancellation checks between steps, for tenders
-*and* leads (Apify runs are aborted via `abortRun()`, not just marked canceled locally).
-
-### 🟢 Run Query was slow (minutes per query)
-Extraction parallelized (`Promise.all` instead of a sequential loop) in all three flows.
-Live-verified: same 10-result query dropped from ~3 minutes to ~48 seconds.
-
-### 🟢 "Website Tenders" batch never rotated past the first 15
-`websites.last_scraped_at`, batch query orders oldest-checked-first.
-
-### 🟢 Extraction schema was thin
-`organization`, `category`, `location`, `budget`, `document_url` extracted and stored. Live-verified
-against real pages (KEBS, AFR Rwanda) — organization, category, document links all populated
-correctly.
-
-### 🟡 Firecrawl API version drift risk
-Already hit twice live this session (rejected `sources` param; response shape assumptions). No
-version pinning, no response schema validation. Structural risk, not an open bug — just something
-to watch for after any Firecrawl account/plan change.
-
-### 🟢 No tests
-`vitest` set up. 17 tests covering the logic that already caused two production bugs today
-(`computeStatus`, `resolveClosingDate`, `resolveOptionalFields`, `isDue`). Not full coverage —
-DB-touching code (`insertTenderRows`, the Inngest functions themselves) still relies on live
-testing, not unit tests, since mocking Supabase meaningfully was out of scope for this pass.
+### 🟡 Test coverage — DB-touching paths still not unit tested
+`insertTenderRows` (the function directly implicated in the near-dup counting bug from the last
+audit) is now covered by 7 unit tests today, using a fake `SupabaseClient` — dedup by `source_url`,
+closed-tender filtering, existing-row filtering by normalized title+date, and the counts-from-
+returned-rows regression are all pinned down. What's still untested: the Inngest job functions
+themselves (`run-scrape.ts`, `run-source-scrape.ts`, `run-website-scrape.ts`,
+`run-document-parse.ts`, `run-linkedin-tenders-scrape.ts`) — these remain proven by live testing
+each session, not CI. 49 tests total (up from 17 at the last audit).
 
 ---
 
-## 3. Tenders data & UI
+## Resolved since the last audit (2026-08-05 → 2026-08-15)
 
-### 🟢 No pagination on `/api/tenders`
-`limit`/`offset` params (default 500, max 2000), `/tenders` page has a "Load more" button instead
-of fetching everything unbounded.
-
-### 🟢 "Raw" view wasn't actually raw
-`extractTenders` now also fetches `markdown` format from Firecrawl and stores it as
-`tenders.raw_content`. The raw/parsed toggle shows real scraped page content. Live-verified.
-
-### 🟢 No tender detail page
-`/tenders/[id]` — full detail view, source/document links, parsed + raw tabs.
-
-### 🟢 No de-dup across near-identical tenders
-See "Race condition on `source_url` insert" above — same fix covers both.
-
-### 🟢 No data retention / cleanup
-`/api/cron/cleanup` deletes closed tenders >90 days past `closing_date` and finished jobs >30 days
-old. Wired to an external cron-job.org daily trigger and live-tested against production.
-
----
-
-## 4. Leads
-
-### 🟢 GMB leads pipeline — verified
-Live-tested end to end: real Apify run, 27 leads landed with real business names, phones, ratings.
-
-### 🟢 LinkedIn leads pipeline — verified
-Live-tested end to end: real Apify run, 25 leads landed with real names, headlines, profile URLs.
-
-### 🟢 No export for leads
-`LeadsExportButton` (CSV, `react-csv`) added to both GMB and LinkedIn tabs.
-
-### 🟢 No cancellation for lead jobs
-Same cooperative-cancellation pattern as tenders, plus an actual Apify `abortRun()` call so the
-remote run stops too, not just the local polling loop.
-
----
-
-## 5. Auth
-
-### 🟢 Magic link flow
-Full flow live-tested headlessly: issue → email sent → token lookup → consume → user resolved →
-token correctly one-time-used and deleted. The browser-side `/verify` → session-cookie leg wasn't
-clicked through in an actual browser, but every piece of logic behind it was exercised directly.
+- **Slack notifications** — `SLACK_WEBHOOK_URL` is now configured, plus continued formatting work
+  (card-style tender alerts, closing-soon reminders). No longer blocked; worth one live click-
+  through to confirm end-to-end, but the "untested" gap itself is closed.
+- **ReliefWeb Jobs** — switched from HTML-scrape+LLM-extract to ReliefWeb's own structured API
+  (`0e578bb`) — real fields, no fabrication risk.
+- **PPIP 429s / Firecrawl scrape timeouts** — now retried instead of failing the whole run
+  (`11b4f85`).
+- **`raw_content` over-fetching** — no longer downloaded for every row on every list load, only
+  when a row's raw tab is actually expanded (`044d5d4`) — was the single biggest driver of Vercel
+  data transfer for this app.
+- **Cross-source organization mismatches** — extracted tenders whose `organization` doesn't
+  actually appear on the scraped page are now rejected instead of trusted (`a2fbebc`).
+- **"0 new tenders" diagnosability** — job log now breaks down *why* raw extractions didn't become
+  new tenders (rejected by a filter vs. already a duplicate) instead of just reporting a bare count
+  (`12ec034`).
 
 ---
 
 ## What's left
 
-Nothing 🔴 except SMS (explicitly skipped this round). Everything else still open is 🟡 — degraded
-but not broken:
+Nothing 🔴 except SMS (still explicitly out of scope). Three 🟡 items open:
 
-1. **Slack notifications** — blocked on you providing `SLACK_WEBHOOK_URL` and one live test.
-2. **Firecrawl API version drift** — not a bug, a standing risk. Worth a glance if extraction
-   ever starts silently returning empty results after a Firecrawl-side change.
-3. **Test coverage is partial** — pure logic only; the DB-touching paths are still proven by live
-   testing each session, not CI-enforced.
+1. **SMS notifications** — needs a provider (Twilio or similar) wired up; UI/schema already exist.
+2. **MCP access scoping** — fine for single-user use today; revisit if more than one person gets
+   the shared secret.
+3. **Inngest job functions untested** — the pure-logic pieces they call (`insertTenderRows`,
+   `computeStatus`, `resolveClosingDate`, `isDue`, etc.) are now well covered; the orchestration
+   functions themselves still rely on live testing per session.

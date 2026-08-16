@@ -106,6 +106,11 @@ export async function parseDocument(file: File | Blob, fileName: string, options
   const body = await res.json();
   const tenders: ExtractedTender[] = Array.isArray(body?.data?.json?.tenders) ? body.data.json.tenders : [];
   const markdown: string | null = typeof body?.data?.markdown === "string" ? body.data.markdown : null;
+  // See firecrawlExtract.ts's matching comment — a shape drift here reads as "no tenders found in
+  // this document" with nothing to distinguish it from a genuinely empty document.
+  if (!Array.isArray(body?.data?.json?.tenders)) {
+    console.warn(`Firecrawl /v2/parse for "${fileName}": expected data.json.tenders to be an array, got`, JSON.stringify(body).slice(0, 500));
+  }
 
   return { tenders, markdown };
 }

@@ -108,6 +108,12 @@ export async function extractTenders(url: string, prompt: string, options?: Extr
     const data = await res.json();
     const tenders = data?.data?.extract?.tenders;
     const markdown = typeof data?.data?.markdown === "string" ? data.data.markdown : null;
+    // A 200 with a shape Firecrawl has changed underneath us reads identically to "genuinely no
+    // tenders on this page" downstream — flag it here, where the actual raw response is in hand,
+    // instead of leaving "0 new tenders" undiagnosable from the job log alone.
+    if (!Array.isArray(tenders)) {
+      console.warn(`Firecrawl /v1/scrape for ${url}: expected data.extract.tenders to be an array, got`, JSON.stringify(data).slice(0, 500));
+    }
     return { tenders: Array.isArray(tenders) ? tenders : [], markdown };
   }
 
@@ -127,6 +133,9 @@ export async function resolveDocumentLink(url: string): Promise<string | null> {
 
   const data = await res.json();
   const links: string[] = Array.isArray(data?.data?.links) ? data.data.links : [];
+  if (!Array.isArray(data?.data?.links)) {
+    console.warn(`Firecrawl /v1/scrape (links) for ${url}: expected data.links to be an array, got`, JSON.stringify(data).slice(0, 500));
+  }
   const candidates = links.filter((l) => l !== url && DOCUMENT_LINK_PATTERN.test(l));
   if (!candidates.length) return null;
 

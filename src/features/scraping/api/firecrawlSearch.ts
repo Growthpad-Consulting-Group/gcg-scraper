@@ -33,9 +33,11 @@ export async function searchWeb(query: string, limit = 10): Promise<SearchResult
     // Account/API-version dependent: newer Firecrawl returns { data: { web: [...] } },
     // older returns { data: [...] } directly. Handle both.
     const results = Array.isArray(body?.data) ? body.data : body?.data?.web;
-    return Array.isArray(results)
-      ? results.filter((r): r is SearchResult => !!r?.url).map((r) => ({ url: r.url, title: r.title, description: r.description }))
-      : [];
+    if (!Array.isArray(results)) {
+      console.warn(`Firecrawl /v1/search for "${query}": response matched neither known data shape, got`, JSON.stringify(body).slice(0, 500));
+      return [];
+    }
+    return results.filter((r): r is SearchResult => !!r?.url).map((r) => ({ url: r.url, title: r.title, description: r.description }));
   }
 
   throw lastError!;
