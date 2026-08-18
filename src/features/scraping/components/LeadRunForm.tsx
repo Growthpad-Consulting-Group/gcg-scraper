@@ -10,6 +10,7 @@ const inputClass = "h-9 flex-1 rounded-md border border-app-border bg-canvas px-
 
 const GMB_EXAMPLES = ["car dealerships", "construction companies", "IT consultancies", "logistics firms"];
 const LINKEDIN_EXAMPLES = ["procurement manager", "supply chain director", "purchasing officer", "category manager"];
+const REDDIT_EXAMPLES = ["tender procurement Kenya", "RFP government contract", "sourcing suppliers needed"];
 
 export default function LeadRunForm({
   kind,
@@ -24,7 +25,7 @@ export default function LeadRunForm({
   mode,
   countries = [],
 }: {
-  kind: "gmb" | "linkedin";
+  kind: "gmb" | "linkedin" | "reddit";
   searchTerm: string;
   setSearchTerm: (v: string) => void;
   location: string;
@@ -38,13 +39,16 @@ export default function LeadRunForm({
 }) {
   const canRun = searchTerm.trim().length > 0;
   const locationPlaceholder = kind === "gmb" ? "e.g. Nairobi, Kenya" : "e.g. Kenya";
-  const searchTermPlaceholder = useTypewriterPlaceholder(kind === "gmb" ? GMB_EXAMPLES : LINKEDIN_EXAMPLES, searchTerm.length === 0);
+  const examples = kind === "gmb" ? GMB_EXAMPLES : kind === "linkedin" ? LINKEDIN_EXAMPLES : REDDIT_EXAMPLES;
+  const searchTermPlaceholder = useTypewriterPlaceholder(examples, searchTerm.length === 0);
 
   return (
     <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-3">
       <div className="flex flex-col gap-2 sm:flex-row">
         <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={searchTermPlaceholder} className={inputClass} />
-        <LocationInput value={location} onChange={setLocation} countries={countries} placeholder={locationPlaceholder} mode={mode} className="w-full sm:w-56 shrink-0" />
+        {kind !== "reddit" && (
+          <LocationInput value={location} onChange={setLocation} countries={countries} placeholder={locationPlaceholder} mode={mode} className="w-full sm:w-56 shrink-0" />
+        )}
       </div>
       <div className="flex items-center justify-between gap-2">
         <label className="flex items-center gap-2 text-sm text-text-lo">

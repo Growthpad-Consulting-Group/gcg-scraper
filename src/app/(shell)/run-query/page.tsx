@@ -23,6 +23,7 @@ function resultsHrefFor(mode: RunMode, jobId: string | null): string | undefined
   if (!jobId) return undefined;
   if (mode === "gmb-leads") return `/leads?job=${jobId}&tab=gmb`;
   if (mode === "linkedin-leads") return `/leads?job=${jobId}&tab=linkedin`;
+  if (mode === "reddit-leads") return `/leads?job=${jobId}&tab=reddit`;
   return `/tenders?job=${jobId}`;
 }
 
@@ -56,6 +57,9 @@ function RunQueryContent() {
   const [linkedinSearchQuery, setLinkedinSearchQuery] = useState("");
   const [linkedinLocation, setLinkedinLocation] = useState("");
   const [linkedinMaxResults, setLinkedinMaxResults] = useState(25);
+  const [redditSearchQuery, setRedditSearchQuery] = useState("");
+  const [redditLocation, setRedditLocation] = useState("");
+  const [redditMaxResults, setRedditMaxResults] = useState(25);
 
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobKind, setJobKind] = useState<RunMode>("search-query");
@@ -271,6 +275,25 @@ function RunQueryContent() {
     }
   };
 
+  const handleRunRedditLeads = async () => {
+    if (!redditSearchQuery.trim()) return;
+    toast.loading("Starting Reddit search...", { id: "reddit-start" });
+    try {
+      const res = await fetch("/api/reddit-leads/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ searchQuery: redditSearchQuery.trim(), maxResults: redditMaxResults }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start search");
+
+      startJob(data.jobId, "reddit-leads");
+      toast.success("Searching Reddit... this can take a minute.", { id: "reddit-start", duration: 4000 });
+    } catch (err: any) {
+      toast.error("Failed to start search: " + err.message, { id: "reddit-start" });
+    }
+  };
+
   const handleCancelScrape = async () => {
     if (!jobId) {
       toast.error("No active scraping task to cancel");
@@ -291,7 +314,7 @@ function RunQueryContent() {
     }
   };
 
-  const summaryKind = jobKind === "gmb-leads" || jobKind === "linkedin-leads" ? "leads" : "tenders";
+  const summaryKind = jobKind === "gmb-leads" || jobKind === "linkedin-leads" || jobKind === "reddit-leads" ? "leads" : "tenders";
 
   return (
     <>
@@ -403,6 +426,21 @@ function RunQueryContent() {
                 onRun={handleRunLinkedinLeads}
                 mode={mode}
                 countries={countries.map((c) => c.country_name)}
+              />
+            </div>
+
+            <div className={runMode === "reddit-leads" ? undefined : "hidden"}>
+              <LeadRunForm
+                kind="reddit"
+                searchTerm={redditSearchQuery}
+                setSearchTerm={setRedditSearchQuery}
+                location={redditLocation}
+                setLocation={setRedditLocation}
+                maxResults={redditMaxResults}
+                setMaxResults={setRedditMaxResults}
+                isRunning={scrapeStatus === "running"}
+                onRun={handleRunRedditLeads}
+                mode={mode}
               />
             </div>
             </div>

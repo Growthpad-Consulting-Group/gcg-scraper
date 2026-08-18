@@ -34,6 +34,12 @@ export const RUN_MODES = [
     icon: "mdi:linkedin",
     tooltip: "Search LinkedIn profiles to find people leads by role and location",
   },
+  {
+    id: "reddit-leads",
+    label: "Reddit Mentions",
+    icon: "mdi:reddit",
+    tooltip: "Search Reddit for posts mentioning your keywords — surfaces opportunities and chatter tender search engines miss",
+  },
 ] as const;
 
 export type RunMode = (typeof RUN_MODES)[number]["id"];

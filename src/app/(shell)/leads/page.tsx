@@ -64,6 +64,26 @@ const linkedinColumns: LeadColumn<any>[] = [
   { key: "location", label: "Location", render: (l) => l.location || "—" },
 ];
 
+const redditColumns: LeadColumn<any>[] = [
+  { key: "title", label: "Post", render: (l) => l.title },
+  { key: "subreddit", label: "Subreddit", render: (l) => (l.subreddit ? `r/${l.subreddit}` : "—") },
+  { key: "author", label: "Author", render: (l) => (l.author ? `u/${l.author}` : "—") },
+  { key: "upvotes", label: "Upvotes", render: (l) => l.upvotes ?? "—", mono: true },
+  { key: "num_comments", label: "Comments", render: (l) => l.num_comments ?? "—", mono: true },
+  {
+    key: "post_url",
+    label: "Link",
+    render: (l) =>
+      l.post_url ? (
+        <a href={l.post_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+          View
+        </a>
+      ) : (
+        "—"
+      ),
+  },
+];
+
 function LeadsResultsTable<T extends Lead>({
   leads,
   columns,
@@ -138,7 +158,7 @@ function LeadsResultsTable<T extends Lead>({
       confirmDelete
       deleteConfirmationProps={{
         itemType: "lead",
-        message: (item) => `"${item?.business_name || item?.full_name || "this lead"}"`,
+        message: (item) => `"${item?.business_name || item?.full_name || item?.title || "this lead"}"`,
         suppressToast: false,
       }}
       onDelete={(row) => onDelete(row.id)}
@@ -246,20 +266,73 @@ function LinkedInTab({ jobFilter, onClearFilter }: { jobFilter: string | null; o
   );
 }
 
+function RedditTab({ jobFilter, onClearFilter }: { jobFilter: string | null; onClearFilter: () => void }) {
+  const [leads, setLeads] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchLeads = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/reddit-leads${jobFilter ? `?job=${jobFilter}` : ""}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch leads");
+      setLeads(data.leads || []);
+    } catch (err: any) {
+      toast.error("Error fetching Reddit leads: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [jobFilter]);
+
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  const handleDelete = async (id: string | number) => {
+    const previous = leads;
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    try {
+      const res = await fetch(`/api/reddit-leads/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete lead");
+    } catch (err: any) {
+      setLeads(previous);
+      toast.error(err.message);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {jobFilter && <RunFilterBanner jobId={jobFilter} onClear={onClearFilter} resultsNoun="leads" />}
+      <LeadsResultsTable
+        leads={leads}
+        columns={redditColumns}
+        onDelete={handleDelete}
+        sourceBadge="Reddit"
+        isLoading={isLoading}
+        onRefresh={fetchLeads}
+        exportTitle="Reddit Mentions"
+      />
+    </div>
+  );
+}
+
 function LeadsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobFilter = searchParams?.get("job") || null;
   const tabParam = searchParams?.get("tab");
-  const [activeTab, setActiveTab] = useState<"gmb" | "linkedin">(tabParam === "linkedin" ? "linkedin" : "gmb");
+  const [activeTab, setActiveTab] = useState<"gmb" | "linkedin" | "reddit">(
+    tabParam === "linkedin" ? "linkedin" : tabParam === "reddit" ? "reddit" : "gmb"
+  );
 
   useEffect(() => {
-    if (tabParam === "linkedin" || tabParam === "gmb") setActiveTab(tabParam);
+    if (tabParam === "linkedin" || tabParam === "gmb" || tabParam === "reddit") setActiveTab(tabParam);
   }, [tabParam]);
 
   const tabs = [
     { id: "gmb" as const, label: "Google Maps" },
     { id: "linkedin" as const, label: "LinkedIn" },
+    { id: "reddit" as const, label: "Reddit" },
   ];
 
   const clearFilter = () => router.push("/leads");
@@ -275,7 +348,8 @@ function LeadsContent() {
               label: "Find Leads",
               icon: "solar:play-circle-broken",
               variant: "primary",
-              onClick: () => router.push(`/run-query?mode=${activeTab === "gmb" ? "gmb-leads" : "linkedin-leads"}`),
+              onClick: () =>
+                router.push(`/run-query?mode=${activeTab === "gmb" ? "gmb-leads" : activeTab === "linkedin" ? "linkedin-leads" : "reddit-leads"}`),
             },
           ]}
         />
@@ -299,8 +373,10 @@ function LeadsContent() {
 
         {activeTab === "gmb" ? (
           <GmbTab jobFilter={jobFilter} onClearFilter={clearFilter} />
-        ) : (
+        ) : activeTab === "linkedin" ? (
           <LinkedInTab jobFilter={jobFilter} onClearFilter={clearFilter} />
+        ) : (
+          <RedditTab jobFilter={jobFilter} onClearFilter={clearFilter} />
         )}
       </div>
   );
