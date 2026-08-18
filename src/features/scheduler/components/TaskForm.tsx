@@ -9,6 +9,7 @@ const inputClass = "w-full rounded-lg border border-app-border bg-canvas p-2 tex
 // features/scheduler/lib/frequency.ts (kept separate since that file is deliberately
 // Inngest/Supabase-import-free for reuse in the cron due-check).
 const TIME_OF_DAY_FREQUENCIES = new Set(["Daily", "Weekly", "Monthly"]);
+const LEAD_TASK_TYPES = new Set(["Google Maps Leads", "LinkedIn People Leads", "Reddit Mentions"]);
 const pillClass = "flex items-center gap-1 rounded-full bg-surface-2 px-2 py-1 text-sm text-text-hi";
 const secondaryButtonClass = "rounded-lg bg-surface-2 px-3 py-1 text-text-hi hover:bg-app-border";
 
@@ -188,9 +189,12 @@ export default function TaskForm({
 
       <div>
         <label className="mb-2 block text-sm font-medium text-text-hi">
-          Search Term / Keyword
-          {task.tenderType !== "Search Query Tenders" && (
+          {LEAD_TASK_TYPES.has(task.tenderType) ? "Search Term" : "Search Term / Keyword"}
+          {task.tenderType !== "Search Query Tenders" && !LEAD_TASK_TYPES.has(task.tenderType) && (
             <span className="ml-1 font-normal text-text-lo">(optional — narrows results to tenders matching these topics)</span>
+          )}
+          {LEAD_TASK_TYPES.has(task.tenderType) && (
+            <span className="ml-1 font-normal text-text-lo">(only the first term is used — this is what gets searched each run)</span>
           )}
         </label>
         {error && <p className="mb-2 text-sm text-status-danger">Error: {error}</p>}
@@ -223,19 +227,29 @@ export default function TaskForm({
         </div>
       )}
 
-      <div>
-        <label className="mb-2 block text-sm font-medium text-text-hi">
-          Countries / Regions <span className="font-normal text-text-lo">(optional — narrows results to these markets)</span>
-        </label>
-        <MultiCreatableSelect
-          value={task.countries || []}
-          onChange={(values) => setTask((prev: any) => ({ ...prev, countries: values }))}
-          options={countryOptions}
-          placeholder="Select or type a country/region..."
-          mode={mode}
-          isLoading={isLoadingCountries}
-        />
-      </div>
+      {task.tenderType !== "Reddit Mentions" && (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-text-hi">
+            {task.tenderType === "Google Maps Leads" || task.tenderType === "LinkedIn People Leads" ? (
+              <>
+                Location <span className="font-normal text-text-lo">(e.g. "Nairobi, Kenya" — only the first entry is used)</span>
+              </>
+            ) : (
+              <>
+                Countries / Regions <span className="font-normal text-text-lo">(optional — narrows results to these markets)</span>
+              </>
+            )}
+          </label>
+          <MultiCreatableSelect
+            value={task.countries || []}
+            onChange={(values) => setTask((prev: any) => ({ ...prev, countries: values }))}
+            options={countryOptions}
+            placeholder="Select or type a country/region..."
+            mode={mode}
+            isLoading={isLoadingCountries}
+          />
+        </div>
+      )}
 
       <div className="flex items-center space-x-3">
         <label className="text-sm font-medium text-text-hi">Enable Notifications?</label>

@@ -12,6 +12,12 @@ export interface ScheduledTaskRow {
   linkedin_search_phrases?: string[] | null;
 }
 
+const LEAD_TASK_KINDS: Record<string, string> = {
+  "Google Maps Leads": "gmb-leads",
+  "LinkedIn People Leads": "linkedin-leads",
+  "Reddit Mentions": "reddit-leads",
+};
+
 /** Shared by the manual "Run Task" button and the cron trigger — one place that decides which
  * scrape flow a task's `tender_type` maps to and kicks it off. */
 export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTaskRow): Promise<string> {
@@ -21,9 +27,11 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
       ? "tender-website"
       : tenderType === "LinkedIn Tenders"
         ? "tender-source"
-        : tenderType && getSourceConfig(tenderType)
-          ? "tender-source"
-          : "search-query";
+        : tenderType && LEAD_TASK_KINDS[tenderType]
+          ? LEAD_TASK_KINDS[tenderType]
+          : tenderType && getSourceConfig(tenderType)
+            ? "tender-source"
+            : "search-query";
 
   const { data: job, error } = await supabase
     .from("scrape_jobs")
@@ -32,7 +40,22 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
     .single();
   if (error || !job) throw new Error(error?.message || "Failed to create job");
 
-  if (tenderType === "Website Tenders") {
+  if (tenderType === "Google Maps Leads") {
+    await inngest.send({
+      name: "leads/gmb.queued",
+      data: { jobId: job.id, searchTerm: task.search_terms?.[0] || task.name || "", location: task.countries?.[0] || "" },
+    });
+  } else if (tenderType === "LinkedIn People Leads") {
+    await inngest.send({
+      name: "leads/linkedin.queued",
+      data: { jobId: job.id, searchQuery: task.search_terms?.[0] || task.name || "", locations: task.countries || [] },
+    });
+  } else if (tenderType === "Reddit Mentions") {
+    await inngest.send({
+      name: "leads/reddit.queued",
+      data: { jobId: job.id, searchQuery: task.search_terms?.[0] || task.name || "" },
+    });
+  } else if (tenderType === "Website Tenders") {
     await inngest.send({
       name: "tenders/website.queued",
       data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [] },

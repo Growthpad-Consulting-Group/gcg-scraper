@@ -6,6 +6,8 @@ import SimpleModal from "@/shared/ui/SimpleModal";
 import FormActions from "@/shared/ui/FormActions";
 import toast from "react-hot-toast";
 
+const LEAD_TASK_TYPES = new Set(["Google Maps Leads", "LinkedIn People Leads", "Reddit Mentions"]);
+
 export default function AddSchedulerModal({
   isOpen,
   onClose,
@@ -55,9 +57,9 @@ export default function AddSchedulerModal({
       toast.error("Task name is required!");
       return false;
     }
-    if (newTask.tenderType === "Search Query Tenders") {
+    if (newTask.tenderType === "Search Query Tenders" || LEAD_TASK_TYPES.has(newTask.tenderType)) {
       if (newTask.searchTerms.length === 0) {
-        toast.error("Please select at least one search term for Search Query Tenders.");
+        toast.error(`Please add a search term for ${newTask.tenderType}.`);
         return false;
       }
     }

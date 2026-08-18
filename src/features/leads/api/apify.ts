@@ -41,7 +41,10 @@ export async function startGoogleMapsRun(searchString: string, maxCrawledPlaces 
     // the text alone is a soft hint to Google Maps and can occasionally return results outside
     // the intended country; countryCode is a real actor-level constraint. Omitted (rather than
     // guessed) when the location text doesn't resolve to a recognizable country.
-    ...(countryCode ? { countryCode } : {}),
+    // Confirmed live: this actor's input schema only accepts lowercase codes ("ke", not "KE") —
+    // countryCodes.ts's ISO map is conventionally uppercase, so it's lowercased only here, at the
+    // one call site that actually needs Apify's specific casing.
+    ...(countryCode ? { countryCode: countryCode.toLowerCase() } : {}),
     proxyConfig: { useApifyProxy: true },
     // Cheap add-on ($0.002/place vs $0.004/place base) that visits each business's own website
     // to pull a contact email — Google Maps listings themselves never expose one.
