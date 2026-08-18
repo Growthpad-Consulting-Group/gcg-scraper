@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -82,21 +83,25 @@ export default function Sidebar({
         {/* Logo — collapse/expand is Header's job; sidebar only gets a close (X) button on mobile */}
         <div className={`flex items-center h-[72px] shrink-0 py-4 px-2 border-b border-white/10 dark:border-white/5 ${isOpen ? "px-6 justify-between" : "px-0 justify-center"}`}>
           {isOpen ? (
-            <Image
-              src={mode === "dark" ? "/assets/images/logo-white.svg" : "/assets/images/logo.svg"}
-              alt="Growthpad Logo"
-              width={150}
-              height={62}
-              className="w-[150px] h-[62px] object-contain"
-            />
+            <Link href="/overview" title="Go to Overview">
+              <Image
+                src={mode === "dark" ? "/assets/images/logo-white.svg" : "/assets/images/logo.svg"}
+                alt="Growthpad Logo"
+                width={150}
+                height={62}
+                className="w-[150px] h-[62px] object-contain transition-opacity hover:opacity-80"
+              />
+            </Link>
           ) : (
-            <Image
-              src={mode === "dark" ? "/favicon-white.png" : "/favicon.png"}
-              alt="Growthpad Logo"
-              width={40}
-              height={40}
-              className="object-contain mx-auto"
-            />
+            <Link href="/overview" title="Go to Overview">
+              <Image
+                src={mode === "dark" ? "/favicon-white.png" : "/favicon.png"}
+                alt="Growthpad Logo"
+                width={40}
+                height={40}
+                className="object-contain mx-auto transition-opacity hover:opacity-80"
+              />
+            </Link>
           )}
 
           {isMobile && (
