@@ -52,12 +52,12 @@ export const runWebsiteScrapeJob = inngest.createFunction(
     try {
       const [{ data: websites }, { data: searchTerms }] = await step.run("fetch-inputs", async () => {
         const websitesQuery = websiteIds?.length
-          ? supabase.from("websites").select("id, name, url, location").in("id", websiteIds)
+          ? supabase.from("websites").select("id, name, url, location, is_country_specific").in("id", websiteIds)
           : websiteId
-            ? supabase.from("websites").select("id, name, url, location").eq("id", websiteId)
+            ? supabase.from("websites").select("id, name, url, location, is_country_specific").eq("id", websiteId)
             : supabase
                 .from("websites")
-                .select("id, name, url, location")
+                .select("id, name, url, location, is_country_specific")
                 .order("last_scraped_at", { ascending: true, nullsFirst: true })
                 .limit(BATCH_SIZE);
         // No `.limit` — this is the curated GCG keyword list (228 terms), not a handful of
@@ -102,7 +102,13 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       await mapWithConcurrency(websites || [], MAX_CONCURRENT_EXTRACTS, async (website) => {
           const { tenders: extracted, markdown } = await step.run(`extract-${website.id}`, async () => {
             try {
-              return await extractTenders(website.url, buildPrompt(website.location), extractOptions);
+              // `website.location` is a scan-scope tag shared by every site in this curated batch,
+              // not a fact about the organization — only safe to use as an extraction fallback for
+              // sites confirmed genuinely country-specific (see 0025_website_country_specific.sql).
+              // Global orgs on the list (Welthungerhilfe, World Vision, CARE, etc.) must not get a
+              // location guessed for them just because of the batch they were scanned under.
+              const fallbackLocation = website.is_country_specific ? website.location : null;
+              return await extractTenders(website.url, buildPrompt(fallbackLocation), extractOptions);
             } catch {
               return { tenders: [], markdown: null };
             }
