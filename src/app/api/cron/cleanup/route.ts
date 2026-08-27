@@ -7,6 +7,9 @@ import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 const CLOSED_TENDER_RETENTION_DAYS = 90;
 const FINISHED_JOB_RETENTION_DAYS = 30;
 const READ_NOTIFICATION_RETENTION_DAYS = 30;
+// Diagnostic-only (see rejectedTenders.ts) — every scrape run adds rows with nothing pruning them
+// otherwise, unlike tenders/jobs/notifications which at least have a reason to keep a long tail.
+const REJECTED_TENDER_RETENTION_DAYS = 30;
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -44,7 +47,19 @@ async function runCleanup() {
     .lt("created_at", notificationCutoff);
   if (notificationsError) throw notificationsError;
 
-  return { tendersDeleted: tendersDeleted ?? 0, jobsDeleted: jobsDeleted ?? 0, notificationsDeleted: notificationsDeleted ?? 0 };
+  const rejectedTenderCutoff = new Date(Date.now() - REJECTED_TENDER_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { error: rejectedError, count: rejectedDeleted } = await supabase
+    .from("rejected_tenders")
+    .delete({ count: "exact" })
+    .lt("rejected_at", rejectedTenderCutoff);
+  if (rejectedError) throw rejectedError;
+
+  return {
+    tendersDeleted: tendersDeleted ?? 0,
+    jobsDeleted: jobsDeleted ?? 0,
+    notificationsDeleted: notificationsDeleted ?? 0,
+    rejectedTendersDeleted: rejectedDeleted ?? 0,
+  };
 }
 
 export async function GET(req: NextRequest) {
