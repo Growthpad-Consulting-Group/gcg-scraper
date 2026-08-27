@@ -202,7 +202,7 @@ export default function WebsiteRunForm({
             <label className="mb-1 block text-xs text-text-lo">
               Keywords{" "}
               <span className="italic">
-                (optional — narrows saved results to these topics; defaults to the full Growthpad's keyword list if left empty)
+                (optional — narrows saved results to these topics; leave blank to match against the entire Keyword Library instead)
               </span>
             </label>
             <MultiCreatableSelect

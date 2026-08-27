@@ -49,7 +49,7 @@ export default function Header({
 
   const addNewItems = useMemo(
     () => [
-      { label: "Run Query", icon: "solar:database-broken", href: "/run-query?mode=search-query" },
+      { label: "New Run", icon: "solar:database-broken", href: "/run-query?mode=search-query" },
       { label: "Lead Search", icon: "solar:map-point-broken", href: "/run-query?mode=gmb-leads" },
       { label: "Scheduled Task", icon: "solar:calendar-broken", href: "/automation" },
       { label: "Add Website", icon: "solar:global-broken", href: "/run-query?mode=website" },

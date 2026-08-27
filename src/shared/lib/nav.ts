@@ -20,9 +20,15 @@ export const sidebarNavGroups: NavGroup[] = [
     category: "Scrape",
     icon: "solar:database-broken",
     items: [
-      { href: "/run-query", icon: "solar:database-broken", label: "Run Query" },
+      // "New Run" (not "Run Query") — this one page also launches website scans, document
+      // parsing, and GMB/LinkedIn/Reddit lead searches, not just tender search queries; a name
+      // this narrow made it easy to miss as the hub for those too.
+      { href: "/run-query", icon: "solar:database-broken", label: "New Run" },
       { href: "/tenders", icon: "solar:case-minimalistic-broken", label: "View Tenders" },
       { href: "/leads", icon: "solar:map-point-broken", label: "Business Leads" },
+      // Previously only reachable by already knowing to go to New Run's Website mode — a
+      // 200+-site tracked list deserves its own entry point.
+      { href: "/website-sources", icon: "solar:global-broken", label: "Website Sources" },
     ],
   },
   {

@@ -227,12 +227,18 @@ export default function QueryComposer({
 
         <div className="flex items-center gap-2">
           {handleAddScheduledTask && (
-            <Button size="md" variant="secondary" onClick={handleAddScheduledTask} disabled={!canRun}>
+            <Button
+              size="md"
+              variant="secondary"
+              onClick={handleAddScheduledTask}
+              disabled={!canRun}
+              title="Turn this into a recurring task in Automation, instead of running it just once here"
+            >
               <Icon icon="solar:calendar-add-broken" width={15} />
               Schedule
             </Button>
           )}
-          <Button size="sm" onClick={handleRunQuery} disabled={isRunning || !canRun}>
+          <Button size="sm" onClick={handleRunQuery} disabled={isRunning || !canRun} title="Run this search once, right now">
             <Icon icon={isRunning ? "mdi:loading" : "solar:play-circle-broken"} width={15} className={isRunning ? "animate-spin" : ""} />
             {isRunning ? "Running…" : "Run Query"}
           </Button>

@@ -320,7 +320,7 @@ function RunQueryContent() {
     <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
-          title="Run Query"
+          title="New Run"
           description="Search, scrape, and find leads from one place — pick a mode below to get started."
           icon="solar:database-broken"
         />

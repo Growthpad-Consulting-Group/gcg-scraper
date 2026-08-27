@@ -681,7 +681,7 @@ function TendersContent() {
             columns={columns}
             loading={isLoading}
             title="Tenders"
-            emptyMessage="No tenders found. Run a scrape job to populate results."
+            emptyMessage="No tenders found. Start one from New Run, or set up a recurring search in Automation."
             selectable
             searchable
             searchPlaceholder="Search tenders…"

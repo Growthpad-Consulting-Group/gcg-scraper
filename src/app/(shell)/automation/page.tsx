@@ -278,7 +278,7 @@ export default function AutomationPage() {
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
         <PageHeader
           title="Automation"
-          description="Automated scraping schedules and run history."
+          description="Recurring versions of what New Run does one-off — set a schedule here instead of launching it manually each time."
           icon="solar:calendar-broken"
           actions={[
             {
