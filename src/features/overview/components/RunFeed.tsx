@@ -41,8 +41,10 @@ interface RejectedTender {
 
 /** Lazily fetches this one job's rejected candidates only once actually expanded — most jobs
  * rejected nothing, and even ones that did are only worth the extra request when someone's
- * actually asking "why", not on every job in the feed by default. */
-function RejectedCandidates({ jobId }: { jobId: string }) {
+ * actually asking "why", not on every job in the feed by default. Split into a toggle + panel
+ * sharing this hook so the toggle can sit inline with the other row actions while the panel
+ * still renders full-width below. */
+function useRejectedCandidates(jobId: string) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<RejectedTender[] | null>(null);
@@ -63,53 +65,58 @@ function RejectedCandidates({ jobId }: { jobId: string }) {
     }
   };
 
+  return { open, loading, rows, toggle };
+}
+
+function RejectedCandidatesToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
-    <div className="mt-2">
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          toggle();
-        }}
-        className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
-      >
-        <Icon icon={open ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={12} />
-        {open ? "Hide" : "View"} rejected candidates
-      </button>
-      {open && (
-        <div className="mt-2 max-h-64 overflow-y-auto rounded-md border border-app-border" onClick={(e) => e.stopPropagation()}>
-          {loading ? (
-            <p className="p-3 text-xs text-text-lo">Loading…</p>
-          ) : !rows || rows.length === 0 ? (
-            <p className="p-3 text-xs text-text-lo">No rejected candidates were logged for this run.</p>
-          ) : (
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-surface-2">
-                <tr>
-                  <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Title</th>
-                  <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Reason</th>
-                  <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Org / Location</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="border-t border-app-border">
-                    <td className="max-w-[280px] truncate p-2 text-text-hi" title={r.title}>
-                      {r.source_url ? (
-                        <a href={r.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                          {r.title}
-                        </a>
-                      ) : (
-                        r.title
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap p-2 text-text-lo">{REASON_LABEL[r.reason] || r.reason}</td>
-                    <td className="max-w-[200px] truncate p-2 text-text-lo">{[r.organization, r.location].filter(Boolean).join(" · ") || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
+    >
+      <Icon icon={open ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={12} />
+      {open ? "Hide" : "View"} rejected candidates
+    </button>
+  );
+}
+
+function RejectedCandidatesPanel({ loading, rows }: { loading: boolean; rows: RejectedTender[] | null }) {
+  return (
+    <div className="mt-2 max-h-64 overflow-y-auto rounded-md border border-app-border" onClick={(e) => e.stopPropagation()}>
+      {loading ? (
+        <p className="p-3 text-xs text-text-lo">Loading…</p>
+      ) : !rows || rows.length === 0 ? (
+        <p className="p-3 text-xs text-text-lo">No rejected candidates were logged for this run.</p>
+      ) : (
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-surface-2">
+            <tr>
+              <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Title</th>
+              <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Reason</th>
+              <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Org / Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t border-app-border">
+                <td className="max-w-[280px] truncate p-2 text-text-hi" title={r.title}>
+                  {r.source_url ? (
+                    <a href={r.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                      {r.title}
+                    </a>
+                  ) : (
+                    r.title
+                  )}
+                </td>
+                <td className="whitespace-nowrap p-2 text-text-lo">{REASON_LABEL[r.reason] || r.reason}</td>
+                <td className="max-w-[200px] truncate p-2 text-text-lo">{[r.organization, r.location].filter(Boolean).join(" · ") || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
@@ -137,6 +144,109 @@ function CancelButton({ jobId, onDone }: { jobId: string; onDone: () => void }) 
       <Icon icon={isCanceling ? "mdi:loading" : "solar:stop-circle-broken"} width={14} className={isCanceling ? "animate-spin" : ""} />
       Cancel
     </Button>
+  );
+}
+
+function JobRow({
+  job,
+  expanded,
+  onToggleExpanded,
+  now,
+  onRefresh,
+}: {
+  job: RunJob;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  now: number;
+  onRefresh: () => void;
+}) {
+  const items = runItemCount(job);
+  const duration = runDuration(job, now);
+  const errorMessage = runErrorMessage(job);
+  const summaryLines = resultSummaryLines(job);
+  const canRetry = (job.status === "error" || job.status === "canceled") && job.task_id != null;
+  const rejected = useRejectedCandidates(job.id);
+  const showRejected = hasRejectedCandidates(job);
+
+  return (
+    <Fragment>
+      <TableRow className="cursor-pointer hover:!bg-brand-500/5" onClick={onToggleExpanded}>
+        <TableTd>
+          <div className="flex flex-col">
+            <span className="truncate font-medium text-text-hi">{job.label || KIND_LABEL[job.kind]}</span>
+            <span className="font-mono text-[11px] text-text-lo">{KIND_LABEL[job.kind]}</span>
+          </div>
+        </TableTd>
+        <TableTd>
+          <Badge status={STATUS_BADGE[job.status]}>
+            {job.status}
+            {job.status === "running" && <span className="ml-1 inline-block h-1.5 w-1.5 animate-ping rounded-full bg-status-warning" />}
+          </Badge>
+        </TableTd>
+        <TableTd mono>{relativeTime(job.created_at)}</TableTd>
+        <TableTd mono>{items ?? "—"}</TableTd>
+        <TableTd mono>{duration ?? (job.status === "queued" ? "…" : "—")}</TableTd>
+        <TableTd onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
+            {job.status === "done" && (
+              <Link href={resultsHref(job)} className="font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
+                View
+              </Link>
+            )}
+            {(job.status === "queued" || job.status === "running") && <CancelButton jobId={job.id} onDone={onRefresh} />}
+            {canRetry && <RetryButton taskId={job.task_id as number} onDone={onRefresh} />}
+            <button onClick={onToggleExpanded} aria-label="Toggle details">
+              <Icon icon={expanded ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={14} className="text-text-lo" />
+            </button>
+          </div>
+        </TableTd>
+      </TableRow>
+      {expanded && (
+        <TableRow className="h-auto hover:bg-transparent">
+          <TableTd colSpan={6} className="bg-canvas p-3">
+            <LogPanel
+              autoScroll={false}
+              className="min-h-0"
+              lines={[
+                { text: `job ${job.id}`, tone: "info" },
+                { text: `kind: ${job.kind}`, tone: "default" },
+                // tender-source jobs are a single Firecrawl call with no incremental
+                // visited/total progress to report — showing "no progress payload
+                // yet"/"progress: —" there reads as stuck rather than just single-step.
+                job.kind === "tender-source"
+                  ? job.status === "running"
+                    ? { text: `stage: ${job.progress?.stage ?? "extracting"}`, tone: "default" as const }
+                    : null
+                  : job.progress?.current_url
+                    ? { text: `current_url: ${job.progress.current_url}`, tone: "default" as const }
+                    : { text: "no progress payload yet", tone: "default" as const },
+                job.kind === "tender-source"
+                  ? null
+                  : job.progress?.total
+                    ? { text: `progress: ${job.progress.visited ?? 0}/${job.progress.total}`, tone: "default" as const }
+                    : { text: "progress: —", tone: "default" as const },
+                ...summaryLines.map((text) => ({ text, tone: "default" as const })),
+                job.status === "error" ? { text: errorMessage ? `error: ${errorMessage}` : "job failed — no error message captured", tone: "danger" } : null,
+                job.status === "done" ? { text: "completed", tone: "success" } : null,
+              ].filter((l): l is { text: string; tone: "info" | "default" | "danger" | "success" } => l !== null)}
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {job.status === "done" && (
+                <Link href={resultsHref(job)}>
+                  <Button size="sm">
+                    <Icon icon="solar:arrow-right-broken" width={14} />
+                    View {job.kind === "gmb-leads" || job.kind === "linkedin-leads" ? "leads" : "tenders"}
+                  </Button>
+                </Link>
+              )}
+              {canRetry && <RetryButton taskId={job.task_id as number} onDone={onRefresh} />}
+              {showRejected && <RejectedCandidatesToggle open={rejected.open} onToggle={rejected.toggle} />}
+            </div>
+            {showRejected && rejected.open && <RejectedCandidatesPanel loading={rejected.loading} rows={rejected.rows} />}
+          </TableTd>
+        </TableRow>
+      )}
+    </Fragment>
   );
 }
 
@@ -205,95 +315,16 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
         </TableRow>
       </TableHead>
       <TableBody>
-        {jobs.map((job) => {
-          const expanded = expandedId === job.id;
-          const items = runItemCount(job);
-          const duration = runDuration(job, now);
-          const errorMessage = runErrorMessage(job);
-          const summaryLines = resultSummaryLines(job);
-          const canRetry = (job.status === "error" || job.status === "canceled") && job.task_id != null;
-          return (
-            <Fragment key={job.id}>
-              <TableRow className="cursor-pointer hover:!bg-brand-500/5" onClick={() => setExpandedId(expanded ? null : job.id)}>
-                <TableTd>
-                  <div className="flex flex-col">
-                    <span className="truncate font-medium text-text-hi">{job.label || KIND_LABEL[job.kind]}</span>
-                    <span className="font-mono text-[11px] text-text-lo">{KIND_LABEL[job.kind]}</span>
-                  </div>
-                </TableTd>
-                <TableTd>
-                  <Badge status={STATUS_BADGE[job.status]}>
-                    {job.status}
-                    {job.status === "running" && (
-                      <span className="ml-1 inline-block h-1.5 w-1.5 animate-ping rounded-full bg-status-warning" />
-                    )}
-                  </Badge>
-                </TableTd>
-                <TableTd mono>{relativeTime(job.created_at)}</TableTd>
-                <TableTd mono>{items ?? "—"}</TableTd>
-                <TableTd mono>{duration ?? (job.status === "queued" ? "…" : "—")}</TableTd>
-                <TableTd onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-2">
-                    {job.status === "done" && (
-                      <Link href={resultsHref(job)} className="font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
-                        View
-                      </Link>
-                    )}
-                    {(job.status === "queued" || job.status === "running") && <CancelButton jobId={job.id} onDone={onRefresh} />}
-                    {canRetry && <RetryButton taskId={job.task_id as number} onDone={onRefresh} />}
-                    <button onClick={() => setExpandedId(expanded ? null : job.id)} aria-label="Toggle details">
-                      <Icon icon={expanded ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={14} className="text-text-lo" />
-                    </button>
-                  </div>
-                </TableTd>
-              </TableRow>
-              {expanded && (
-                <TableRow className="h-auto hover:bg-transparent">
-                  <TableTd colSpan={6} className="bg-canvas p-3">
-                    <LogPanel
-                      autoScroll={false}
-                      className="min-h-0"
-                      lines={[
-                        { text: `job ${job.id}`, tone: "info" },
-                        { text: `kind: ${job.kind}`, tone: "default" },
-                        // tender-source jobs are a single Firecrawl call with no incremental
-                        // visited/total progress to report — showing "no progress payload
-                        // yet"/"progress: —" there reads as stuck rather than just single-step.
-                        job.kind === "tender-source"
-                          ? job.status === "running"
-                            ? { text: `stage: ${job.progress?.stage ?? "extracting"}`, tone: "default" as const }
-                            : null
-                          : job.progress?.current_url
-                            ? { text: `current_url: ${job.progress.current_url}`, tone: "default" as const }
-                            : { text: "no progress payload yet", tone: "default" as const },
-                        job.kind === "tender-source"
-                          ? null
-                          : job.progress?.total
-                            ? { text: `progress: ${job.progress.visited ?? 0}/${job.progress.total}`, tone: "default" as const }
-                            : { text: "progress: —", tone: "default" as const },
-                        ...summaryLines.map((text) => ({ text, tone: "default" as const })),
-                        job.status === "error" ? { text: errorMessage ? `error: ${errorMessage}` : "job failed — no error message captured", tone: "danger" } : null,
-                        job.status === "done" ? { text: "completed", tone: "success" } : null,
-                      ].filter((l): l is { text: string; tone: "info" | "default" | "danger" | "success" } => l !== null)}
-                    />
-                    <div className="mt-2 flex gap-2">
-                      {job.status === "done" && (
-                        <Link href={resultsHref(job)}>
-                          <Button size="sm">
-                            <Icon icon="solar:arrow-right-broken" width={14} />
-                            View {job.kind === "gmb-leads" || job.kind === "linkedin-leads" ? "leads" : "tenders"}
-                          </Button>
-                        </Link>
-                      )}
-                      {canRetry && <RetryButton taskId={job.task_id as number} onDone={onRefresh} />}
-                    </div>
-                    {hasRejectedCandidates(job) && <RejectedCandidates jobId={job.id} />}
-                  </TableTd>
-                </TableRow>
-              )}
-            </Fragment>
-          );
-        })}
+        {jobs.map((job) => (
+          <JobRow
+            key={job.id}
+            job={job}
+            expanded={expandedId === job.id}
+            onToggleExpanded={() => setExpandedId(expandedId === job.id ? null : job.id)}
+            now={now}
+            onRefresh={onRefresh}
+          />
+        ))}
       </TableBody>
     </Table>
     </div>
