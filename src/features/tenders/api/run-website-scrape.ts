@@ -1,8 +1,9 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
-import { extractTenders, type ExtractOptions } from "./firecrawlExtract";
+import { extractTenders, type ExtractOptions, type ExtractedTender } from "./firecrawlExtract";
 import { buildRelevanceClause, classifyRejection, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
+import { logRejectedTenders } from "./rejectedTenders";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
@@ -93,6 +94,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       let closedCount = 0;
       let totalExtracted = 0;
       const rejectionCounts: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+      const allRejected: { tender: ExtractedTender; reason: RejectionReason }[] = [];
       const insertedTenders: InsertedTenderSummary[] = [];
 
       // Bounded concurrency, not one-shot Promise.all across the whole batch — confirmed live
@@ -114,12 +116,14 @@ export const runWebsiteScrapeJob = inngest.createFunction(
             }
           });
 
-          const { inserted, open, closed, rows: insertedRows, siteRejections } = await step.run(`save-${website.id}`, async () => {
+          const { inserted, open, closed, rows: insertedRows, siteRejections, siteRejected } = await step.run(`save-${website.id}`, async () => {
             const siteRejections: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+            const siteRejected: { tender: ExtractedTender; reason: RejectionReason }[] = [];
             const rows = extracted.flatMap((t) => {
               const reason = classifyRejection(t, { keywords: effectiveKeywords, countries, markdown, fallbackUrl: website.url });
               if (reason) {
                 siteRejections[reason] += 1;
+                siteRejected.push({ tender: t, reason });
                 return [];
               }
               return [
@@ -140,7 +144,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
             });
 
             const result_ = await insertTenderRows(supabase, rows);
-            return { ...result_, siteRejections };
+            return { ...result_, siteRejections, siteRejected };
           });
 
           processed += 1;
@@ -149,6 +153,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
           closedCount += closed;
           totalExtracted += extracted.length;
           (Object.keys(siteRejections) as RejectionReason[]).forEach((r) => (rejectionCounts[r] += siteRejections[r]));
+          allRejected.push(...siteRejected);
           insertedTenders.push(...insertedRows);
 
           await step.run(`progress-${website.id}`, async () => {
@@ -158,6 +163,8 @@ export const runWebsiteScrapeJob = inngest.createFunction(
             ]);
           });
       });
+
+      await step.run("log-rejected", () => logRejectedTenders(supabase, jobId, TENDER_TYPE, allRejected));
 
       await step.run("mark-done", async () => {
         await supabase

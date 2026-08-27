@@ -42,6 +42,13 @@ export function runErrorMessage(job: RunJob): string | null {
   return typeof error === "string" ? error : null;
 }
 
+/** Whether this job actually rejected anything worth inspecting via the rejected_tenders table —
+ * gates showing the "View rejected candidates" toggle so it doesn't appear on jobs with nothing
+ * to show (rejectedBy is only ever set on result_summary when at least one candidate was rejected). */
+export function hasRejectedCandidates(job: RunJob): boolean {
+  return typeof job.result_summary?.rejectedBy === "string";
+}
+
 /** result_summary is computed and stored for every job (tenders found, open/closed split, URLs
  * visited/skipped, leads found, ...) but the expanded panel only ever surfaced a sliver of it via
  * runItemCount — this turns whatever's actually present into readable lines, kind-agnostic since

@@ -1,9 +1,10 @@
 import { inngest } from "./inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { searchWeb } from "./firecrawlSearch";
-import { extractTenders } from "@/features/tenders/api/firecrawlExtract";
+import { extractTenders, type ExtractedTender } from "@/features/tenders/api/firecrawlExtract";
 import { classifyRejection, rejectionSummary, type RejectionReason } from "@/features/tenders/api/sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
+import { logRejectedTenders } from "@/features/tenders/api/rejectedTenders";
 import { isJobCanceled } from "./jobStatus";
 import { notifyTaskOwner } from "./notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
@@ -145,6 +146,7 @@ export const runScrapeJob = inngest.createFunction(
       let closedCount = 0;
       let totalExtracted = 0;
       const rejectionCounts: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+      const allRejected: { tender: ExtractedTender; reason: RejectionReason }[] = [];
       const insertedTenders: InsertedTenderSummary[] = [];
 
       // Extracted concurrently instead of one-at-a-time — this was the single biggest latency
@@ -169,12 +171,14 @@ export const runScrapeJob = inngest.createFunction(
             console.log(`[run-scrape] auto-blocked ${host}: ${reason}`);
           });
 
-          const { inserted, open, closed, rows: insertedRows, pageRejections } = await step.run(`save-${result.url}`, async () => {
+          const { inserted, open, closed, rows: insertedRows, pageRejections, pageRejected } = await step.run(`save-${result.url}`, async () => {
             const pageRejections: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+            const pageRejected: { tender: ExtractedTender; reason: RejectionReason }[] = [];
             const rows = extracted.flatMap((t) => {
               const reason = classifyRejection(t, { countries, markdown, fallbackUrl: result.url, skipKeywords: true });
               if (reason) {
                 pageRejections[reason] += 1;
+                pageRejected.push({ tender: t, reason });
                 return [];
               }
               return [
@@ -195,7 +199,7 @@ export const runScrapeJob = inngest.createFunction(
             });
 
             const result_ = await insertTenderRows(supabase, rows);
-            return { ...result_, pageRejections };
+            return { ...result_, pageRejections, pageRejected };
           });
 
           visited += 1;
@@ -203,6 +207,7 @@ export const runScrapeJob = inngest.createFunction(
           openCount += open;
           closedCount += closed;
           totalExtracted += extracted.length;
+          allRejected.push(...pageRejected);
           (Object.keys(pageRejections) as RejectionReason[]).forEach((r) => (rejectionCounts[r] += pageRejections[r]));
           insertedTenders.push(...insertedRows);
 
@@ -223,6 +228,8 @@ export const runScrapeJob = inngest.createFunction(
       if (await step.run("check-canceled-before-done", () => isJobCanceled(supabase, jobId))) {
         return { jobId, visited, tendersFound: totalInserted, canceled: true };
       }
+
+      await step.run("log-rejected", () => logRejectedTenders(supabase, jobId, TENDER_TYPE, allRejected));
 
       await step.run("mark-done", async () => {
         await supabase

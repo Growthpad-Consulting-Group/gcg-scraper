@@ -5,6 +5,7 @@ import { fetchPpipTenders } from "./ppipApi";
 import { fetchReliefwebTenders } from "./reliefwebApi";
 import { getSourceConfig, buildRelevanceClause, classifyRejection, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
+import { logRejectedTenders } from "./rejectedTenders";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
 import { logJobOutcome } from "@/features/scheduler/api/taskLog";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
@@ -60,12 +61,14 @@ export const runSourceScrapeJob = inngest.createFunction(
         return extractTenders(config.url, prompt, { waitFor: config.waitFor, timeout: config.timeout, proxy: config.proxy });
       });
 
-      const { inserted, open: openCount, closed: closedCount, rows: insertedTenders, rejectionCounts } = await step.run("save-tenders", async () => {
+      const { inserted, open: openCount, closed: closedCount, rows: insertedTenders, rejectionCounts, rejected } = await step.run("save-tenders", async () => {
         const rejectionCounts: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
+        const rejected: { tender: typeof extracted[number]; reason: RejectionReason }[] = [];
         const rows = extracted.flatMap((t) => {
           const reason = classifyRejection(t, { keywords, countries, markdown });
           if (reason) {
             rejectionCounts[reason] += 1;
+            rejected.push({ tender: t, reason });
             return [];
           }
           return [
@@ -87,8 +90,10 @@ export const runSourceScrapeJob = inngest.createFunction(
         });
 
         const result = await insertTenderRows(supabase, rows);
-        return { ...result, rejectionCounts };
+        return { ...result, rejectionCounts, rejected };
       });
+
+      await step.run("log-rejected", () => logRejectedTenders(supabase, jobId, tenderType, rejected));
 
       const passedFilters = extracted.length - Object.values(rejectionCounts).reduce((a, b) => a + b, 0);
 

@@ -17,8 +17,103 @@ import {
   resultSummaryLines,
   relativeTime,
   resultsHref,
+  hasRejectedCandidates,
   type RunJob,
 } from "@/features/overview/lib/runFeed";
+
+const REASON_LABEL: Record<string, string> = {
+  no_url: "no URL",
+  country: "country mismatch",
+  keywords: "keyword mismatch",
+  source_content: "not verifiably on the page",
+};
+
+interface RejectedTender {
+  id: number;
+  title: string;
+  source_url: string | null;
+  organization: string | null;
+  category: string | null;
+  location: string | null;
+  reason: string;
+  rejected_at: string;
+}
+
+/** Lazily fetches this one job's rejected candidates only once actually expanded — most jobs
+ * rejected nothing, and even ones that did are only worth the extra request when someone's
+ * actually asking "why", not on every job in the feed by default. */
+function RejectedCandidates({ jobId }: { jobId: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<RejectedTender[] | null>(null);
+
+  const toggle = async () => {
+    if (open) return setOpen(false);
+    setOpen(true);
+    if (rows !== null) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/rejected`);
+      const data = await res.json();
+      setRows(Array.isArray(data.rejected) ? data.rejected : []);
+    } catch {
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          toggle();
+        }}
+        className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
+      >
+        <Icon icon={open ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={12} />
+        {open ? "Hide" : "View"} rejected candidates
+      </button>
+      {open && (
+        <div className="mt-2 max-h-64 overflow-y-auto rounded-md border border-app-border" onClick={(e) => e.stopPropagation()}>
+          {loading ? (
+            <p className="p-3 text-xs text-text-lo">Loading…</p>
+          ) : !rows || rows.length === 0 ? (
+            <p className="p-3 text-xs text-text-lo">No rejected candidates were logged for this run.</p>
+          ) : (
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-surface-2">
+                <tr>
+                  <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Title</th>
+                  <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Reason</th>
+                  <th className="p-2 text-left font-mono uppercase tracking-wide text-text-lo">Org / Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-t border-app-border">
+                    <td className="max-w-[280px] truncate p-2 text-text-hi" title={r.title}>
+                      {r.source_url ? (
+                        <a href={r.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          {r.title}
+                        </a>
+                      ) : (
+                        r.title
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap p-2 text-text-lo">{REASON_LABEL[r.reason] || r.reason}</td>
+                    <td className="max-w-[200px] truncate p-2 text-text-lo">{[r.organization, r.location].filter(Boolean).join(" · ") || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function CancelButton({ jobId, onDone }: { jobId: string; onDone: () => void }) {
   const [isCanceling, setIsCanceling] = useState(false);
@@ -192,6 +287,7 @@ export default function RunFeed({ jobs, isLoading, onRefresh }: { jobs: RunJob[]
                       )}
                       {canRetry && <RetryButton taskId={job.task_id as number} onDone={onRefresh} />}
                     </div>
+                    {hasRejectedCandidates(job) && <RejectedCandidates jobId={job.id} />}
                   </TableTd>
                 </TableRow>
               )}
