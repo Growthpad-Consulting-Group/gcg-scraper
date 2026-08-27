@@ -34,7 +34,7 @@ export default function TaskForm({
   const [isLoadingLinkedinPhrases, setIsLoadingLinkedinPhrases] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(
-    task.emailNotificationsEnabled || task.smsNotificationsEnabled || task.slackNotificationsEnabled
+    task.emailNotificationsEnabled || task.slackNotificationsEnabled
   );
   const [currentEmail, setCurrentEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -125,8 +125,8 @@ export default function TaskForm({
   };
 
   useEffect(() => {
-    setShowNotifications(task.emailNotificationsEnabled || task.smsNotificationsEnabled || task.slackNotificationsEnabled);
-  }, [task.emailNotificationsEnabled, task.smsNotificationsEnabled, task.slackNotificationsEnabled]);
+    setShowNotifications(task.emailNotificationsEnabled || task.slackNotificationsEnabled);
+  }, [task.emailNotificationsEnabled, task.slackNotificationsEnabled]);
 
   return (
     <div className="max-h-[70vh] flex-1 space-y-6 overflow-y-auto p-6">
@@ -269,13 +269,11 @@ export default function TaskForm({
               setTask((prev: any) => ({
                 ...prev,
                 emailNotificationsEnabled: false,
-                smsNotificationsEnabled: false,
                 slackNotificationsEnabled: false,
                 email_notifications_enabled: false,
-                sms_notifications_enabled: false,
                 slack_notifications_enabled: false,
               }));
-            } else if (!task.emailNotificationsEnabled && !task.smsNotificationsEnabled && !task.slackNotificationsEnabled) {
+            } else if (!task.emailNotificationsEnabled && !task.slackNotificationsEnabled) {
               setTask((prev: any) => ({ ...prev, emailNotificationsEnabled: true, email_notifications_enabled: true }));
             }
           }}
@@ -297,16 +295,6 @@ export default function TaskForm({
                 className="mr-2"
               />
               <span className="text-text-lo">Send email notification when an open tender is found</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={task.smsNotificationsEnabled}
-                onChange={() => setTask((prev: any) => ({ ...prev, smsNotificationsEnabled: !prev.smsNotificationsEnabled, sms_notifications_enabled: !prev.smsNotificationsEnabled }))}
-                disabled={isLoadingParent}
-                className="mr-2"
-              />
-              <span className="text-text-lo">Send SMS notification when an open tender is found</span>
             </label>
             <label className="flex items-center">
               <input

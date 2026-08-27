@@ -36,7 +36,6 @@ export default function AddSchedulerModal({
     countries: [] as string[],
     linkedinSearchPhrases: [] as string[],
     emailNotificationsEnabled: false,
-    smsNotificationsEnabled: false,
     slackNotificationsEnabled: false,
     customEmails: [] as string[],
     custom_emails: "",
@@ -92,7 +91,6 @@ export default function AddSchedulerModal({
         countries: newTask.countries,
         linkedin_search_phrases: newTask.linkedinSearchPhrases,
         email_notifications_enabled: newTask.emailNotificationsEnabled,
-        sms_notifications_enabled: newTask.smsNotificationsEnabled,
         slack_notifications_enabled: newTask.slackNotificationsEnabled,
         custom_emails: newTask.custom_emails,
       };

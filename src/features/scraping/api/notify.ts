@@ -106,7 +106,9 @@ export function buildTenderSlackCard(t: TenderCardFields & { id: number | string
 
 /**
  * Notifications were previously pure UI — nothing ever inserted a row, and the
- * email/SMS/Slack toggles on a task did nothing. Called from each scrape flow's mark-done step;
+ * email/Slack toggles on a task did nothing (an SMS toggle also existed here but was removed —
+ * it never had a provider wired up and always silently did nothing). Called from each scrape
+ * flow's mark-done step;
  * only fires for scheduled (task-linked) runs, since ad-hoc Run Query users are already watching
  * the live console and don't need a notification for their own action. Email/Slack failures are
  * logged, not thrown — a bad SMTP/webhook config shouldn't fail the scrape job itself.

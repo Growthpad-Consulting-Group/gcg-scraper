@@ -3,6 +3,7 @@
 import PageHeader from "@/shared/ui/PageHeader";
 import KeywordListPanel from "@/features/settings/components/KeywordListPanel";
 import RetentionSettingsPanel from "@/features/settings/components/RetentionSettingsPanel";
+import UsagePanel from "@/features/settings/components/UsagePanel";
 
 export default function SettingsPage() {
   return (
@@ -12,6 +13,8 @@ export default function SettingsPage() {
         description="Business-tunable knobs — keyword libraries and retention/timing windows. API keys and other secrets are configured via environment variables, not here."
         icon="solar:settings-broken"
       />
+
+      <UsagePanel />
 
       <RetentionSettingsPanel />
 

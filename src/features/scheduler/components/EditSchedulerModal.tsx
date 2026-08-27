@@ -34,7 +34,6 @@ export default function EditSchedulerModal({
         countries: Array.isArray(task.countries) ? task.countries : [],
         linkedinSearchPhrases: Array.isArray(task.linkedin_search_phrases) ? task.linkedin_search_phrases : [],
         emailNotificationsEnabled: task.email_notifications_enabled ?? false,
-        smsNotificationsEnabled: task.sms_notifications_enabled ?? false,
         slackNotificationsEnabled: task.slack_notifications_enabled ?? false,
         customEmails: (task.custom_emails || "").split(",").filter(Boolean),
       });
@@ -61,7 +60,6 @@ export default function EditSchedulerModal({
           countries: editedTask.countries,
           linkedin_search_phrases: editedTask.linkedinSearchPhrases,
           email_notifications_enabled: editedTask.emailNotificationsEnabled,
-          sms_notifications_enabled: editedTask.smsNotificationsEnabled,
           slack_notifications_enabled: editedTask.slackNotificationsEnabled,
           custom_emails: Array.isArray(editedTask.customEmails) ? editedTask.customEmails.join(",") : "",
         }),
