@@ -100,17 +100,19 @@ function TenderDetail({
   const [view, setView] = useState<"parsed" | "raw">("parsed");
 
   return (
-    <div className="flex flex-col gap-2 py-3 px-4">
-      <PursuitPanel
-        tenderId={tender.id}
-        compact
-        initial={{
-          pursuit_status: tender.pursuit_status ?? null,
-          assigned_to: tender.assigned_to ?? null,
-          pursuit_notes: tender.pursuit_notes ?? null,
-        }}
-        onSaved={onPursuitSaved}
-      />
+    <div className="flex flex-col gap-3 py-3 px-4">
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
+        <PursuitPanel
+          tenderId={tender.id}
+          compact
+          initial={{
+            pursuit_status: tender.pursuit_status ?? null,
+            assigned_to: tender.assigned_to ?? null,
+            pursuit_notes: tender.pursuit_notes ?? null,
+          }}
+          onSaved={onPursuitSaved}
+        />
+      </div>
 
       {/* View toggle */}
       <div className="flex gap-1">
