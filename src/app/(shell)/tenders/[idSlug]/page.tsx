@@ -14,6 +14,7 @@ import Popover from "@/shared/ui/Popover";
 import { parseTenderIdFromSegment, tenderHref } from "@/shared/lib/slug";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import type { BadgeStatus } from "@/shared/ui/Badge";
+import PursuitPanel, { pursuitBadge } from "@/features/tenders/components/PursuitPanel";
 
 interface Tender {
   id: string | number;
@@ -33,6 +34,9 @@ interface Tender {
   document_checked_at?: string | null;
   raw_content?: string | null;
   format?: string | null;
+  pursuit_status?: string | null;
+  assigned_to?: string | null;
+  pursuit_notes?: string | null;
 }
 
 function statusBadge(status?: string): { label: string; status: BadgeStatus } {
@@ -220,6 +224,9 @@ export default function TenderDetailPage() {
                 <Badge status={statusBadge(tender.status).status}>
                   {statusBadge(tender.status).label}
                 </Badge>
+                {pursuitBadge(tender.pursuit_status) && (
+                  <Badge status={pursuitBadge(tender.pursuit_status)!.status}>{pursuitBadge(tender.pursuit_status)!.label}</Badge>
+                )}
               </div>
             </div>
             {tender.description && (
@@ -360,6 +367,29 @@ export default function TenderDetailPage() {
                 Delete
               </Button>
             </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+            className="overflow-hidden rounded-2xl border group transition-all duration-500 h-full backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface p-4"
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                <Icon icon="solar:flag-broken" width={16} />
+              </div>
+              <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Pursuit</h2>
+            </div>
+            <PursuitPanel
+              tenderId={tender.id}
+              initial={{
+                pursuit_status: tender.pursuit_status ?? null,
+                assigned_to: tender.assigned_to ?? null,
+                pursuit_notes: tender.pursuit_notes ?? null,
+              }}
+              onSaved={(fields) => setTender((prev) => (prev ? { ...prev, ...fields } : prev))}
+            />
           </motion.div>
 
           {relatedTenders.length > 0 && (

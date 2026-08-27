@@ -9,8 +9,10 @@ const MAX_LIMIT = 2000;
 // when that row is actually expanded. Pulling it for all 500 rows on every list load was easily
 // the single biggest driver of Vercel origin data transfer for this app, for data almost never
 // looked at.
+// pursuit_notes is excluded the same way raw_content is — only ever shown for the one row
+// expanded/opened, fetched lazily from /api/tenders/[id] rather than for all 500 rows up front.
 const LIST_COLUMNS =
-  "id,title,description,closing_date,source_url,status,scraped_at,format,tender_type,budget,currency,location,country,organization,category,document_url,job_id,document_checked_at,reminder_sent_at,created_at,updated_at";
+  "id,title,description,closing_date,source_url,status,scraped_at,format,tender_type,budget,currency,location,country,organization,category,document_url,job_id,document_checked_at,reminder_sent_at,created_at,updated_at,pursuit_status,assigned_to";
 
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("query")?.trim();

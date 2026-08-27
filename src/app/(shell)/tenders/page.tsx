@@ -13,6 +13,7 @@ import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable
 import Badge, { type BadgeStatus } from "@/shared/ui/Badge";
 import LogPanel from "@/shared/ui/LogPanel";
 import { tenderHref } from "@/shared/lib/slug";
+import PursuitPanel, { pursuitBadge, PURSUIT_OPTIONS, type PursuitFields } from "@/features/tenders/components/PursuitPanel";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
 
@@ -40,6 +41,9 @@ interface Tender {
   document_url?: string | null;
   raw_content?: string | null;
   format?: string | null;
+  pursuit_status?: string | null;
+  assigned_to?: string | null;
+  pursuit_notes?: string | null;
   [key: string]: unknown;
 }
 
@@ -84,11 +88,30 @@ function formatBudget(budget?: number | null, currency?: string | null): string 
 // TenderDetail — inline expanded row
 // ---------------------------------------------------------------------------
 
-function TenderDetail({ tender, isLoadingRaw }: { tender: Tender; isLoadingRaw: boolean }) {
+function TenderDetail({
+  tender,
+  isLoadingRaw,
+  onPursuitSaved,
+}: {
+  tender: Tender;
+  isLoadingRaw: boolean;
+  onPursuitSaved: (fields: PursuitFields) => void;
+}) {
   const [view, setView] = useState<"parsed" | "raw">("parsed");
 
   return (
     <div className="flex flex-col gap-2 py-3 px-4">
+      <PursuitPanel
+        tenderId={tender.id}
+        compact
+        initial={{
+          pursuit_status: tender.pursuit_status ?? null,
+          assigned_to: tender.assigned_to ?? null,
+          pursuit_notes: tender.pursuit_notes ?? null,
+        }}
+        onSaved={onPursuitSaved}
+      />
+
       {/* View toggle */}
       <div className="flex gap-1">
         {(["parsed", "raw"] as const).map((v) => (
@@ -198,6 +221,15 @@ function buildColumns(
       },
     },
     {
+      Header: "Pursuit",
+      accessor: "pursuit_status",
+      sortable: true,
+      render: (row) => {
+        const badge = pursuitBadge(row.pursuit_status);
+        return badge ? <Badge status={badge.status}>{badge.label}</Badge> : <span className="text-gray-400">—</span>;
+      },
+    },
+    {
       Header: "Organization",
       accessor: "organization",
       sortable: true,
@@ -291,6 +323,7 @@ function TendersContent() {
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"open" | "closed" | null>(null);
+  const [pursuitFilter, setPursuitFilter] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [typeFilterValue, setTypeFilterValue] = useState<string | null>(typeFilter);
 
@@ -383,7 +416,7 @@ function TendersContent() {
   // active facet (not itself), so e.g. picking a Country narrows which Categories are even
   // possible instead of always listing every value across the whole dataset — picking Kenya then
   // seeing a Category with zero Kenyan tenders would otherwise silently dead-end the user.
-  type FacetKey = "type" | "country" | "category" | "status";
+  type FacetKey = "type" | "country" | "category" | "status" | "pursuit";
   const applyFacets = useCallback(
     (skip: FacetKey | null) => {
       let list = dateFilteredTenders;
@@ -391,9 +424,10 @@ function TendersContent() {
       if (skip !== "country" && countryFilter) list = list.filter((t) => t.country === countryFilter);
       if (skip !== "category" && categoryFilter) list = list.filter((t) => t.category === categoryFilter);
       if (skip !== "status" && statusFilter) list = list.filter((t) => t.status === statusFilter);
+      if (skip !== "pursuit" && pursuitFilter) list = list.filter((t) => (pursuitFilter === "none" ? !t.pursuit_status : t.pursuit_status === pursuitFilter));
       return list;
     },
-    [dateFilteredTenders, typeFilterValue, countryFilter, categoryFilter, statusFilter]
+    [dateFilteredTenders, typeFilterValue, countryFilter, categoryFilter, statusFilter, pursuitFilter]
   );
 
   // Normalized `country` (see countries.ts:normalizeCountry), not the raw free-text `location` —
@@ -414,14 +448,23 @@ function TendersContent() {
     () => new Set(applyFacets("status").map((t) => t.status)),
     [applyFacets]
   );
+  // "none" is a synthetic option (not a real pursuit_status value) meaning "never reviewed" —
+  // most tenders have no pursuit_status at all, and that's worth being able to filter to as much
+  // as any of the real statuses.
+  const pursuitOptionValues = useMemo(() => {
+    const facetTenders = applyFacets("pursuit");
+    const values = new Set(facetTenders.map((t) => t.pursuit_status || "none"));
+    return values;
+  }, [applyFacets]);
   const filteredTenders = applyFacets(null);
 
-  const activeFilterCount = [typeFilterValue, countryFilter, categoryFilter, statusFilter].filter(Boolean).length;
+  const activeFilterCount = [typeFilterValue, countryFilter, categoryFilter, statusFilter, pursuitFilter].filter(Boolean).length;
   const clearAllFilters = () => {
     setTypeFilterValue(null);
     setCountryFilter(null);
     setCategoryFilter(null);
     setStatusFilter(null);
+    setPursuitFilter(null);
     if (typeFilter) router.push("/tenders");
   };
 
@@ -457,7 +500,11 @@ function TendersContent() {
             colSpan={columns.length + 2} // +2 for checkbox + actions cols
             className="border-b border-slate-100 dark:border-slate-800/60 p-0"
           >
-            <TenderDetail tender={row} isLoadingRaw={loadingRawContentId === row.id} />
+            <TenderDetail
+              tender={row}
+              isLoadingRaw={loadingRawContentId === row.id}
+              onPursuitSaved={(fields) => setTenders((prev) => prev.map((t) => (t.id === row.id ? { ...t, ...fields } : t)))}
+            />
           </td>
         </tr>
       )}
@@ -566,6 +613,30 @@ function TendersContent() {
               menuPortalTarget={
                 typeof document !== "undefined" ? document.body : undefined
               }
+              menuPosition="fixed"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-lo">
+              Pursuit
+            </label>
+            <Select
+              value={
+                pursuitFilter
+                  ? { value: pursuitFilter, label: pursuitFilter === "none" ? "Not reviewed" : PURSUIT_OPTIONS.find((o) => o.value === pursuitFilter)?.label || pursuitFilter }
+                  : null
+              }
+              onChange={(opt) => setPursuitFilter(getSelectValue(opt) || null)}
+              options={[{ value: "none", label: "Not reviewed" }, ...PURSUIT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))].filter((o) =>
+                pursuitOptionValues.has(o.value)
+              )}
+              placeholder="All"
+              isClearable
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={getSelectStyles<{ value: string; label: string }>(mode)}
+              menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
               menuPosition="fixed"
             />
           </div>
