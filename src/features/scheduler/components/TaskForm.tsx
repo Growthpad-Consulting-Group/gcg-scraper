@@ -191,7 +191,14 @@ export default function TaskForm({
         <label className="mb-2 block text-sm font-medium text-text-hi">
           {LEAD_TASK_TYPES.has(task.tenderType) ? "Search Term" : "Search Term / Keyword"}
           {task.tenderType !== "Search Query Tenders" && !LEAD_TASK_TYPES.has(task.tenderType) && (
-            <span className="ml-1 font-normal text-text-lo">(optional — narrows results to tenders matching these topics)</span>
+            <span className="ml-1 font-normal text-text-lo">
+              (optional — narrows results to these topics; leave blank to match against the entire Keyword Library instead)
+            </span>
+          )}
+          {task.tenderType === "Search Query Tenders" && (
+            <span className="ml-1 font-normal text-text-lo">
+              (required — each one is searched separately, so pick specific terms here rather than the whole Keyword Library)
+            </span>
           )}
           {LEAD_TASK_TYPES.has(task.tenderType) && (
             <span className="ml-1 font-normal text-text-lo">(only the first term is used — this is what gets searched each run)</span>
