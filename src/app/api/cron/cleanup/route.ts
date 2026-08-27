@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
+import { getAppSettings } from "@/shared/lib/appSettings";
 
 // Retention windows — tenders, scrape_jobs, and notifications all grew forever with nothing to
 // prune them. Meant to be hit by an external cron (e.g. cron-job.org) since Inngest cron only
 // fires from this same deployment and this is intentionally decoupled from it.
-const CLOSED_TENDER_RETENTION_DAYS = 90;
-const FINISHED_JOB_RETENTION_DAYS = 30;
-const READ_NOTIFICATION_RETENTION_DAYS = 30;
-// Diagnostic-only (see rejectedTenders.ts) — every scrape run adds rows with nothing pruning them
-// otherwise, unlike tenders/jobs/notifications which at least have a reason to keep a long tail.
-const REJECTED_TENDER_RETENTION_DAYS = 30;
+// Values now come from app_settings (Settings page) with these as the fallback defaults — see
+// shared/lib/appSettings.ts.
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -20,8 +17,9 @@ function isAuthorized(req: NextRequest): boolean {
 
 async function runCleanup() {
   const supabase = createServerSupabaseClient();
+  const settings = await getAppSettings(supabase);
 
-  const closedTenderCutoff = new Date(Date.now() - CLOSED_TENDER_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const closedTenderCutoff = new Date(Date.now() - settings.closed_tender_retention_days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const { error: tendersError, count: tendersDeleted } = await supabase
     .from("tenders")
     .delete({ count: "exact" })
@@ -29,7 +27,7 @@ async function runCleanup() {
     .lt("closing_date", closedTenderCutoff);
   if (tendersError) throw tendersError;
 
-  const jobCutoff = new Date(Date.now() - FINISHED_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const jobCutoff = new Date(Date.now() - settings.finished_job_retention_days * 24 * 60 * 60 * 1000).toISOString();
   const { error: jobsError, count: jobsDeleted } = await supabase
     .from("scrape_jobs")
     .delete({ count: "exact" })
@@ -39,7 +37,7 @@ async function runCleanup() {
 
   // Only read notifications — an unread one shouldn't silently vanish before the user's ever
   // seen it, no matter how old it gets.
-  const notificationCutoff = new Date(Date.now() - READ_NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const notificationCutoff = new Date(Date.now() - settings.read_notification_retention_days * 24 * 60 * 60 * 1000).toISOString();
   const { error: notificationsError, count: notificationsDeleted } = await supabase
     .from("notifications")
     .delete({ count: "exact" })
@@ -47,7 +45,7 @@ async function runCleanup() {
     .lt("created_at", notificationCutoff);
   if (notificationsError) throw notificationsError;
 
-  const rejectedTenderCutoff = new Date(Date.now() - REJECTED_TENDER_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const rejectedTenderCutoff = new Date(Date.now() - settings.rejected_tender_retention_days * 24 * 60 * 60 * 1000).toISOString();
   const { error: rejectedError, count: rejectedDeleted } = await supabase
     .from("rejected_tenders")
     .delete({ count: "exact" })

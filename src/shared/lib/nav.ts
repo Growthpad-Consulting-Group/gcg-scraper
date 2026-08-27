@@ -33,6 +33,11 @@ export const sidebarNavGroups: NavGroup[] = [
       { href: "/blocked-domains", icon: "solar:shield-cross-broken", label: "Blocked Domains" },
     ],
   },
+  {
+    category: "Configure",
+    icon: "solar:settings-broken",
+    items: [{ href: "/settings", icon: "solar:settings-broken", label: "Settings" }],
+  },
 ];
 
 /** Flat list of every nav item, derived from the grouped structure — kept for lookups that don't care about grouping. */
