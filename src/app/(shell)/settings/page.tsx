@@ -15,21 +15,25 @@ export default function SettingsPage() {
 
       <RetentionSettingsPanel />
 
-      <KeywordListPanel
-        title="Keyword Library"
-        description="The default relevance filter used across scheduled tasks and ad-hoc scans when no task-specific keywords are set."
-        listUrl="/api/search-terms"
-        itemKey="term"
-        responseKey="search_terms"
-      />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <KeywordListPanel
+          icon="solar:hashtag-broken"
+          title="Keyword Library"
+          description="The default relevance filter used across scheduled tasks and ad-hoc scans when no task-specific keywords are set."
+          listUrl="/api/search-terms"
+          itemKey="term"
+          responseKey="search_terms"
+        />
 
-      <KeywordListPanel
-        title="LinkedIn Search Phrases"
-        description="Default search phrases for LinkedIn Tenders tasks when a task hasn't customized its own list."
-        listUrl="/api/linkedin-search-phrases"
-        itemKey="phrase"
-        responseKey="linkedin_search_phrases"
-      />
+        <KeywordListPanel
+          icon="mdi:linkedin"
+          title="LinkedIn Search Phrases"
+          description="Default search phrases for LinkedIn Tenders tasks when a task hasn't customized its own list."
+          listUrl="/api/linkedin-search-phrases"
+          itemKey="phrase"
+          responseKey="linkedin_search_phrases"
+        />
+      </div>
     </div>
   );
 }
