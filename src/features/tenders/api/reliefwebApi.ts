@@ -29,6 +29,28 @@ type ReliefwebResponse = {
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 3;
 
+// ReliefWeb job posts often carry the entire ToR document as `body` (confirmed live: a Somalia
+// baseline-assessment posting ran to ~9,000 characters — background, objectives, 19 numbered
+// evaluation questions, ethics standards, deliverables, everything) — every other source's
+// `description` is a short LLM-written summary, so storing the whole thing verbatim made this the
+// one source whose detail page was an unreadable wall of text. Trimmed to roughly the
+// intro/objectives section: long enough that keyword matching (which reads this same field) still
+// has real content to work with, short enough to actually read. The full ToR stays one click away
+// via the tender's own source_url.
+const DESCRIPTION_MAX_LENGTH = 1200;
+
+function summarizeBody(body: string): string {
+  const plain = body
+    .replace(/[*_#>`]/g, "") // strip markdown emphasis/heading/quote/code markers
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // [link text](url) -> link text
+    .replace(/\s+/g, " ")
+    .trim();
+  if (plain.length <= DESCRIPTION_MAX_LENGTH) return plain;
+  const truncated = plain.slice(0, DESCRIPTION_MAX_LENGTH);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return `${truncated.slice(0, lastSpace > 0 ? lastSpace : DESCRIPTION_MAX_LENGTH)}…`;
+}
+
 // ReliefWeb's job board mixes tenders/RFPs/RFQs/EOIs in among regular vacancies with no separate
 // "tender" content type — a title-field Lucene query is the same signal the old scraped/LLM
 // pipeline used (its URL was ?search=tender), just wider: it catches RFP/RFQ/EOI-titled posts
@@ -70,7 +92,7 @@ export async function fetchReliefwebTenders(): Promise<{ tenders: ExtractedTende
     title: job.fields.title,
     closing_date: job.fields.date?.closing ?? null,
     source_url: job.fields.url_alias || job.fields.url || null,
-    description: job.fields.body || null,
+    description: job.fields.body ? summarizeBody(job.fields.body) : null,
     organization: job.fields.source?.[0]?.name ?? null,
     category: job.fields.type?.[0]?.name ?? null,
     location: job.fields.country?.[0]?.name ?? null,
