@@ -52,13 +52,14 @@ export const runWebsiteScrapeJob = inngest.createFunction(
 
     try {
       const [{ data: websites }, { data: searchTerms }] = await step.run("fetch-inputs", async () => {
+        const WEBSITE_COLUMNS = "id, name, url, location, is_country_specific, wait_for_ms";
         const websitesQuery = websiteIds?.length
-          ? supabase.from("websites").select("id, name, url, location, is_country_specific").in("id", websiteIds)
+          ? supabase.from("websites").select(WEBSITE_COLUMNS).in("id", websiteIds)
           : websiteId
-            ? supabase.from("websites").select("id, name, url, location, is_country_specific").eq("id", websiteId)
+            ? supabase.from("websites").select(WEBSITE_COLUMNS).eq("id", websiteId)
             : supabase
                 .from("websites")
-                .select("id, name, url, location, is_country_specific")
+                .select(WEBSITE_COLUMNS)
                 .order("last_scraped_at", { ascending: true, nullsFirst: true })
                 .limit(BATCH_SIZE);
         // No `.limit` — this is the curated GCG keyword list (228 terms), not a handful of
@@ -110,7 +111,11 @@ export const runWebsiteScrapeJob = inngest.createFunction(
               // Global orgs on the list (Welthungerhilfe, World Vision, CARE, etc.) must not get a
               // location guessed for them just because of the batch they were scanned under.
               const fallbackLocation = website.is_country_specific ? website.location : null;
-              return await extractTenders(website.url, buildPrompt(fallbackLocation), extractOptions);
+              // Most sites are static HTML and extract fine with the default wait; a few (IUCN's
+              // new client-rendered procurement portal, confirmed live) need longer — set per-site
+              // via websites.wait_for_ms rather than raising the default for all ~165 sites.
+              const siteOptions = website.wait_for_ms ? { ...extractOptions, waitFor: website.wait_for_ms } : extractOptions;
+              return await extractTenders(website.url, buildPrompt(fallbackLocation), siteOptions);
             } catch {
               return { tenders: [], markdown: null };
             }
