@@ -55,6 +55,16 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
       name: "leads/reddit.queued",
       data: { jobId: job.id, searchQuery: task.search_terms?.[0] || task.name || "" },
     });
+  } else if (tenderType === "Tenderers KE") {
+    await inngest.send({
+      name: "tenders/tenderers.queued",
+      data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [] },
+    });
+  } else if (tenderType === "IUCN Procurement") {
+    await inngest.send({
+      name: "tenders/iucn.queued",
+      data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [] },
+    });
   } else if (tenderType === "Website Tenders") {
     await inngest.send({
       name: "tenders/website.queued",

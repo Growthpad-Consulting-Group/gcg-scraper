@@ -7,6 +7,8 @@ import { runRedditScrapeJob } from "@/features/leads/api/run-reddit-scrape";
 import { runSourceScrapeJob } from "@/features/tenders/api/run-source-scrape";
 import { runLinkedInTendersScrapeJob } from "@/features/tenders/api/run-linkedin-tenders-scrape";
 import { runWebsiteScrapeJob } from "@/features/tenders/api/run-website-scrape";
+import { runTenderersScrapJob } from "@/features/tenders/api/run-tenderers-scrape";
+import { runIucnScrapJob } from "@/features/tenders/api/run-iucn-scrape";
 import { runDocumentParseJob } from "@/features/tenders/api/run-document-parse";
 import { checkScheduledTasksJob } from "@/features/scheduler/api/check-scheduled-tasks";
 import { sendClosingRemindersJob } from "@/features/tenders/api/send-closing-reminders";
@@ -21,6 +23,8 @@ export const { GET, POST, PUT } = serve({
     runSourceScrapeJob,
     runLinkedInTendersScrapeJob,
     runWebsiteScrapeJob,
+    runTenderersScrapJob,
+    runIucnScrapJob,
     runDocumentParseJob,
     checkScheduledTasksJob,
     sendClosingRemindersJob,
