@@ -161,6 +161,30 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     waitFor: 6000,
     timeout: 40000,
   },
+  {
+    tenderType: "Tenderers KE",
+    // The homepage is mostly a chatbot widget with no listings in the static markup —
+    // /open-tenders/ is the actual listing page (confirmed live: 348 active tenders with
+    // title/deadline/tender-no/eligibility, no JS-render wait needed).
+    url: "https://tenderers.ke/open-tenders/",
+    prompt:
+      "Extract all open tender/prequalification listings on this Kenyan e-procurement platform page, including title, closing/deadline date, tender number, and the full URL linking to each individual tender ('View' link)." +
+      FIELD_SUFFIX,
+  },
+  {
+    tenderType: "IUCN Procurement",
+    // IUCN's legacy page explicitly says it's being retired in favor of this portal ("This page
+    // will continue to exist only while there still are ongoing procurements") — using the new
+    // portal now rather than waiting for the old page to go dark.
+    url: "https://procurement.iucn.org/",
+    prompt:
+      "Extract all open tenders/RFPs listed on this IUCN procurement portal, including title, submission deadline date, and the full URL linking to each individual notice (or the portal URL itself if listings don't link out)." +
+      FIELD_SUFFIX,
+    // Client-rendered SPA — a default scrape returns near-empty content (confirmed live: 12
+    // chars, just "Open tenders"); a 4s wait renders the full table.
+    waitFor: 4000,
+    timeout: 30000,
+  },
 ];
 
 export function getSourceConfig(tenderType: string) {
