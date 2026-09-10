@@ -119,6 +119,7 @@ describe("insertTenderRows", () => {
       document_url: null,
       raw_content: null,
       job_id: null,
+      matched_keywords: null,
       ...overrides,
     };
   }

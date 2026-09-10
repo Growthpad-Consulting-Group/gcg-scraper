@@ -2,7 +2,7 @@ import { inngest } from "./inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { searchWeb } from "./firecrawlSearch";
 import { extractTenders, type ExtractedTender } from "@/features/tenders/api/firecrawlExtract";
-import { classifyRejection, rejectionSummary, type RejectionReason } from "@/features/tenders/api/sourceConfigs";
+import { classifyRejection, matchedKeywords, rejectionSummary, type RejectionReason } from "@/features/tenders/api/sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
 import { logRejectedTenders } from "@/features/tenders/api/rejectedTenders";
 import { isJobCanceled } from "./jobStatus";
@@ -181,6 +181,11 @@ export const runScrapeJob = inngest.createFunction(
                 pageRejected.push({ tender: t, reason });
                 return [];
               }
+              // This path filters at search time, not on keyword text (skipKeywords above), so
+              // this is label-only: which of the task's search terms actually appear in the
+              // found tender. Empty for the ad-hoc single-query Run Query path where queryList
+              // is a free-text phrase rather than a curated term list.
+              const matched = matchedKeywords(t, queryList);
               return [
                 {
                   title: t.title,
@@ -193,6 +198,7 @@ export const runScrapeJob = inngest.createFunction(
                   scraped_at: new Date().toISOString(),
                   raw_content: markdown,
                   job_id: jobId,
+                  matched_keywords: matched.length ? matched : null,
                   ...resolveOptionalFields(t),
                 },
               ];

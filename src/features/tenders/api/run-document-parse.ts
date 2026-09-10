@@ -68,6 +68,8 @@ export const runDocumentParseJob = inngest.createFunction(
           scraped_at: new Date().toISOString(),
           raw_content: markdown,
           job_id: jobId,
+          // No keyword filter on the document-upload path — a user hand-picks the file.
+          matched_keywords: null,
           ...resolveOptionalFields(t),
         }));
         return insertTenderRows(supabase, rows);

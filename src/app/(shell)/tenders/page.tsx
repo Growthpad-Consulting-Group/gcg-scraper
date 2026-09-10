@@ -36,6 +36,7 @@ interface Tender {
   source_url?: string | null;
   organization?: string | null;
   category?: string | null;
+  matched_keywords?: string[] | null;
   budget?: number | null;
   currency?: string | null;
   document_url?: string | null;
@@ -136,6 +137,7 @@ function TenderDetail({
           {([
             ["Organization", tender.organization],
             ["Category", tender.category],
+            ["Matched keywords", tender.matched_keywords?.length ? tender.matched_keywords.join(", ") : null],
             ["Budget", formatBudget(tender.budget, tender.currency)],
             ["Location", tender.location],
             ["Country", tender.country],

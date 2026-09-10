@@ -2,7 +2,7 @@ import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { findLinkedInTenderCandidates, extractLinkedInTender, MAX_LINKEDIN_CANDIDATES } from "./linkedinTendersApi";
 import type { ExtractedTender } from "./firecrawlExtract";
-import { classifyRejection, rejectionSummary, type RejectionReason } from "./sourceConfigs";
+import { classifyRejection, matchedKeywords, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { logRejectedTenders } from "./rejectedTenders";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
@@ -84,6 +84,7 @@ export const runLinkedInTendersScrapeJob = inngest.createFunction(
             rejected.push({ tender: e.tender, reason });
             return [];
           }
+          const matched = matchedKeywords(e.tender, keywords);
           return [
             {
               title: e.tender.title,
@@ -96,6 +97,7 @@ export const runLinkedInTendersScrapeJob = inngest.createFunction(
               scraped_at: new Date().toISOString(),
               raw_content: e.markdown,
               job_id: jobId,
+              matched_keywords: matched.length ? matched : null,
               ...resolveOptionalFields(e.tender),
             },
           ];

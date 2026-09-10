@@ -225,11 +225,28 @@ function escapeRegExp(value: string): string {
  * interchangeably — a keyword list written in one spelling shouldn't miss a tender that happens
  * to use the other. */
 export function matchesKeywords(tender: { title: string; description?: string | null; category?: string | null }, keywords?: string[] | null): boolean {
-  const kw = (keywords || []).map((k) => k.trim().toLowerCase()).filter(Boolean);
+  const kw = (keywords || []).map((k) => k.trim()).filter(Boolean);
   if (!kw.length) return true;
+  return matchedKeywords(tender, kw).length > 0;
+}
+
+/** The subset of `keywords` a tender actually matched on — same matching rules as
+ * `matchesKeywords` (word-boundary, spelling + acronym variants), but returns *which* terms hit
+ * rather than a bare boolean, so it can be stored on the tender row for triage and keyword-list
+ * tuning (see 0029_tender_matched_keywords.sql). Returns the keyword strings exactly as
+ * configured (not the normalized/expanded form actually found in the text), so a report can
+ * group straight back to the task's own list. Empty when no keyword filter is active. */
+export function matchedKeywords(
+  tender: { title: string; description?: string | null; category?: string | null },
+  keywords?: string[] | null
+): string[] {
+  const kw = (keywords || []).map((k) => k.trim()).filter(Boolean);
+  if (!kw.length) return [];
   const haystack = normalizeSpellingVariants(`${tender.title} ${tender.description || ""} ${tender.category || ""}`.toLowerCase());
-  return kw.some((k) =>
-    expandAcronymVariants(k).some((variant) => new RegExp(`\\b${escapeRegExp(normalizeSpellingVariants(variant))}\\b`, "i").test(haystack))
+  return kw.filter((k) =>
+    expandAcronymVariants(k.toLowerCase()).some((variant) =>
+      new RegExp(`\\b${escapeRegExp(normalizeSpellingVariants(variant))}\\b`, "i").test(haystack)
+    )
   );
 }
 

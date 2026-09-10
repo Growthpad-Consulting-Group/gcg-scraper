@@ -1,7 +1,7 @@
 import { inngest } from "@/features/scraping/api/inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders, type ExtractOptions, type ExtractedTender } from "./firecrawlExtract";
-import { buildRelevanceClause, classifyRejection, rejectionSummary, type RejectionReason } from "./sourceConfigs";
+import { buildRelevanceClause, classifyRejection, matchedKeywords, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "./tenderRow";
 import { logRejectedTenders } from "./rejectedTenders";
 import { isJobCanceled } from "@/features/scraping/api/jobStatus";
@@ -131,6 +131,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
                 siteRejected.push({ tender: t, reason });
                 return [];
               }
+              const matched = matchedKeywords(t, effectiveKeywords);
               return [
                 {
                   title: t.title,
@@ -143,6 +144,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
                   scraped_at: new Date().toISOString(),
                   raw_content: markdown,
                   job_id: jobId,
+                  matched_keywords: matched.length ? matched : null,
                   ...resolveOptionalFields(t),
                 },
               ];

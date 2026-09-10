@@ -1,0 +1,14 @@
+-- Records which of a scheduled task's configured keywords a found tender actually matched on.
+-- The relevance filter (matchesKeywords in sourceConfigs.ts) already knows this — it just threw
+-- it away, returning a bare pass/fail. Storing it enables:
+--   * triage: a reviewer sees *why* each tender surfaced without re-reading the title
+--   * keyword-list tuning: `select unnest(matched_keywords), count(*) ... group by 1` shows
+--     which curated terms pull their weight and which have matched nothing in months
+--   * false-positive diagnosis: a junk tender tagged `{IT}` immediately flags the abbreviation
+--     as too loose (a real prior incident — see matchesKeywords' word-boundary comment)
+--
+-- Nullable, and array so a tender matching several keywords keeps all of them (the old
+-- `.some()` short-circuited on the first, which would have been arbitrary given list order).
+-- NULL / empty means no keyword filter was active for that task (country-only source tasks
+-- pass every tender). Not backfillable — only populated on inserts from here forward.
+alter table tenders add column if not exists matched_keywords text[];

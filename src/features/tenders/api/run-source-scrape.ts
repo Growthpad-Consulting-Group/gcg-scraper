@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
 import { fetchPpipTenders } from "./ppipApi";
 import { fetchReliefwebTenders } from "./reliefwebApi";
-import { getSourceConfig, buildRelevanceClause, classifyRejection, rejectionSummary, type RejectionReason } from "./sourceConfigs";
+import { getSourceConfig, buildRelevanceClause, classifyRejection, matchedKeywords, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { logRejectedTenders } from "./rejectedTenders";
 import { notifyTaskOwner } from "@/features/scraping/api/notify";
@@ -71,6 +71,7 @@ export const runSourceScrapeJob = inngest.createFunction(
             rejected.push({ tender: t, reason });
             return [];
           }
+          const matched = matchedKeywords(t, keywords);
           return [
             {
               title: t.title,
@@ -83,6 +84,7 @@ export const runSourceScrapeJob = inngest.createFunction(
               scraped_at: new Date().toISOString(),
               raw_content: markdown,
               job_id: jobId,
+              matched_keywords: matched.length ? matched : null,
               ...resolveOptionalFields(t),
               ...(config.skipBudget ? { budget: null } : {}),
             },

@@ -31,6 +31,10 @@ export interface TenderRow {
   document_url: string | null;
   raw_content: string | null;
   job_id: string | null;
+  /** Which of the task's configured keywords this tender matched on (see
+   * matchedKeywords in sourceConfigs.ts). Null when no keyword filter was active for the task
+   * — e.g. a country-only source task. */
+  matched_keywords: string[] | null;
 }
 
 /** `tenders.location` is varchar(100); `budget` is numeric — guard both against malformed
