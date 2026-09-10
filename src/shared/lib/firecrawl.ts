@@ -11,6 +11,7 @@ const KEYS = [
   process.env.FIRECRAWL_API_KEY_FALLBACK_3,
   process.env.FIRECRAWL_API_KEY_FALLBACK_4,
   process.env.FIRECRAWL_API_KEY_FALLBACK_5,
+  process.env.FIRECRAWL_API_KEY_FALLBACK_6,
 ].filter((key): key is string => !!key);
 
 // 402 is Firecrawl's documented status for an exhausted/insufficient-credit account. 429 is rate
