@@ -233,38 +233,6 @@ export default function TenderDetailPage() {
               <p className="text-sm text-text-lo">{tender.description}</p>
             )}
 
-            <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-3">
-              {[
-                ["Organization", tender.organization],
-                ["Category", tender.category],
-                ["Budget", formatBudget(tender.budget, tender.currency)],
-                ["Location", tender.location],
-                [
-                  "Closing date",
-                  tender.closing_date
-                    ? new Date(tender.closing_date).toLocaleDateString()
-                    : null,
-                ],
-                ["Type", tender.tender_type],
-                ["Format", tender.format],
-                [
-                  "Scraped",
-                  tender.scraped_at
-                    ? new Date(tender.scraped_at).toLocaleString()
-                    : null,
-                ],
-              ].map(([label, value]) => (
-                <div key={label as string} className="flex flex-col gap-0.5">
-                  <dt className="font-mono text-[10px] uppercase tracking-wide text-text-lo">
-                    {label}
-                  </dt>
-                  <dd className="truncate text-text-hi">
-                    {(value as string) || "—"}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
             <div className="mt-2 flex flex-wrap gap-2">
               {tender.source_url && (
                 <a
@@ -369,117 +337,164 @@ export default function TenderDetailPage() {
             </div>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.05 }}
-            className="overflow-hidden rounded-2xl border group transition-all duration-500 h-full backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface p-4"
-          >
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
-                <Icon icon="solar:flag-broken" width={16} />
-              </div>
-              <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Pursuit</h2>
-            </div>
-            <PursuitPanel
-              tenderId={tender.id}
-              initial={{
-                pursuit_status: tender.pursuit_status ?? null,
-                assigned_to: tender.assigned_to ?? null,
-                pursuit_notes: tender.pursuit_notes ?? null,
-              }}
-              onSaved={(fields) => setTender((prev) => (prev ? { ...prev, ...fields } : prev))}
-            />
-          </motion.div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="flex flex-col gap-4 lg:col-span-2 lg:order-2">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.05 }}
+                className="overflow-hidden rounded-2xl border group transition-all duration-500 h-full backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface p-4"
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                    <Icon icon="solar:flag-broken" width={16} />
+                  </div>
+                  <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Pursuit</h2>
+                </div>
+                <PursuitPanel
+                  tenderId={tender.id}
+                  initial={{
+                    pursuit_status: tender.pursuit_status ?? null,
+                    assigned_to: tender.assigned_to ?? null,
+                    pursuit_notes: tender.pursuit_notes ?? null,
+                  }}
+                  onSaved={(fields) => setTender((prev) => (prev ? { ...prev, ...fields } : prev))}
+                />
+              </motion.div>
 
-          {relatedTenders.length > 0 && (
+              {relatedTenders.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                  className="overflow-hidden rounded-2xl border group transition-all duration-500 h-full backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface p-4"
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                      <Icon icon="solar:widget-broken" width={16} />
+                    </div>
+                    <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">
+                      Other open tenders{" "}
+                      {tender.organization
+                        ? `from ${tender.organization}`
+                        : `in ${tender.tender_type}`}
+                    </h2>
+                  </div>
+                  <ul className="flex flex-col gap-1.5">
+                    {relatedTenders.map((rt, i) => {
+                      const rtDeadline = daysUntilDeadline(rt.closing_date, "open");
+                      return (
+                        <motion.li
+                          key={rt.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.25, delay: 0.1 + i * 0.05 }}
+                        >
+                          <Link
+                            href={tenderHref(rt)}
+                            className="group flex items-center gap-3 rounded-lg border border-transparent px-2 py-2 text-sm transition-all hover:border-app-border hover:bg-surface-2"
+                          >
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-text-lo transition-colors group-hover:bg-brand-500/10 group-hover:text-brand-500">
+                              <Icon icon="solar:document-text-broken" width={16} />
+                            </div>
+                            <span className="min-w-0 flex-1 truncate text-text-hi">
+                              {rt.title}
+                            </span>
+                            {rtDeadline && (
+                              <Badge
+                                status={rtDeadline.urgent ? "danger" : "neutral"}
+                              >
+                                {rtDeadline.label}
+                              </Badge>
+                            )}
+                            <Icon
+                              icon="solar:arrow-right-broken"
+                              width={16}
+                              className="shrink-0 text-text-lo opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+                            />
+                          </Link>
+                        </motion.li>
+                      );
+                    })}
+                  </ul>
+                </motion.div>
+              )}
+
+              <div>
+                <button
+                  onClick={() => setShowRaw((v) => !v)}
+                  className="mb-2 flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-text-lo hover:text-text-hi"
+                >
+                  <Icon
+                    icon={
+                      showRaw
+                        ? "solar:alt-arrow-up-broken"
+                        : "solar:alt-arrow-down-broken"
+                    }
+                    width={12}
+                  />
+                  {showRaw
+                    ? "Hide raw scraped content"
+                    : "Show raw scraped content"}
+                </button>
+                {showRaw && (
+                  <LogPanel
+                    autoScroll={false}
+                    lines={[
+                      {
+                        text:
+                          tender.raw_content ||
+                          "No raw content captured for this tender (scraped before raw capture was added).",
+                        tone: "default",
+                      },
+                    ]}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Details sidebar — a single organized reference panel instead of the field grid
+               previously crammed into the header card, closer to how a DevelopmentAid/UNGM
+               listing separates "the facts" from the narrative content. Sticky on desktop so it
+               stays visible while the pursuit/related/raw sections scroll past it. */}
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="overflow-hidden rounded-2xl border group transition-all duration-500 h-full backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface p-4"
+              transition={{ duration: 0.3, delay: 0.05 }}
+              className="h-fit overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4 lg:sticky lg:top-4 lg:order-1 lg:col-span-1"
             >
               <div className="mb-3 flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
-                  <Icon icon="solar:widget-broken" width={16} />
+                  <Icon icon="solar:list-check-broken" width={16} />
                 </div>
-                <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">
-                  Other open tenders{" "}
-                  {tender.organization
-                    ? `from ${tender.organization}`
-                    : `in ${tender.tender_type}`}
-                </h2>
+                <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Details</h2>
               </div>
-              <ul className="flex flex-col gap-1.5">
-                {relatedTenders.map((rt, i) => {
-                  const rtDeadline = daysUntilDeadline(rt.closing_date, "open");
-                  return (
-                    <motion.li
-                      key={rt.id}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.25, delay: 0.1 + i * 0.05 }}
-                    >
-                      <Link
-                        href={tenderHref(rt)}
-                        className="group flex items-center gap-3 rounded-lg border border-transparent px-2 py-2 text-sm transition-all hover:border-app-border hover:bg-surface-2"
-                      >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-text-lo transition-colors group-hover:bg-brand-500/10 group-hover:text-brand-500">
-                          <Icon icon="solar:document-text-broken" width={16} />
-                        </div>
-                        <span className="min-w-0 flex-1 truncate text-text-hi">
-                          {rt.title}
-                        </span>
-                        {rtDeadline && (
-                          <Badge
-                            status={rtDeadline.urgent ? "danger" : "neutral"}
-                          >
-                            {rtDeadline.label}
-                          </Badge>
-                        )}
-                        <Icon
-                          icon="solar:arrow-right-broken"
-                          width={16}
-                          className="shrink-0 text-text-lo opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
-                        />
-                      </Link>
-                    </motion.li>
-                  );
-                })}
-              </ul>
+              <dl className="flex flex-col divide-y divide-app-border text-sm">
+                {(
+                  [
+                    [
+                      "Closing date",
+                      tender.closing_date ? new Date(tender.closing_date).toLocaleDateString() : null,
+                    ],
+                    ["Location", tender.location],
+                    ["Category", tender.category],
+                    ["Organization", tender.organization],
+                    ["Budget", formatBudget(tender.budget, tender.currency)],
+                    ["Type", tender.tender_type],
+                    ["Format", tender.format],
+                    [
+                      "Scraped",
+                      tender.scraped_at ? new Date(tender.scraped_at).toLocaleString() : null,
+                    ],
+                  ] as [string, string | null][]
+                ).map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <dt className="shrink-0 text-text-lo">{label}</dt>
+                    <dd className="truncate text-right font-medium text-text-hi">{value || "—"}</dd>
+                  </div>
+                ))}
+              </dl>
             </motion.div>
-          )}
-
-          <div>
-            <button
-              onClick={() => setShowRaw((v) => !v)}
-              className="mb-2 flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-text-lo hover:text-text-hi"
-            >
-              <Icon
-                icon={
-                  showRaw
-                    ? "solar:alt-arrow-up-broken"
-                    : "solar:alt-arrow-down-broken"
-                }
-                width={12}
-              />
-              {showRaw
-                ? "Hide raw scraped content"
-                : "Show raw scraped content"}
-            </button>
-            {showRaw && (
-              <LogPanel
-                autoScroll={false}
-                lines={[
-                  {
-                    text:
-                      tender.raw_content ||
-                      "No raw content captured for this tender (scraped before raw capture was added).",
-                    tone: "default",
-                  },
-                ]}
-              />
-            )}
           </div>
         </>
       )}
