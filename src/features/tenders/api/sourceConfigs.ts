@@ -39,7 +39,7 @@ export type SourceConfig = {
 // both over- and under-triggers keyword-based relevance filtering on a value that was never
 // really there.
 export const FIELD_SUFFIX =
-  " For each one, also extract the issuing organization/agency named on the page (not the aggregator site itself), location, and budget/value if stated. Also extract a category label, but only if the page explicitly shows one for that listing — leave it blank rather than guessing one from the title. If the listing belongs to a broader project or programme named on the page (multi-project funder sites like World Bank/AfDB), include that project name in the description — a notice's own title is sometimes too generic (e.g. \"CERT Enhancement\") to tell what it's actually for without it.";
+  " For each one, also extract the issuing organization/agency named on the page (not the aggregator site itself), location, and budget/value if stated. Also extract a category label, but only if the page explicitly shows one for that listing — leave it blank rather than guessing one from the title. If the listing belongs to a broader project or programme named on the page (multi-project funder sites like World Bank/AfDB), include that project name in the description — a notice's own title is sometimes too generic (e.g. \"CERT Enhancement\") to tell what it's actually for without it. Also extract sector tag(s), the language(s) a bid must be submitted in, and who's eligible to bid — but only for a listing where the page states these explicitly; leave each blank rather than guessing, same as category.";
 
 export const SOURCE_CONFIGS: SourceConfig[] = [
   {

@@ -35,13 +35,36 @@ export interface TenderRow {
    * matchedKeywords in sourceConfigs.ts). Null when no keyword filter was active for the task
    * — e.g. a country-only source task. */
   matched_keywords: string[] | null;
+  /** Broader than `category` — see ExtractedTender.sectors. Null on most rows; only some
+   * sources' pages state this explicitly (the extraction prompt is told to leave it blank
+   * rather than guess, same convention as category). */
+  sectors: string[] | null;
+  languages: string[] | null;
+  /** Who's allowed to bid, if stated — free text, see ExtractedTender.eligibility. */
+  eligibility: string | null;
+}
+
+const MAX_TAG_LENGTH = 60;
+const MAX_TAGS = 10;
+
+/** Same "trim, cap length, drop empties, dedupe" treatment for both sectors and languages —
+ * extraction occasionally returns a stray empty string or a near-duplicate ("English"/"english"). */
+function cleanTagList(values: string[] | null | undefined): string[] | null {
+  if (!values?.length) return null;
+  const seen = new Set<string>();
+  const cleaned = values
+    .map((v) => v?.trim().slice(0, MAX_TAG_LENGTH))
+    .filter((v): v is string => !!v)
+    .filter((v) => (seen.has(v.toLowerCase()) ? false : (seen.add(v.toLowerCase()), true)))
+    .slice(0, MAX_TAGS);
+  return cleaned.length ? cleaned : null;
 }
 
 /** `tenders.location` is varchar(100); `budget` is numeric — guard both against malformed
  * extraction output before it hits the DB. */
 export function resolveOptionalFields(
   t: ExtractedTender
-): Pick<TenderRow, "organization" | "category" | "location" | "country" | "budget" | "currency" | "document_url"> {
+): Pick<TenderRow, "organization" | "category" | "location" | "country" | "budget" | "currency" | "document_url" | "sectors" | "languages" | "eligibility"> {
   const location = t.location?.trim().slice(0, 100) || null;
   // The model defaults unstated numbers to 0 rather than omitting the field — treat 0 as
   // "not provided" too, since a genuine $0 tender is not a real case worth distinguishing.
@@ -55,6 +78,9 @@ export function resolveOptionalFields(
     location,
     country: normalizeCountry(location),
     budget,
+    sectors: cleanTagList(t.sectors),
+    languages: cleanTagList(t.languages),
+    eligibility: t.eligibility?.trim().slice(0, 200) || null,
     currency,
     document_url: t.document_url?.trim() || null,
   };

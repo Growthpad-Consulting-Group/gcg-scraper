@@ -18,6 +18,14 @@ export type ExtractedTender = {
    * ambiguous across an app now spanning many countries' tenders. */
   currency?: string | null;
   document_url?: string | null;
+  /** Broader than `category` (e.g. "Financial Services & Audit, Agriculture & Rural Development"
+   * vs. a single "Consulting services") — only some sources' pages state this explicitly. */
+  sectors?: string[] | null;
+  languages?: string[] | null;
+  /** Who's allowed to bid, if the page states it (e.g. "Organisation", "Individual consultant",
+   * "Kenyan-registered firms only") — free text, not an enum, since sources phrase this very
+   * differently. */
+  eligibility?: string | null;
 };
 
 export type ExtractResult = {
@@ -46,6 +54,9 @@ const EXTRACTION_SCHEMA = {
           budget: { type: "number", description: "Estimated value/budget as a plain number (no currency symbol or commas) if stated, otherwise omit" },
           currency: { type: "string", description: "The 3-letter ISO 4217 currency code the budget is stated in (e.g. USD, KES, GHS, EUR) if a budget is given — infer from a currency symbol/code shown, otherwise omit rather than guessing" },
           document_url: { type: "string", description: "Direct URL to the downloadable tender document/PDF, if different from source_url (the listing page)" },
+          sectors: { type: "array", items: { type: "string" }, description: "Sector tags if the page explicitly lists them (e.g. 'Financial Services', 'Agriculture') — omit rather than inventing one from the title alone" },
+          languages: { type: "array", items: { type: "string" }, description: "Language(s) the bid/proposal must be submitted in, if stated (e.g. 'English', 'French') — omit if not shown" },
+          eligibility: { type: "string", description: "Who is eligible to bid, only if the page states it explicitly (e.g. 'Organisation', 'Kenyan-registered firms only') — omit rather than guessing" },
         },
         required: ["title"],
       },

@@ -37,6 +37,10 @@ interface Tender {
   pursuit_status?: string | null;
   assigned_to?: string | null;
   pursuit_notes?: string | null;
+  matched_keywords?: string[] | null;
+  sectors?: string[] | null;
+  languages?: string[] | null;
+  eligibility?: string | null;
 }
 
 function statusBadge(status?: string): { label: string; status: BadgeStatus } {
@@ -49,6 +53,15 @@ function formatBudget(budget?: number | null, currency?: string | null): string 
   if (budget == null) return null;
   const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
   return currency ? `${currency} ${formatted}` : formatted;
+}
+
+// tenders.closing_date is NOT NULL — an unknown deadline is stored as this far-future sentinel
+// (see tenderRow.ts's resolveClosingDate) rather than left blank, so it never reads as closed.
+const NO_DEADLINE_SENTINEL = "9999-12-31";
+
+function formatClosingDate(closingDate?: string | null): string {
+  if (!closingDate || closingDate === NO_DEADLINE_SENTINEL) return "No deadline listed";
+  return new Date(closingDate).toLocaleDateString();
 }
 
 /** null once closed/no date — deadline urgency only makes sense for tenders still open. Shows
@@ -73,6 +86,65 @@ interface RelatedTender {
   closing_date: string | null;
   organization: string | null;
   tender_type: string | null;
+}
+
+/** A lifecycle stepper in the spirit of DevelopmentAid's "project cycle timeline", but built only
+ * from what this app actually observes about a tender (posted, open/closed, deadline) — rather
+ * than fabricating procurement stages (Formulation/Approval/Shortlisted/...) we have no signal
+ * for. Pursuit progress (Watching/Applied/Won/Lost/Passed) stays in its own Pursuit panel instead
+ * of being folded in here, since won/lost/passed are alternate outcomes, not later steps in one
+ * line — presenting them as a single stepper would imply an order that doesn't exist. */
+function TenderTimeline({ tender, deadline }: { tender: Tender; deadline: { label: string; urgent: boolean } | null }) {
+  const isClosed = tender.status === "closed";
+  const steps: { icon: string; label: string; sub: string; state: "done" | "current" | "upcoming" }[] = [
+    {
+      icon: "solar:upload-minimalistic-broken",
+      label: "Posted",
+      sub: tender.scraped_at ? new Date(tender.scraped_at).toLocaleDateString() : "—",
+      state: "done",
+    },
+    {
+      icon: isClosed ? "solar:lock-broken" : "solar:play-broken",
+      label: isClosed ? "Closed" : "Open",
+      sub: isClosed ? "No longer accepting bids" : deadline?.label || "Accepting bids",
+      state: isClosed ? "done" : "current",
+    },
+    {
+      icon: "solar:flag-broken",
+      label: "Deadline",
+      sub: formatClosingDate(tender.closing_date),
+      state: isClosed ? "done" : "upcoming",
+    },
+  ];
+
+  return (
+    <div className="flex items-start">
+      {steps.map((s, i) => (
+        <div key={s.label} className="flex flex-1 items-start last:flex-none">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
+                s.state === "current"
+                  ? "border-brand-500 bg-brand-500/10 text-brand-500"
+                  : s.state === "done"
+                    ? "border-status-success bg-status-success/10 text-status-success"
+                    : "border-app-border bg-surface-2 text-text-lo"
+              }`}
+            >
+              <Icon icon={s.icon} width={16} />
+            </div>
+            <div className="w-24">
+              <div className="text-xs font-medium text-text-hi">{s.label}</div>
+              <div className="text-[11px] leading-tight text-text-lo">{s.sub}</div>
+            </div>
+          </div>
+          {i < steps.length - 1 && (
+            <div className={`mt-4 h-0.5 flex-1 ${s.state === "done" || steps[i + 1].state !== "upcoming" ? "bg-status-success/40" : "bg-app-border"}`} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function TenderDetailPage() {
@@ -337,6 +409,21 @@ export default function TenderDetailPage() {
             </div>
           </motion.div>
 
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.02 }}
+            className="overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4"
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                <Icon icon="solar:routing-broken" width={16} />
+              </div>
+              <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Timeline</h2>
+            </div>
+            <TenderTimeline tender={tender} deadline={deadline} />
+          </motion.div>
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="flex flex-col gap-4 lg:col-span-2 lg:order-2">
               <motion.div
@@ -472,13 +559,12 @@ export default function TenderDetailPage() {
               <dl className="flex flex-col divide-y divide-app-border text-sm">
                 {(
                   [
-                    [
-                      "Closing date",
-                      tender.closing_date ? new Date(tender.closing_date).toLocaleDateString() : null,
-                    ],
+                    ["Closing date", formatClosingDate(tender.closing_date)],
                     ["Location", tender.location],
                     ["Category", tender.category],
                     ["Organization", tender.organization],
+                    ["Eligibility", tender.eligibility],
+                    ["Languages", tender.languages?.join(", ") || null],
                     ["Budget", formatBudget(tender.budget, tender.currency)],
                     ["Type", tender.tender_type],
                     ["Format", tender.format],
@@ -494,6 +580,32 @@ export default function TenderDetailPage() {
                   </div>
                 ))}
               </dl>
+
+              {tender.sectors && tender.sectors.length > 0 && (
+                <div className="mt-3 border-t border-app-border pt-3">
+                  <dt className="mb-1.5 text-sm text-text-lo">Sectors</dt>
+                  <div className="flex flex-wrap gap-1.5">
+                    {tender.sectors.map((s) => (
+                      <span key={s} className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-text-hi">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {tender.matched_keywords && tender.matched_keywords.length > 0 && (
+                <div className="mt-3 border-t border-app-border pt-3">
+                  <dt className="mb-1.5 text-sm text-text-lo">Matched keywords</dt>
+                  <div className="flex flex-wrap gap-1.5">
+                    {tender.matched_keywords.map((k) => (
+                      <span key={k} className="rounded-full bg-brand-500/10 px-2.5 py-1 text-xs font-medium text-brand-500">
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         </>
