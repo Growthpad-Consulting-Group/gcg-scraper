@@ -55,6 +55,16 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     skipBudget: true,
   },
   {
+    tenderType: "TED",
+    // TED's own site is a heavy Angular SPA — fetchTedTenders (tedApi.ts) calls TED's real,
+    // documented Expert Query API instead (same reasoning as PPIP/ReliefWeb below: structured
+    // fields beat an LLM guessing at scraped HTML). `url`/`prompt` here are unused by the actual
+    // fetch (see run-source-scrape.ts's special-case branch) but kept for display consistency
+    // with every other source's config entry.
+    url: "https://ted.europa.eu/",
+    prompt: "",
+  },
+  {
     tenderType: "PPIP",
     // The Python backend's old URL (/Listings/Tenders) 404s inside this Vue SPA now — the
     // current listings route is /tenders (confirmed live; the app's own nav/footer links

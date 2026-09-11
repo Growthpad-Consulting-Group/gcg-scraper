@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { extractTenders } from "./firecrawlExtract";
 import { fetchPpipTenders } from "./ppipApi";
 import { fetchReliefwebTenders } from "./reliefwebApi";
+import { fetchTedTenders } from "./tedApi";
 import { getSourceConfig, buildRelevanceClause, classifyRejection, matchedKeywords, rejectionSummary, type RejectionReason } from "./sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields } from "./tenderRow";
 import { logRejectedTenders } from "./rejectedTenders";
@@ -56,6 +57,7 @@ export const runSourceScrapeJob = inngest.createFunction(
       const { tenders: extracted, markdown } = await step.run("extract", () => {
         if (tenderType === "PPIP") return fetchPpipTenders();
         if (tenderType === "ReliefWeb Jobs") return fetchReliefwebTenders();
+        if (tenderType === "TED") return fetchTedTenders();
         const relevanceClause = buildRelevanceClause(keywords, countries);
         const prompt = relevanceClause ? `${config.prompt} ${relevanceClause}` : config.prompt;
         return extractTenders(config.url, prompt, { waitFor: config.waitFor, timeout: config.timeout, proxy: config.proxy });
