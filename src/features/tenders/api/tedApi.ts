@@ -72,10 +72,12 @@ export async function fetchTedTenders(daysBack = 30): Promise<{ tenders: Extract
     // missing data — resolveClosingDate's NO_DEADLINE_SENTINEL handles a null the same way
     // every other source's undated tender is handled.
     closing_date: n["deadline-receipt-request"]?.[0] ?? null,
-    // Confirmed live: the plain `/en/notice/{id}` path 404s — `/en/notice/{id}/html` is TED's
-    // actual working notice-detail URL (the `/-/detail/{id}` form from `links.html` also exists
-    // but only 202s, i.e. still redirecting/rendering, not a stable direct link).
-    source_url: `https://ted.europa.eu/en/notice/${n["publication-number"]}/html`,
+    // Confirmed live: `/en/notice/{id}` (no suffix) 404s. `/en/notice/{id}/html` "works" but its
+    // `content-disposition: attachment` header forces a file download instead of opening the
+    // page. `/en/notice/-/detail/{id}` — TED's real human-facing notice page — is the right one;
+    // it 202s under `curl` (an AWS WAF bot challenge, confirmed via response headers) but renders
+    // fine in an actual browser, verified live via a real-browser scrape (Firecrawl).
+    source_url: `https://ted.europa.eu/en/notice/-/detail/${n["publication-number"]}`,
     organization: pickText(n["buyer-name"]),
     description: null,
     category: null,
