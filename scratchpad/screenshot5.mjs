@@ -1,0 +1,15 @@
+import { chromium } from "/Users/Apple/.npm/_npx/d71ea5ed3eabc9b3/node_modules/playwright/index.mjs";
+import fs from "fs";
+const token = fs.readFileSync("/tmp/st.txt", "utf8").trim();
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const context = await browser.newContext({ viewport: { width: 1440, height: 700 } });
+await context.addCookies([{ name: "session_token", value: token, domain: "localhost", path: "/" }]);
+const page = await context.newPage();
+const errors = [];
+page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
+await page.goto("http://localhost:3000/tenders/499-germany-event-services-10035001-event-management-contract-african-union", { waitUntil: "networkidle" });
+await page.waitForTimeout(1000);
+const el = await page.locator("text=TIMELINE").locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]").first();
+await el.screenshot({ path: "/tmp/rail.png" });
+console.log("errors:", errors);
+await browser.close();

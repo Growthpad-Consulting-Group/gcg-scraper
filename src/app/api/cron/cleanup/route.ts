@@ -19,6 +19,19 @@ async function runCleanup() {
   const supabase = createServerSupabaseClient();
   const settings = await getAppSettings(supabase);
 
+  // `status` is only ever set once, at scrape time (tenderRow.ts's computeStatus) — nothing
+  // revisits it afterward, so a tender scraped while open keeps reading "open" forever even once
+  // its closing_date has passed, until this flips it. Runs before the closed-tender delete below
+  // so a tender whose deadline just passed is eligible for retention cleanup in the same pass
+  // rather than waiting a full cycle.
+  const today = new Date().toISOString().slice(0, 10);
+  const { error: expireError, count: tendersExpired } = await supabase
+    .from("tenders")
+    .update({ status: "closed" }, { count: "exact" })
+    .eq("status", "open")
+    .lt("closing_date", today);
+  if (expireError) throw expireError;
+
   const closedTenderCutoff = new Date(Date.now() - settings.closed_tender_retention_days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const { error: tendersError, count: tendersDeleted } = await supabase
     .from("tenders")
@@ -53,6 +66,7 @@ async function runCleanup() {
   if (rejectedError) throw rejectedError;
 
   return {
+    tendersExpired: tendersExpired ?? 0,
     tendersDeleted: tendersDeleted ?? 0,
     jobsDeleted: jobsDeleted ?? 0,
     notificationsDeleted: notificationsDeleted ?? 0,

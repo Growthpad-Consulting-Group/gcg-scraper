@@ -7,10 +7,8 @@ import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import { motion } from "framer-motion";
 import Badge from "@/shared/ui/Badge";
-import Button from "@/shared/ui/Button";
 import LogPanel from "@/shared/ui/LogPanel";
 import ConfirmDeleteModal from "@/shared/ui/ConfirmDeleteModal";
-import Popover from "@/shared/ui/Popover";
 import { parseTenderIdFromSegment, tenderHref } from "@/shared/lib/slug";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import type { BadgeStatus } from "@/shared/ui/Badge";
@@ -97,6 +95,18 @@ function daysUntilDeadline(closingDate?: string | null, status?: string): { labe
   return { label: `${days} days left`, urgent: days <= 3 };
 }
 
+function formatDeadlineCountdown(closingDate?: string | null): string | null {
+  if (!closingDate || closingDate === NO_DEADLINE_SENTINEL) return null;
+  const msLeft = new Date(closingDate).getTime() - Date.now();
+  if (isNaN(msLeft) || msLeft < 0) return null;
+
+  const hours = Math.ceil(msLeft / (1000 * 60 * 60));
+  if (hours <= 24) return hours <= 1 ? "Closes within the hour" : `${hours} hours left`;
+
+  const days = Math.ceil(hours / 24);
+  return `${days} days left`;
+}
+
 interface RelatedTender {
   id: string | number;
   title: string;
@@ -105,65 +115,71 @@ interface RelatedTender {
   tender_type: string | null;
 }
 
-const PURSUIT_LEGEND = [
-  { value: "watching", label: "Watching" },
-  { value: "applied", label: "Applied" },
-  { value: "won", label: "Won" },
-  { value: "lost", label: "Lost" },
-  { value: "passed", label: "Passed" },
-];
+type RailNode = { icon: string; label: string; sublabel: string; state: "done" | "current" | "upcoming" };
 
-function TimelinePill({ label, active }: { label: string; active: boolean }) {
+/** A dot-and-line rail where each node is its own icon-in-circle (not a bare dot), with a bold
+ * label and a muted sublabel underneath — done nodes solid green, the current node a larger
+ * brand-colored ring, upcoming nodes hollow gray, connecting segments colored to match how much
+ * of the rail is "done" so far. */
+function TimelineRail({ nodes }: { nodes: RailNode[] }) {
   return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-        active ? "bg-brand-500 text-white" : "bg-surface-2 text-text-lo"
-      }`}
-    >
-      {label}
-    </span>
+    <div className="flex items-start">
+      {nodes.map((n, i) => (
+        <div key={n.label} className="flex flex-1 items-center last:flex-none">
+          <div className="flex flex-col items-center">
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 ${
+                n.state === "current"
+                  ? "border-brand-500 bg-brand-500/10 text-brand-500"
+                  : n.state === "done"
+                    ? "border-status-success bg-status-success/10 text-status-success"
+                    : "border-app-border bg-surface-2 text-text-lo"
+              }`}
+            >
+              <Icon icon={n.icon} width={20} />
+            </div>
+            <div className={`mt-2 whitespace-nowrap text-center text-[13px] font-semibold ${n.state === "upcoming" ? "text-text-lo" : "text-text-hi"}`}>
+              {n.label}
+            </div>
+            <div className="whitespace-nowrap text-center text-[11px] text-text-lo">{n.sublabel}</div>
+          </div>
+          {i < nodes.length - 1 && <div className={`mb-8 h-0.5 flex-1 ${n.state === "done" ? "bg-status-success" : "bg-app-border"}`} />}
+        </div>
+      ))}
+    </div>
   );
 }
 
-/** A two-row pill legend in the visual spirit of DevelopmentAid's "project cycle timeline"
- * (a STAGES row + a finer Status row, current one highlighted) — but built only from what this
- * app actually tracks, rather than copying their procurement-committee stages
- * (Formulation/Approval/Shortlisted/Evaluation/...) we have no signal for. Row 1 is the tender's
- * own open/closed state; row 2 is *our* pursuit tracking (Watching/Applied/Won/Lost/Passed) —
- * shown as a static legend with the current one highlighted, same as DevelopmentAid's own row,
- * not as a stepper implying order (won/lost/passed are alternate outcomes, not sequential). */
+/** Built only from what this app actually tracks (posted -> open -> deadline), rather than
+ * copying DevelopmentAid's procurement-committee stages we have no signal for. Pursuit tracking
+ * (Watching/Applied/Won/Lost/Passed) deliberately isn't repeated here as a second rail — it
+ * already has its own dedicated, interactive Pursuit panel elsewhere on this page, and a second
+ * read-only copy of the same state directly underneath was pure duplication rather than adding
+ * information. */
 function TenderTimeline({ tender }: { tender: Tender }) {
   const isClosed = tender.status === "closed";
+  const nodes: RailNode[] = [
+    {
+      icon: "solar:upload-minimalistic-broken",
+      label: "Posted",
+      sublabel: tender.scraped_at ? new Date(tender.scraped_at).toLocaleDateString() : "—",
+      state: "done",
+    },
+    {
+      icon: "solar:play-broken",
+      label: "Open",
+      sublabel: isClosed ? "Bidding closed" : "Accepting bids",
+      state: isClosed ? "done" : "current",
+    },
+    {
+      icon: "solar:flag-broken",
+      label: "Deadline",
+      sublabel: formatClosingDate(tender.closing_date),
+      state: isClosed ? "current" : "upcoming",
+    },
+  ];
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-lo">
-        <Icon icon="solar:upload-minimalistic-broken" width={13} />
-        <span>Posted {tender.scraped_at ? new Date(tender.scraped_at).toLocaleDateString() : "—"}</span>
-        <span className="text-app-border">·</span>
-        <Icon icon="solar:flag-broken" width={13} />
-        <span>Deadline {formatClosingDate(tender.closing_date)}</span>
-      </div>
-
-      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-        <div className="w-16 shrink-0 font-mono text-[10px] uppercase tracking-wide text-text-lo">Stage</div>
-        <div className="flex flex-wrap gap-1.5">
-          <TimelinePill label="Open" active={!isClosed} />
-          <TimelinePill label="Closed" active={isClosed} />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-        <div className="w-16 shrink-0 font-mono text-[10px] uppercase tracking-wide text-text-lo">Pursuit</div>
-        <div className="flex flex-wrap gap-1.5">
-          {PURSUIT_LEGEND.map((p) => (
-            <TimelinePill key={p.value} label={p.label} active={tender.pursuit_status === p.value} />
-          ))}
-          {!tender.pursuit_status && <span className="self-center text-xs text-text-lo">— not yet tracked</span>}
-        </div>
-      </div>
-    </div>
-  );
+  return <TimelineRail nodes={nodes} />;
 }
 
 export default function TenderDetailPage() {
@@ -173,13 +189,10 @@ export default function TenderDetailPage() {
   const { resolvedMode: mode } = useTheme();
   const [tender, setTender] = useState<Tender | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isResolvingDocument, setIsResolvingDocument] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [relatedTenders, setRelatedTenders] = useState<RelatedTender[]>([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [shareEmail, setShareEmail] = useState("");
-  const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
     const fetchTender = async () => {
@@ -198,23 +211,6 @@ export default function TenderDetailPage() {
     fetchTender();
   }, [id]);
 
-  // A source_url-only document (aggregator listing pages only expose the notice URL, not its
-  // attached files) is resolved lazily on first view rather than during scraping, to avoid an
-  // extra Firecrawl call per tender on every scrape run. `document_checked_at` caches the
-  // attempt so this only ever fires once per tender, even across repeat visits.
-  useEffect(() => {
-    if (!tender || tender.document_checked_at || !tender.source_url) return;
-    setIsResolvingDocument(true);
-    fetch(`/api/tenders/${tender.id}/resolve-document`, { method: "POST" })
-      .then((res) => res.json())
-      .then((data) => {
-        setTender((prev) => (prev ? { ...prev, document_url: data.document_url, document_checked_at: data.document_checked_at } : prev));
-      })
-      .catch(() => {})
-      .finally(() => setIsResolvingDocument(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tender?.id]);
-
   useEffect(() => {
     if (!tender) return;
     fetch(`/api/tenders/${tender.id}/related`)
@@ -223,35 +219,6 @@ export default function TenderDetailPage() {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tender?.id]);
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success("Link copied to clipboard");
-  };
-
-  const handleShare = async (channel: "email" | "slack") => {
-    if (!tender) return;
-    if (channel === "email" && !shareEmail.trim()) {
-      toast.error("Enter an email address first.");
-      return;
-    }
-    setIsSharing(true);
-    try {
-      const res = await fetch(`/api/tenders/${tender.id}/share`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel, email: shareEmail.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to share tender");
-      toast.success(channel === "email" ? `Sent to ${shareEmail.trim()}` : "Sent to Slack");
-      if (channel === "email") setShareEmail("");
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setIsSharing(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!tender) return;
@@ -310,9 +277,9 @@ export default function TenderDetailPage() {
                   <img
                     src={faviconUrl(tender.source_url)!}
                     alt=""
-                    width={32}
-                    height={32}
-                    className="mt-0.5 h-8 w-8 shrink-0 rounded-lg border border-app-border bg-white object-contain p-1"
+                    width={70}
+                    height={70}
+                    className="mt-0.5 shrink-0 rounded-lg border border-app-border bg-white object-contain p-1"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).style.display = "none";
                     }}
@@ -322,125 +289,24 @@ export default function TenderDetailPage() {
                   {tender.title}
                 </h1>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {deadline && (
-                  <Badge status={deadline.urgent ? "danger" : "neutral"}>
-                    {deadline.label}
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  {deadline && (
+                    <Badge status={deadline.urgent ? "danger" : "neutral"}>
+                      {deadline.label}
+                    </Badge>
+                  )}
+                  <Badge status={statusBadge(tender.status).status}>
+                    {statusBadge(tender.status).label}
                   </Badge>
-                )}
-                <Badge status={statusBadge(tender.status).status}>
-                  {statusBadge(tender.status).label}
-                </Badge>
-                {pursuitBadge(tender.pursuit_status) && (
-                  <Badge status={pursuitBadge(tender.pursuit_status)!.status}>{pursuitBadge(tender.pursuit_status)!.label}</Badge>
-                )}
-              </div>
-            </div>
-            {tender.description && (
-              <p className="text-sm text-text-lo">{tender.description}</p>
-            )}
-
-            <div className="mt-2 flex flex-wrap gap-2">
-              {tender.source_url && (
-                <a
-                  href={tender.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button size="sm" variant="secondary">
-                    <Icon icon="solar:link-broken" width={14} />
-                    Source
-                  </Button>
-                </a>
-              )}
-              {isResolvingDocument ? (
-                <Button size="sm" variant="secondary" disabled>
-                  <Icon
-                    icon="mdi:loading"
-                    width={14}
-                    className="animate-spin"
-                  />
-                  Finding document...
-                </Button>
-              ) : (
-                (tender.document_url ||
-                  (tender.format &&
-                    tender.format !== "HTML" &&
-                    tender.source_url)) && (
-                  <a
-                    href={(tender.document_url || tender.source_url) as string}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button size="sm" variant="secondary">
-                      <Icon icon="solar:document-broken" width={14} />
-                      {tender.document_url &&
-                      tender.document_url !== tender.source_url
-                        ? "Document"
-                        : "Source page (no direct document found)"}
-                    </Button>
-                  </a>
-                )
-              )}
-              <Button size="sm" variant="secondary" onClick={handleCopyLink}>
-                <Icon icon="solar:copy-broken" width={14} />
-                Copy link
-              </Button>
-              <Popover
-                trigger={() => (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-medium text-text-hi transition-colors hover:bg-app-border">
-                    <Icon icon="solar:share-broken" width={14} />
-                    Share
-                  </span>
-                )}
-                className="w-72"
-              >
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-text-lo">
-                      Send to email
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="email"
-                        value={shareEmail}
-                        onChange={(e) => setShareEmail(e.target.value)}
-                        placeholder="name@example.com"
-                        className="w-full rounded-lg border border-app-border bg-canvas p-2 text-sm text-text-hi focus:outline-none focus:ring-2 focus:ring-brand-500"
-                      />
-                      <Button
-                        size="sm"
-                        onClick={() => handleShare("email")}
-                        disabled={isSharing}
-                      >
-                        <Icon
-                          icon={
-                            isSharing ? "mdi:loading" : "solar:letter-broken"
-                          }
-                          width={14}
-                          className={isSharing ? "animate-spin" : ""}
-                        />
-                      </Button>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleShare("slack")}
-                    disabled={isSharing}
-                    className="flex items-center gap-2 rounded-lg border border-app-border px-3 py-2 text-sm text-text-hi transition-colors hover:bg-surface-2 disabled:opacity-50"
-                  >
-                    <Icon icon="mdi:slack" width={16} />
-                    Send to Slack
-                  </button>
+                  {pursuitBadge(tender.pursuit_status) && (
+                    <Badge status={pursuitBadge(tender.pursuit_status)!.status}>{pursuitBadge(tender.pursuit_status)!.label}</Badge>
+                  )}
                 </div>
-              </Popover>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setIsDeleteModalOpen(true)}
-              >
-                <Icon icon="solar:trash-bin-trash-broken" width={14} />
-                Delete
-              </Button>
+                <p className="text-xs text-text-lo">
+                  {formatDeadlineCountdown(tender.closing_date) || formatClosingDate(tender.closing_date)}
+                </p>
+              </div>
             </div>
           </motion.div>
 
@@ -459,8 +325,8 @@ export default function TenderDetailPage() {
             <TenderTimeline tender={tender} />
           </motion.div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="flex flex-col gap-4 lg:col-span-2 lg:order-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="flex flex-col gap-4 lg:order-2">
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -583,38 +449,70 @@ export default function TenderDetailPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.05 }}
-              className="h-fit overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4 lg:sticky lg:top-4 lg:order-1 lg:col-span-1"
+              className="h-fit overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4  lg:order-1 lg:col-span-1"
             >
-              <div className="mb-3 flex items-center gap-2">
+              <div className="mb-4 flex items-center gap-2 border-b border-app-border pb-3">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
                   <Icon icon="solar:list-check-broken" width={16} />
                 </div>
-                <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Details</h2>
+                <h2 className="font-mono font-bold text-sm uppercase tracking-wide text-text-lo">Details</h2>
               </div>
-              <dl className="flex flex-col divide-y divide-app-border text-sm">
-                {(
-                  [
-                    ["Closing date", formatClosingDate(tender.closing_date)],
-                    ["Location", tender.location],
-                    ["Category", tender.category],
-                    ["Organization", tender.organization],
-                    ["Eligibility", tender.eligibility],
-                    ["Languages", tender.languages?.join(", ") || null],
-                    ["Budget", formatBudget(tender.budget, tender.currency)],
-                    ["Type", tender.tender_type],
-                    ["Format", tender.format],
-                    [
-                      "Scraped",
-                      tender.scraped_at ? new Date(tender.scraped_at).toLocaleString() : null,
-                    ],
-                  ] as [string, string | null][]
-                ).map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                    <dt className="shrink-0 text-text-lo">{label}</dt>
-                    <dd className="truncate text-right font-medium text-text-hi">{value || "—"}</dd>
-                  </div>
-                ))}
-              </dl>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                {formatClosingDate(tender.closing_date) && (
+                  <>
+                    <div className="font-medium text-text-lo">Closing date:</div>
+                    <div className="text-text-hi">{formatClosingDate(tender.closing_date)}</div>
+                  </>
+                )}
+                {tender.location && (
+                  <>
+                    <div className="font-medium text-text-lo">Location:</div>
+                    <div className="text-text-hi">{tender.location}</div>
+                  </>
+                )}
+                {tender.category && (
+                  <>
+                    <div className="font-medium text-text-lo">Category:</div>
+                    <div className="text-text-hi">{tender.category}</div>
+                  </>
+                )}
+                {tender.organization && (
+                  <>
+                    <div className="font-medium text-text-lo">Organization:</div>
+                    <div className="text-text-hi">{tender.organization}</div>
+                  </>
+                )}
+                {tender.eligibility && (
+                  <>
+                    <div className="font-medium text-text-lo">Eligibility:</div>
+                    <div className="text-text-hi">{tender.eligibility}</div>
+                  </>
+                )}
+                {tender.languages && tender.languages.length > 0 && (
+                  <>
+                    <div className="font-medium text-text-lo">Languages:</div>
+                    <div className="text-text-hi">{tender.languages.join(", ")}</div>
+                  </>
+                )}
+                {formatBudget(tender.budget, tender.currency) && (
+                  <>
+                    <div className="font-medium text-text-lo">Budget:</div>
+                    <div className="text-text-hi">{formatBudget(tender.budget, tender.currency)}</div>
+                  </>
+                )}
+                {tender.tender_type && (
+                  <>
+                    <div className="font-medium text-text-lo">Type:</div>
+                    <div className="text-text-hi">{tender.tender_type}</div>
+                  </>
+                )}
+                {tender.format && (
+                  <>
+                    <div className="font-medium text-text-lo">Format:</div>
+                    <div className="text-text-hi">{tender.format}</div>
+                  </>
+                )}
+              </div>
 
               {tender.sectors && tender.sectors.length > 0 && (
                 <div className="mt-3 border-t border-app-border pt-3">
