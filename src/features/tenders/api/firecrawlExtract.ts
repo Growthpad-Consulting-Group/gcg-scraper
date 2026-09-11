@@ -26,6 +26,11 @@ export type ExtractedTender = {
    * "Kenyan-registered firms only") — free text, not an enum, since sources phrase this very
    * differently. */
   eligibility?: string | null;
+  /** Every downloadable file for this listing (ToR, application form, annexes, ...) — distinct
+   * from `document_url`, which is a single best-guess "the" document and is sometimes resolved
+   * lazily after the fact (see run-document-parse's sibling, resolve-document). A page with
+   * several real attachment links should return all of them here, not just one. */
+  attachments?: { url: string; name?: string | null }[] | null;
 };
 
 export type ExtractResult = {
@@ -57,6 +62,18 @@ const EXTRACTION_SCHEMA = {
           sectors: { type: "array", items: { type: "string" }, description: "Sector tags if the page explicitly lists them (e.g. 'Financial Services', 'Agriculture') — omit rather than inventing one from the title alone" },
           languages: { type: "array", items: { type: "string" }, description: "Language(s) the bid/proposal must be submitted in, if stated (e.g. 'English', 'French') — omit if not shown" },
           eligibility: { type: "string", description: "Who is eligible to bid, only if the page states it explicitly (e.g. 'Organisation', 'Kenyan-registered firms only') — omit rather than guessing" },
+          attachments: {
+            type: "array",
+            description: "Every distinct downloadable file (PDF, DOCX, ZIP, ...) linked for this specific listing — ToR, application forms, annexes. Omit entirely if the listing has no real file links, don't invent one from document_url.",
+            items: {
+              type: "object",
+              properties: {
+                url: { type: "string", description: "Full absolute URL to the file" },
+                name: { type: "string", description: "The file's own name/label as shown on the page (e.g. 'Terms of Reference.pdf'), not a made-up description" },
+              },
+              required: ["url"],
+            },
+          },
         },
         required: ["title"],
       },

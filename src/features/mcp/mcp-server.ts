@@ -11,7 +11,7 @@ function errorResult(message: string) {
 }
 
 const TENDER_LIST_COLUMNS =
-  "id,title,description,closing_date,source_url,status,scraped_at,format,tender_type,budget,currency,location,country,organization,category,document_url,job_id,created_at,updated_at";
+  "id,title,description,closing_date,source_url,status,scraped_at,format,tender_type,budget,currency,location,country,organization,category,document_url,job_id,created_at,updated_at,matched_keywords,sectors,languages,eligibility,attachments";
 
 // Builds a fresh McpServer with all tools registered. Called once per request (serverless-safe —
 // nothing here persists across invocations, tools just read from Supabase each time).

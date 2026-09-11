@@ -42,6 +42,9 @@ export interface TenderRow {
   languages: string[] | null;
   /** Who's allowed to bid, if stated — free text, see ExtractedTender.eligibility. */
   eligibility: string | null;
+  /** Every downloadable file found for this listing — see ExtractedTender.attachments. Distinct
+   * from `document_url` (a single best-guess doc, sometimes resolved lazily after the fact). */
+  attachments: { url: string; name?: string | null }[] | null;
 }
 
 const MAX_TAG_LENGTH = 60;
@@ -60,11 +63,27 @@ function cleanTagList(values: string[] | null | undefined): string[] | null {
   return cleaned.length ? cleaned : null;
 }
 
+const MAX_ATTACHMENTS = 15;
+
+/** Trims each attachment's fields, drops any without a plausible http(s) URL (the model
+ * occasionally emits a relative path or a placeholder rather than omitting the field), and dedupes
+ * by URL. Caps count — a page listing dozens of historical documents shouldn't dump all of them. */
+function cleanAttachments(values: ExtractedTender["attachments"]): TenderRow["attachments"] {
+  if (!values?.length) return null;
+  const seen = new Set<string>();
+  const cleaned = values
+    .map((a) => ({ url: a?.url?.trim() || "", name: a?.name?.trim().slice(0, 200) || null }))
+    .filter((a) => /^https?:\/\//i.test(a.url))
+    .filter((a) => (seen.has(a.url) ? false : (seen.add(a.url), true)))
+    .slice(0, MAX_ATTACHMENTS);
+  return cleaned.length ? cleaned : null;
+}
+
 /** `tenders.location` is varchar(100); `budget` is numeric — guard both against malformed
  * extraction output before it hits the DB. */
 export function resolveOptionalFields(
   t: ExtractedTender
-): Pick<TenderRow, "organization" | "category" | "location" | "country" | "budget" | "currency" | "document_url" | "sectors" | "languages" | "eligibility"> {
+): Pick<TenderRow, "organization" | "category" | "location" | "country" | "budget" | "currency" | "document_url" | "sectors" | "languages" | "eligibility" | "attachments"> {
   const location = t.location?.trim().slice(0, 100) || null;
   // The model defaults unstated numbers to 0 rather than omitting the field — treat 0 as
   // "not provided" too, since a genuine $0 tender is not a real case worth distinguishing.
@@ -81,6 +100,7 @@ export function resolveOptionalFields(
     sectors: cleanTagList(t.sectors),
     languages: cleanTagList(t.languages),
     eligibility: t.eligibility?.trim().slice(0, 200) || null,
+    attachments: cleanAttachments(t.attachments),
     currency,
     document_url: t.document_url?.trim() || null,
   };

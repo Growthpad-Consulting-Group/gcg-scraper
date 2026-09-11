@@ -123,6 +123,7 @@ describe("insertTenderRows", () => {
       sectors: null,
       languages: null,
       eligibility: null,
+      attachments: null,
       ...overrides,
     };
   }

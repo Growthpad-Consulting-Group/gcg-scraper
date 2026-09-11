@@ -41,6 +41,7 @@ interface Tender {
   sectors?: string[] | null;
   languages?: string[] | null;
   eligibility?: string | null;
+  attachments?: { url: string; name?: string | null }[] | null;
 }
 
 function statusBadge(status?: string): { label: string; status: BadgeStatus } {
@@ -607,6 +608,40 @@ export default function TenderDetailPage() {
                 </div>
               )}
             </motion.div>
+
+            {tender.attachments && tender.attachments.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.08 }}
+                className="h-fit overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4 lg:order-1 lg:col-span-1"
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                    <Icon icon="solar:paperclip-broken" width={16} />
+                  </div>
+                  <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">
+                    Attachments ({tender.attachments.length})
+                  </h2>
+                </div>
+                <ul className="flex flex-col gap-1">
+                  {tender.attachments.map((a) => (
+                    <li key={a.url}>
+                      <a
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-text-hi transition-colors hover:bg-surface-2"
+                      >
+                        <Icon icon="solar:document-broken" width={15} className="shrink-0 text-text-lo group-hover:text-brand-500" />
+                        <span className="min-w-0 flex-1 truncate">{a.name || a.url}</span>
+                        <Icon icon="solar:download-broken" width={14} className="shrink-0 text-text-lo opacity-0 transition-opacity group-hover:opacity-100" />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            )}
           </div>
         </>
       )}
