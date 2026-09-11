@@ -50,6 +50,22 @@ function statusBadge(status?: string): { label: string; status: BadgeStatus } {
   return { label: status || "unknown", status: "neutral" };
 }
 
+/** The issuing organization's own logo isn't data this app captures — favicons are a reasonable,
+ * zero-config stand-in (an org's real site icon, not a guess), derived from the domain the tender
+ * was actually scraped from. Not always accurate for aggregator sources (a GIZ tender surfaced via
+ * TED shows TED's icon, not GIZ's) — that's inherent to using source_url, not a bug — but a
+ * recognizable header image is better than a generic icon for the common case where source_url is
+ * the organization's own site (Website Tenders, PPIP, Kenya Treasury, ...). */
+function faviconUrl(sourceUrl?: string | null): string | null {
+  if (!sourceUrl) return null;
+  try {
+    const host = new URL(sourceUrl).hostname;
+    return `https://www.google.com/s2/favicons?sz=64&domain=${host}`;
+  } catch {
+    return null;
+  }
+}
+
 function formatBudget(budget?: number | null, currency?: string | null): string | null {
   if (budget == null) return null;
   const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
@@ -89,61 +105,63 @@ interface RelatedTender {
   tender_type: string | null;
 }
 
-/** A lifecycle stepper in the spirit of DevelopmentAid's "project cycle timeline", but built only
- * from what this app actually observes about a tender (posted, open/closed, deadline) — rather
- * than fabricating procurement stages (Formulation/Approval/Shortlisted/...) we have no signal
- * for. Pursuit progress (Watching/Applied/Won/Lost/Passed) stays in its own Pursuit panel instead
- * of being folded in here, since won/lost/passed are alternate outcomes, not later steps in one
- * line — presenting them as a single stepper would imply an order that doesn't exist. */
-function TenderTimeline({ tender, deadline }: { tender: Tender; deadline: { label: string; urgent: boolean } | null }) {
+const PURSUIT_LEGEND = [
+  { value: "watching", label: "Watching" },
+  { value: "applied", label: "Applied" },
+  { value: "won", label: "Won" },
+  { value: "lost", label: "Lost" },
+  { value: "passed", label: "Passed" },
+];
+
+function TimelinePill({ label, active }: { label: string; active: boolean }) {
+  return (
+    <span
+      className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+        active ? "bg-brand-500 text-white" : "bg-surface-2 text-text-lo"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** A two-row pill legend in the visual spirit of DevelopmentAid's "project cycle timeline"
+ * (a STAGES row + a finer Status row, current one highlighted) — but built only from what this
+ * app actually tracks, rather than copying their procurement-committee stages
+ * (Formulation/Approval/Shortlisted/Evaluation/...) we have no signal for. Row 1 is the tender's
+ * own open/closed state; row 2 is *our* pursuit tracking (Watching/Applied/Won/Lost/Passed) —
+ * shown as a static legend with the current one highlighted, same as DevelopmentAid's own row,
+ * not as a stepper implying order (won/lost/passed are alternate outcomes, not sequential). */
+function TenderTimeline({ tender }: { tender: Tender }) {
   const isClosed = tender.status === "closed";
-  const steps: { icon: string; label: string; sub: string; state: "done" | "current" | "upcoming" }[] = [
-    {
-      icon: "solar:upload-minimalistic-broken",
-      label: "Posted",
-      sub: tender.scraped_at ? new Date(tender.scraped_at).toLocaleDateString() : "—",
-      state: "done",
-    },
-    {
-      icon: isClosed ? "solar:lock-broken" : "solar:play-broken",
-      label: isClosed ? "Closed" : "Open",
-      sub: isClosed ? "No longer accepting bids" : deadline?.label || "Accepting bids",
-      state: isClosed ? "done" : "current",
-    },
-    {
-      icon: "solar:flag-broken",
-      label: "Deadline",
-      sub: formatClosingDate(tender.closing_date),
-      state: isClosed ? "done" : "upcoming",
-    },
-  ];
 
   return (
-    <div className="flex items-start">
-      {steps.map((s, i) => (
-        <div key={s.label} className="flex flex-1 items-start last:flex-none">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <div
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
-                s.state === "current"
-                  ? "border-brand-500 bg-brand-500/10 text-brand-500"
-                  : s.state === "done"
-                    ? "border-status-success bg-status-success/10 text-status-success"
-                    : "border-app-border bg-surface-2 text-text-lo"
-              }`}
-            >
-              <Icon icon={s.icon} width={16} />
-            </div>
-            <div className="w-24">
-              <div className="text-xs font-medium text-text-hi">{s.label}</div>
-              <div className="text-[11px] leading-tight text-text-lo">{s.sub}</div>
-            </div>
-          </div>
-          {i < steps.length - 1 && (
-            <div className={`mt-4 h-0.5 flex-1 ${s.state === "done" || steps[i + 1].state !== "upcoming" ? "bg-status-success/40" : "bg-app-border"}`} />
-          )}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-lo">
+        <Icon icon="solar:upload-minimalistic-broken" width={13} />
+        <span>Posted {tender.scraped_at ? new Date(tender.scraped_at).toLocaleDateString() : "—"}</span>
+        <span className="text-app-border">·</span>
+        <Icon icon="solar:flag-broken" width={13} />
+        <span>Deadline {formatClosingDate(tender.closing_date)}</span>
+      </div>
+
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+        <div className="w-16 shrink-0 font-mono text-[10px] uppercase tracking-wide text-text-lo">Stage</div>
+        <div className="flex flex-wrap gap-1.5">
+          <TimelinePill label="Open" active={!isClosed} />
+          <TimelinePill label="Closed" active={isClosed} />
         </div>
-      ))}
+      </div>
+
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+        <div className="w-16 shrink-0 font-mono text-[10px] uppercase tracking-wide text-text-lo">Pursuit</div>
+        <div className="flex flex-wrap gap-1.5">
+          {PURSUIT_LEGEND.map((p) => (
+            <TimelinePill key={p.value} label={p.label} active={tender.pursuit_status === p.value} />
+          ))}
+          {!tender.pursuit_status && <span className="self-center text-xs text-text-lo">— not yet tracked</span>}
+        </div>
+      </div>
     </div>
   );
 }
@@ -285,9 +303,25 @@ export default function TenderDetailPage() {
             className="flex flex-col gap-2 overflow-hidden rounded-2xl p-4 border group transition-all duration-500 h-full backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface"
           >
             <div className="flex items-start justify-between gap-4">
-              <h1 className="font-display text-lg font-semibold text-text-hi">
-                {tender.title}
-              </h1>
+              <div className="flex min-w-0 items-start gap-3">
+                {faviconUrl(tender.source_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element -- a favicon URL isn't
+                  // worth next/image's remote-pattern config for a 32px icon.
+                  <img
+                    src={faviconUrl(tender.source_url)!}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="mt-0.5 h-8 w-8 shrink-0 rounded-lg border border-app-border bg-white object-contain p-1"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                )}
+                <h1 className="font-display text-lg font-semibold text-text-hi">
+                  {tender.title}
+                </h1>
+              </div>
               <div className="flex shrink-0 items-center gap-2">
                 {deadline && (
                   <Badge status={deadline.urgent ? "danger" : "neutral"}>
@@ -422,7 +456,7 @@ export default function TenderDetailPage() {
               </div>
               <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Timeline</h2>
             </div>
-            <TenderTimeline tender={tender} deadline={deadline} />
+            <TenderTimeline tender={tender} />
           </motion.div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -609,21 +643,21 @@ export default function TenderDetailPage() {
               )}
             </motion.div>
 
-            {tender.attachments && tender.attachments.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.08 }}
-                className="h-fit overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4 lg:order-1 lg:col-span-1"
-              >
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
-                    <Icon icon="solar:paperclip-broken" width={16} />
-                  </div>
-                  <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">
-                    Attachments ({tender.attachments.length})
-                  </h2>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.08 }}
+              className="h-fit overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4 lg:order-1 lg:col-span-1"
+            >
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                  <Icon icon="solar:paperclip-broken" width={16} />
                 </div>
+                <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">
+                  Attachments{tender.attachments?.length ? ` (${tender.attachments.length})` : ""}
+                </h2>
+              </div>
+              {tender.attachments && tender.attachments.length > 0 ? (
                 <ul className="flex flex-col gap-1">
                   {tender.attachments.map((a) => (
                     <li key={a.url}>
@@ -640,8 +674,10 @@ export default function TenderDetailPage() {
                     </li>
                   ))}
                 </ul>
-              </motion.div>
-            )}
+              ) : (
+                <p className="text-sm text-text-lo">No attachments listed for this tender.</p>
+              )}
+            </motion.div>
           </div>
         </>
       )}
