@@ -72,7 +72,10 @@ export async function fetchTedTenders(daysBack = 30): Promise<{ tenders: Extract
     // missing data — resolveClosingDate's NO_DEADLINE_SENTINEL handles a null the same way
     // every other source's undated tender is handled.
     closing_date: n["deadline-receipt-request"]?.[0] ?? null,
-    source_url: `https://ted.europa.eu/en/notice/${n["publication-number"]}`,
+    // Confirmed live: the plain `/en/notice/{id}` path 404s — `/en/notice/{id}/html` is TED's
+    // actual working notice-detail URL (the `/-/detail/{id}` form from `links.html` also exists
+    // but only 202s, i.e. still redirecting/rendering, not a stable direct link).
+    source_url: `https://ted.europa.eu/en/notice/${n["publication-number"]}/html`,
     organization: pickText(n["buyer-name"]),
     description: null,
     category: null,
