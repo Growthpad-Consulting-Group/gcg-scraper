@@ -30,6 +30,7 @@ interface Tender {
   currency?: string | null;
   document_url?: string | null;
   document_checked_at?: string | null;
+  attachments_checked_at?: string | null;
   raw_content?: string | null;
   format?: string | null;
   pursuit_status?: string | null;
@@ -40,6 +41,8 @@ interface Tender {
   languages?: string[] | null;
   eligibility?: string | null;
   attachments?: { url: string; name?: string | null }[] | null;
+  ai_summary?: string | null;
+  ai_summary_generated_at?: string | null;
 }
 
 function statusBadge(status?: string): { label: string; status: BadgeStatus } {
@@ -93,18 +96,6 @@ function daysUntilDeadline(closingDate?: string | null, status?: string): { labe
 
   const days = Math.ceil(hours / 24);
   return { label: `${days} days left`, urgent: days <= 3 };
-}
-
-function formatDeadlineCountdown(closingDate?: string | null): string | null {
-  if (!closingDate || closingDate === NO_DEADLINE_SENTINEL) return null;
-  const msLeft = new Date(closingDate).getTime() - Date.now();
-  if (isNaN(msLeft) || msLeft < 0) return null;
-
-  const hours = Math.ceil(msLeft / (1000 * 60 * 60));
-  if (hours <= 24) return hours <= 1 ? "Closes within the hour" : `${hours} hours left`;
-
-  const days = Math.ceil(hours / 24);
-  return `${days} days left`;
 }
 
 interface RelatedTender {
@@ -220,6 +211,52 @@ export default function TenderDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tender?.id]);
 
+  // Lazily resolves document_url and, if the original extraction came up empty, attachments —
+  // for sources whose listing-page extraction only sees the notice URL, or listing pages with
+  // several tenders where attachments got missed/misattributed. Silent (no loading UI): this
+  // only fills in data, nothing in the header depends on it anymore. document_checked_at and
+  // attachments_checked_at are separate flags (see resolve-document/route.ts) so a tender whose
+  // document was already checked before attachments resolution existed still gets one attempt.
+  useEffect(() => {
+    if (!tender || !tender.source_url) return;
+    const needsDocument = !tender.document_checked_at;
+    const needsAttachments = !tender.attachments_checked_at && !tender.attachments?.length;
+    if (!needsDocument && !needsAttachments) return;
+    fetch(`/api/tenders/${tender.id}/resolve-document`, { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        setTender((prev) =>
+          prev
+            ? {
+                ...prev,
+                document_url: data.document_url,
+                document_checked_at: data.document_checked_at,
+                attachments: data.attachments ?? prev.attachments,
+                attachments_checked_at: new Date().toISOString(),
+              }
+            : prev,
+        );
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tender?.id]);
+
+  // Quick summary: uses the real description when one was captured; otherwise lazily generates a
+  // short AI summary from raw_content on first view. `ai_summary_generated_at` caches the attempt
+  // (success or not) so repeat views don't re-call the model.
+  useEffect(() => {
+    if (!tender || tender.description?.trim() || tender.ai_summary_generated_at) return;
+    fetch(`/api/tenders/${tender.id}/summarize`, { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        setTender((prev) =>
+          prev ? { ...prev, ai_summary: data.ai_summary, ai_summary_generated_at: data.ai_summary_generated_at } : prev,
+        );
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tender?.id]);
+
   const handleDelete = async () => {
     if (!tender) return;
     setIsDeleting(true);
@@ -289,167 +326,50 @@ export default function TenderDetailPage() {
                   {tender.title}
                 </h1>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <div className="flex items-center gap-2">
-                  {deadline && (
-                    <Badge status={deadline.urgent ? "danger" : "neutral"}>
-                      {deadline.label}
-                    </Badge>
-                  )}
-                  <Badge status={statusBadge(tender.status).status}>
-                    {statusBadge(tender.status).label}
+              <div className="flex shrink-0 items-center gap-2">
+                {deadline && (
+                  <Badge status={deadline.urgent ? "danger" : "neutral"}>
+                    {deadline.label}
                   </Badge>
-                  {pursuitBadge(tender.pursuit_status) && (
-                    <Badge status={pursuitBadge(tender.pursuit_status)!.status}>{pursuitBadge(tender.pursuit_status)!.label}</Badge>
-                  )}
-                </div>
-                <p className="text-xs text-text-lo">
-                  {formatDeadlineCountdown(tender.closing_date) || formatClosingDate(tender.closing_date)}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.02 }}
-            className="overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4"
-          >
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
-                <Icon icon="solar:routing-broken" width={16} />
-              </div>
-              <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Timeline</h2>
-            </div>
-            <TenderTimeline tender={tender} />
-          </motion.div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="flex flex-col gap-4 lg:order-2">
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.05 }}
-                className="overflow-hidden rounded-2xl border group transition-all duration-500 h-full backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface p-4"
-              >
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
-                    <Icon icon="solar:flag-broken" width={16} />
-                  </div>
-                  <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">Pursuit</h2>
-                </div>
-                <PursuitPanel
-                  tenderId={tender.id}
-                  initial={{
-                    pursuit_status: tender.pursuit_status ?? null,
-                    assigned_to: tender.assigned_to ?? null,
-                    pursuit_notes: tender.pursuit_notes ?? null,
-                  }}
-                  onSaved={(fields) => setTender((prev) => (prev ? { ...prev, ...fields } : prev))}
-                />
-              </motion.div>
-
-              {relatedTenders.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: 0.1 }}
-                  className="overflow-hidden rounded-2xl border group transition-all duration-500 h-full backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface p-4"
-                >
-                  <div className="mb-3 flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
-                      <Icon icon="solar:widget-broken" width={16} />
-                    </div>
-                    <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">
-                      Other open tenders{" "}
-                      {tender.organization
-                        ? `from ${tender.organization}`
-                        : `in ${tender.tender_type}`}
-                    </h2>
-                  </div>
-                  <ul className="flex flex-col gap-1.5">
-                    {relatedTenders.map((rt, i) => {
-                      const rtDeadline = daysUntilDeadline(rt.closing_date, "open");
-                      return (
-                        <motion.li
-                          key={rt.id}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.25, delay: 0.1 + i * 0.05 }}
-                        >
-                          <Link
-                            href={tenderHref(rt)}
-                            className="group flex items-center gap-3 rounded-lg border border-transparent px-2 py-2 text-sm transition-all hover:border-app-border hover:bg-surface-2"
-                          >
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-text-lo transition-colors group-hover:bg-brand-500/10 group-hover:text-brand-500">
-                              <Icon icon="solar:document-text-broken" width={16} />
-                            </div>
-                            <span className="min-w-0 flex-1 truncate text-text-hi">
-                              {rt.title}
-                            </span>
-                            {rtDeadline && (
-                              <Badge
-                                status={rtDeadline.urgent ? "danger" : "neutral"}
-                              >
-                                {rtDeadline.label}
-                              </Badge>
-                            )}
-                            <Icon
-                              icon="solar:arrow-right-broken"
-                              width={16}
-                              className="shrink-0 text-text-lo opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
-                            />
-                          </Link>
-                        </motion.li>
-                      );
-                    })}
-                  </ul>
-                </motion.div>
-              )}
-
-              <div>
-                <button
-                  onClick={() => setShowRaw((v) => !v)}
-                  className="mb-2 flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-text-lo hover:text-text-hi"
-                >
-                  <Icon
-                    icon={
-                      showRaw
-                        ? "solar:alt-arrow-up-broken"
-                        : "solar:alt-arrow-down-broken"
-                    }
-                    width={12}
-                  />
-                  {showRaw
-                    ? "Hide raw scraped content"
-                    : "Show raw scraped content"}
-                </button>
-                {showRaw && (
-                  <LogPanel
-                    autoScroll={false}
-                    lines={[
-                      {
-                        text:
-                          tender.raw_content ||
-                          "No raw content captured for this tender (scraped before raw capture was added).",
-                        tone: "default",
-                      },
-                    ]}
-                  />
+                )}
+                <Badge status={statusBadge(tender.status).status}>
+                  {statusBadge(tender.status).label}
+                </Badge>
+                {pursuitBadge(tender.pursuit_status) && (
+                  <Badge status={pursuitBadge(tender.pursuit_status)!.status}>{pursuitBadge(tender.pursuit_status)!.label}</Badge>
                 )}
               </div>
             </div>
+          </motion.div>
 
+          {(tender.description?.trim() || tender.ai_summary) && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.02 }}
+              className="overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4"
+            >
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                  <Icon icon="solar:document-text-broken" width={16} />
+                </div>
+                <h2 className="font-mono font-bold text-sm uppercase tracking-wide text-text-lo">Quick summary</h2>
+              </div>
+              <p className="whitespace-pre-line text-sm text-text-hi">
+                {tender.description?.trim() || tender.ai_summary}
+              </p>
+            </motion.div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Details sidebar — a single organized reference panel instead of the field grid
                previously crammed into the header card, closer to how a DevelopmentAid/UNGM
-               listing separates "the facts" from the narrative content. Sticky on desktop so it
-               stays visible while the pursuit/related/raw sections scroll past it. */}
+               listing separates "the facts" from the narrative content. */}
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.05 }}
-              className="h-fit overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4  lg:order-1 lg:col-span-1"
+              className="overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4 lg:order-1 lg:col-span-1"
             >
               <div className="mb-4 flex items-center gap-2 border-b border-app-border pb-3">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
@@ -541,41 +461,176 @@ export default function TenderDetailPage() {
               )}
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.08 }}
-              className="h-fit overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4 lg:order-1 lg:col-span-1"
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
-                  <Icon icon="solar:paperclip-broken" width={16} />
+            <div className="flex h-full flex-col gap-4 lg:order-1 lg:col-span-1">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.08 }}
+                className="overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4"
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                    <Icon icon="solar:paperclip-broken" width={16} />
+                  </div>
+                  <h2 className="font-mono font-bold text-sm uppercase tracking-wide text-text-lo">
+                    Attachments{tender.attachments?.length ? ` (${tender.attachments.length})` : ""}
+                  </h2>
                 </div>
-                <h2 className="font-mono text-[11px] uppercase tracking-wide text-text-lo">
-                  Attachments{tender.attachments?.length ? ` (${tender.attachments.length})` : ""}
+                {tender.attachments && tender.attachments.length > 0 ? (
+                  <ul className="flex flex-col gap-1">
+                    {tender.attachments.map((a) => (
+                      <li key={a.url}>
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-text-hi transition-colors hover:bg-surface-2"
+                        >
+                          <Icon icon="solar:document-broken" width={15} className="shrink-0 text-text-lo group-hover:text-brand-500" />
+                          <span className="min-w-0 flex-1 truncate">{a.name || a.url}</span>
+                          <Icon icon="solar:download-broken" width={14} className="shrink-0 text-text-lo opacity-0 transition-opacity group-hover:opacity-100" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-text-lo">No attachments listed for this tender.</p>
+                )}
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="flex flex-1 flex-col overflow-hidden rounded-2xl border group transition-all duration-500 backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-none bg-surface p-4"
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                    <Icon icon="solar:flag-broken" width={16} />
+                  </div>
+                  <h2 className="font-mono font-bold text-sm uppercase tracking-wide text-text-lo">Pursuit</h2>
+                </div>
+                <PursuitPanel
+                  tenderId={tender.id}
+                  initial={{
+                    pursuit_status: tender.pursuit_status ?? null,
+                    assigned_to: tender.assigned_to ?? null,
+                    pursuit_notes: tender.pursuit_notes ?? null,
+                  }}
+                  showAssignedTo={false}
+                  showNotes={false}
+                  onSaved={(fields) => setTender((prev) => (prev ? { ...prev, ...fields } : prev))}
+                />
+              </motion.div>
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.12 }}
+            className="overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4"
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                <Icon icon="solar:routing-broken" width={16} />
+              </div>
+              <h2 className="font-mono font-bold text-sm uppercase tracking-wide text-text-lo">Timeline</h2>
+            </div>
+            <TenderTimeline tender={tender} />
+          </motion.div>
+
+          {relatedTenders.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <div className="mb-1 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                  <Icon icon="solar:widget-broken" width={16} />
+                </div>
+                <h2 className="font-mono font-bold text-sm uppercase tracking-wide text-text-lo">
+                  Other open tenders{" "}
+                  {tender.organization
+                    ? `from ${tender.organization}`
+                    : `in ${tender.tender_type}`}
                 </h2>
               </div>
-              {tender.attachments && tender.attachments.length > 0 ? (
-                <ul className="flex flex-col gap-1">
-                  {tender.attachments.map((a) => (
-                    <li key={a.url}>
-                      <a
-                        href={a.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-text-hi transition-colors hover:bg-surface-2"
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {relatedTenders.map((rt, i) => {
+                  const rtDeadline = daysUntilDeadline(rt.closing_date, "open");
+                  return (
+                    <motion.div
+                      key={rt.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: 0.15 + i * 0.05 }}
+                    >
+                      <Link
+                        href={tenderHref(rt)}
+                        className="group flex h-full flex-col gap-2 rounded-2xl border border-app-border bg-surface p-4 transition-all hover:border-brand-500/30 hover:shadow-md"
                       >
-                        <Icon icon="solar:document-broken" width={15} className="shrink-0 text-text-lo group-hover:text-brand-500" />
-                        <span className="min-w-0 flex-1 truncate">{a.name || a.url}</span>
-                        <Icon icon="solar:download-broken" width={14} className="shrink-0 text-text-lo opacity-0 transition-opacity group-hover:opacity-100" />
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-text-lo">No attachments listed for this tender.</p>
-              )}
-            </motion.div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-brand-500">
+                            <Icon icon="solar:document-text-broken" width={16} />
+                          </div>
+                          {rtDeadline && (
+                            <Badge
+                              status={rtDeadline.urgent ? "danger" : "neutral"}
+                              className="shrink-0"
+                            >
+                              {rtDeadline.label}
+                            </Badge>
+                          )}
+                        </div>
+                        <h3 className="line-clamp-2 flex-1 text-sm font-medium text-text-hi">
+                          {rt.title}
+                        </h3>
+                        <div className="flex items-center justify-between pt-2">
+                          <span className="text-xs text-text-lo">
+                            {rt.organization || rt.tender_type}
+                          </span>
+                          <Icon
+                            icon="solar:arrow-right-broken"
+                            width={14}
+                            className="text-text-lo transition-all group-hover:translate-x-0.5"
+                          />
+                        </div>
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <button
+              onClick={() => setShowRaw((v) => !v)}
+              className="mb-2 flex items-center gap-1 font-mono font-bold text-sm uppercase tracking-wide text-text-lo hover:text-text-hi"
+            >
+              <Icon
+                icon={
+                  showRaw
+                    ? "solar:alt-arrow-up-broken"
+                    : "solar:alt-arrow-down-broken"
+                }
+                width={12}
+              />
+              {showRaw
+                ? "Hide raw scraped content"
+                : "Show raw scraped content"}
+            </button>
+            {showRaw && (
+              <LogPanel
+                autoScroll={false}
+                lines={[
+                  {
+                    text:
+                      tender.raw_content ||
+                      "No raw content captured for this tender (scraped before raw capture was added).",
+                    tone: "default",
+                  },
+                ]}
+              />
+            )}
           </div>
         </>
       )}

@@ -7,7 +7,7 @@ import type { BadgeStatus } from "@/shared/ui/Badge";
 
 export const PURSUIT_OPTIONS: { value: string; label: string; status: BadgeStatus; icon: string }[] = [
   { value: "watching", label: "Watching", status: "info", icon: "solar:eye-broken" },
-  { value: "applied", label: "Applied", status: "warning", icon: "solar:paper-broken" },
+  { value: "applied", label: "Applied", status: "warning", icon: "solar:document-text-broken" },
   { value: "won", label: "Won", status: "success", icon: "solar:cup-star-broken" },
   { value: "lost", label: "Lost", status: "danger", icon: "solar:close-circle-broken" },
   { value: "passed", label: "Passed", status: "neutral", icon: "solar:forbidden-circle-broken" },
@@ -15,12 +15,23 @@ export const PURSUIT_OPTIONS: { value: string; label: string; status: BadgeStatu
 
 // Tailwind can't see classnames built from string interpolation at build time, so the per-status
 // pill styling has to be a literal lookup table rather than `text-status-${status}` etc.
+// Filled background (not just a tinted border) reads clearer at a glance for the active state.
 const PILL_ACTIVE_CLASSES: Record<BadgeStatus, string> = {
-  success: "border-status-success/40 bg-status-success/10 text-status-success",
-  warning: "border-status-warning/40 bg-status-warning/10 text-status-warning",
-  danger: "border-status-danger/40 bg-status-danger/10 text-status-danger",
-  info: "border-status-info/40 bg-status-info/10 text-status-info",
-  neutral: "border-text-lo/40 bg-surface-2 text-text-hi",
+  success: "border-status-success bg-status-success text-white",
+  warning: "border-status-warning bg-status-warning text-white",
+  danger: "border-status-danger bg-status-danger text-white",
+  info: "border-status-info bg-status-info text-white",
+  neutral: "border-text-lo bg-text-lo text-canvas",
+};
+
+// A lighter fill of each option's own color even while unselected, so every pill's eventual
+// meaning is visible at a glance instead of every non-active option reading as identical gray.
+const PILL_INACTIVE_CLASSES: Record<BadgeStatus, string> = {
+  success: "border-status-success/30 bg-status-success/10 text-status-success hover:bg-status-success/20",
+  warning: "border-status-warning/30 bg-status-warning/10 text-status-warning hover:bg-status-warning/20",
+  danger: "border-status-danger/30 bg-status-danger/10 text-status-danger hover:bg-status-danger/20",
+  info: "border-status-info/30 bg-status-info/10 text-status-info hover:bg-status-info/20",
+  neutral: "border-app-border bg-surface-2 text-text-lo hover:text-text-hi",
 };
 
 /** Renders nothing (rather than an "unset" badge) when there's no pursuit_status yet — most
@@ -64,11 +75,17 @@ export default function PursuitPanel({
   tenderId,
   initial,
   compact = false,
+  showAssignedTo = true,
+  showNotes = true,
   onSaved,
 }: {
   tenderId: string | number;
   initial: PursuitFields;
   compact?: boolean;
+  /** Set false to omit the "Assigned to" input — the tender detail page shows status only. */
+  showAssignedTo?: boolean;
+  /** Set false to omit the notes textarea. */
+  showNotes?: boolean;
   onSaved?: (fields: PursuitFields) => void;
 }) {
   const [fields, setFields] = useState<PursuitFields>(initial);
@@ -125,8 +142,8 @@ export default function PursuitPanel({
                 type="button"
                 onClick={() => save({ pursuit_status: active ? null : o.value }, "pursuit_status")}
                 disabled={savingField === "pursuit_status"}
-                className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium transition-colors disabled:opacity-60 ${
-                  active ? PILL_ACTIVE_CLASSES[o.status] : "border-app-border text-text-lo hover:border-text-lo hover:text-text-hi"
+                className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 ${
+                  active ? PILL_ACTIVE_CLASSES[o.status] : PILL_INACTIVE_CLASSES[o.status]
                 }`}
                 title={active ? `Click to unset (currently ${o.label})` : `Mark as ${o.label}`}
               >
@@ -140,23 +157,25 @@ export default function PursuitPanel({
         </div>
       </div>
 
-      <div className={compact ? "flex items-center gap-1.5" : "flex flex-col gap-1.5"}>
-        {!compact && <label className="text-xs font-medium text-text-lo">Assigned to</label>}
-        <div className="relative flex items-center gap-1.5">
-          <Icon icon="solar:user-broken" width={13} className="pointer-events-none absolute left-2 text-text-lo" />
-          <input
-            value={fields.assigned_to ?? ""}
-            onChange={(e) => setFields((prev) => ({ ...prev, assigned_to: e.target.value }))}
-            onBlur={() => save({ assigned_to: fields.assigned_to?.trim() || null }, "assigned_to")}
-            placeholder={compact ? "Assign to…" : "e.g. name@growthpad.co.ke"}
-            className={`${inputClass} pl-6 ${compact ? "w-36" : "w-full"}`}
-          />
-          {savingField === "assigned_to" && <Icon icon="mdi:loading" width={13} className="animate-spin text-text-lo" />}
-          {justSaved === "assigned_to" && <Icon icon="solar:check-circle-bold" width={13} className="text-status-success" />}
+      {showAssignedTo && (
+        <div className={compact ? "flex items-center gap-1.5" : "flex flex-col gap-1.5"}>
+          {!compact && <label className="text-xs font-medium text-text-lo">Assigned to</label>}
+          <div className="relative flex items-center gap-1.5">
+            <Icon icon="solar:user-broken" width={13} className="pointer-events-none absolute left-2 text-text-lo" />
+            <input
+              value={fields.assigned_to ?? ""}
+              onChange={(e) => setFields((prev) => ({ ...prev, assigned_to: e.target.value }))}
+              onBlur={() => save({ assigned_to: fields.assigned_to?.trim() || null }, "assigned_to")}
+              placeholder={compact ? "Assign to…" : "e.g. name@growthpad.co.ke"}
+              className={`${inputClass} pl-6 ${compact ? "w-36" : "w-full"}`}
+            />
+            {savingField === "assigned_to" && <Icon icon="mdi:loading" width={13} className="animate-spin text-text-lo" />}
+            {justSaved === "assigned_to" && <Icon icon="solar:check-circle-bold" width={13} className="text-status-success" />}
+          </div>
         </div>
-      </div>
+      )}
 
-      {!compact && (
+      {!compact && showNotes && (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1.5">
             <label className="text-xs font-medium text-text-lo">Notes</label>

@@ -9,11 +9,10 @@ import { Icon } from "@iconify/react";
 import PageHeader from "@/shared/ui/PageHeader";
 import Button from "@/shared/ui/Button";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
-import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
 import Badge, { type BadgeStatus } from "@/shared/ui/Badge";
 import LogPanel from "@/shared/ui/LogPanel";
 import { tenderHref } from "@/shared/lib/slug";
-import PursuitPanel, { pursuitBadge, PURSUIT_OPTIONS, type PursuitFields } from "@/features/tenders/components/PursuitPanel";
+import PursuitPanel, { PURSUIT_OPTIONS, type PursuitFields } from "@/features/tenders/components/PursuitPanel";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
 
@@ -83,6 +82,16 @@ function formatBudget(budget?: number | null, currency?: string | null): string 
   if (budget == null) return null;
   const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
   return currency ? `${currency} ${formatted}` : formatted;
+}
+
+function faviconUrl(sourceUrl?: string | null): string | null {
+  if (!sourceUrl) return null;
+  try {
+    const host = new URL(sourceUrl).hostname;
+    return `https://www.google.com/s2/favicons?sz=64&domain=${host}`;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -190,121 +199,6 @@ function TenderDetail({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Column definitions
-// ---------------------------------------------------------------------------
-
-function buildColumns(
-  expandedId: string | null,
-  setExpandedId: (id: string | null) => void
-): Column<Tender>[] {
-  return [
-    {
-      Header: "Title",
-      accessor: "title",
-      sortable: true,
-      width: 320,
-      sticky: true,
-      render: (row) => (
-        <Link
-          href={tenderHref(row)}
-          onClick={(e) => e.stopPropagation()}
-          className="font-medium text-gray-900 hover:underline dark:text-gray-100 line-clamp-2 leading-snug hover:text-gcg-orange dark:hover:text-gcg-orange"
-        >
-          {row.title}
-        </Link>
-      ),
-    },
-    {
-      Header: "Status",
-      accessor: "status",
-      sortable: true,
-      render: (row) => {
-        const badge = tenderStatusBadge(row);
-        return <Badge status={badge.status}>{badge.label}</Badge>;
-      },
-    },
-    {
-      Header: "Pursuit",
-      accessor: "pursuit_status",
-      sortable: true,
-      render: (row) => {
-        const badge = pursuitBadge(row.pursuit_status);
-        return badge ? <Badge status={badge.status}>{badge.label}</Badge> : <span className="text-gray-400">—</span>;
-      },
-    },
-    {
-      Header: "Organization",
-      accessor: "organization",
-      sortable: true,
-      render: (_row, value) =>
-        value ? (
-          <span className="truncate block max-w-[180px]">{value}</span>
-        ) : (
-          <span className="text-gray-400">—</span>
-        ),
-    },
-    {
-      Header: "Closing",
-      accessor: "closing_date",
-      sortable: true,
-      render: (_row, value) =>
-        value ? (
-          <span className="font-mono text-xs">{new Date(value).toLocaleDateString()}</span>
-        ) : (
-          <span className="text-gray-400">—</span>
-        ),
-    },
-    {
-      Header: "Doc",
-      accessor: "document_url",
-      sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
-      render: (row) => {
-        const doc = fileLink(row);
-        if (!doc) return <span className="text-gray-300 dark:text-gray-600">—</span>;
-        return (
-          <a
-            href={doc}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:bg-gcg-orange/10 hover:text-gcg-orange dark:hover:text-blue-400 transition-colors"
-            title={`Open ${row.format || "document"}`}
-          >
-            <Icon icon={fileIcon(row.format)} className="w-4 h-4" />
-          </a>
-        );
-      },
-    },
-    {
-      Header: "Detail",
-      accessor: "id",
-      sortable: false,
-      headerClassName: "text-center",
-      className: "text-center",
-      render: (row) => {
-        const isExpanded = expandedId === row.id;
-        return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpandedId(isExpanded ? null : row.id);
-            }}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:bg-gcg-orange/10 hover:text-gcg-orange dark:hover:text-blue-400 transition-colors"
-            title={isExpanded ? "Collapse" : "Expand detail"}
-          >
-            <Icon
-              icon={isExpanded ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"}
-              className="w-4 h-4"
-            />
-          </button>
-        );
-      },
-    },
-  ];
-}
 
 // ---------------------------------------------------------------------------
 // TendersContent
@@ -472,48 +366,6 @@ function TendersContent() {
     if (typeFilter) router.push("/tenders");
   };
 
-  const columns = buildColumns(expandedId, setExpandedId);
-
-  const actions: Action<Tender>[] = [
-    {
-      icon: "solar:eye-broken",
-      tooltip: "Open tender detail",
-      label: "View",
-      onClick: (row) => {
-        window.open(tenderHref(row), "_self");
-      },
-    },
-  ];
-
-  const statusOptions = [
-    { value: "all", label: "All statuses" },
-    { value: "open", label: "Open" },
-    { value: "closed", label: "Closed" },
-  ];
-
-  /**
-   * customRowRender lets us inject the expand panel after each row
-   * without breaking GenericTable's row rendering.
-   */
-  const customRowRender = (row: Tender, _index: number, defaultRow: React.ReactNode) => (
-    <Fragment key={row.id}>
-      {defaultRow}
-      {expandedId === row.id && (
-        <tr className="bg-gray-50/80 dark:bg-gray-800/40">
-          <td
-            colSpan={columns.length + 2} // +2 for checkbox + actions cols
-            className="border-b border-slate-100 dark:border-slate-800/60 p-0"
-          >
-            <TenderDetail
-              tender={row}
-              isLoadingRaw={loadingRawContentId === row.id}
-              onPursuitSaved={(fields) => setTenders((prev) => prev.map((t) => (t.id === row.id ? { ...t, ...fields } : t)))}
-            />
-          </td>
-        </tr>
-      )}
-    </Fragment>
-  );
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4">
@@ -751,39 +603,121 @@ function TendersContent() {
             </button>
           )}
 
-          <GenericTable<Tender>
-            data={filteredTenders}
-            columns={columns}
-            loading={isLoading}
-            title="Tenders"
-            emptyMessage="No tenders found. Start one from New Run, or set up a recurring search in Automation."
-            selectable
-            searchable
-            searchPlaceholder="Search tenders…"
-            enableDateFilter
-            enableStatusPills={false} // we handle status rendering ourselves via Badge
-            statusOptions={statusOptions}
-            showExportButton
-            exportType="tenders"
-            exportTitle="Tenders"
-            actions={actions}
-            onDelete={handleDeleteTender}
-            confirmDelete
-            deleteConfirmationProps={{
-              itemType: "tender",
-              message: (item) => `"${item?.title || "this tender"}"`,
-              suppressToast: false,
-            }}
-            customRowRender={customRowRender}
-            hideEmptyColumns={false}
-            fullPageHeight={true}
-            enableRefresh
-            onRefresh={fetchTenders}
-            showBulkBar
-            getRowClassName={(row) =>
-              expandedId === row.id ? "bg-blue-50/30 dark:bg-gcg-orange/5" : ""
-            }
-          />
+          {isLoading && !filteredTenders.length ? (
+            <div className="flex items-center justify-center py-12">
+              <Icon icon="mdi:loading" width={24} className="animate-spin text-text-lo" />
+            </div>
+          ) : filteredTenders.length === 0 ? (
+            <div className="rounded-lg border border-app-border bg-surface p-8 text-center text-text-lo">
+              <p>No tenders found. Start one from New Run, or set up a recurring search in Automation.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {filteredTenders.map((tender) => {
+                const badge = tenderStatusBadge(tender);
+                const logo = faviconUrl(tender.source_url);
+                return (
+                  <Fragment key={tender.id}>
+                    <div className="group rounded-lg border border-app-border bg-surface transition-all hover:border-text-lo hover:shadow-sm">
+                      <div className="flex items-start gap-4 p-4">
+                        {logo && (
+                          <div className="shrink-0 w-16 h-16 rounded-lg border border-app-border/50 bg-surface-2 flex items-center justify-center overflow-hidden">
+                            <img src={logo} alt="org-logo" className="w-10 h-10 object-contain" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={tenderHref(tender)}
+                            className="text-sm font-medium text-text-hi hover:text-brand-500 line-clamp-2 block mb-2"
+                          >
+                            {tender.title}
+                          </Link>
+                          <div className="space-y-1 text-xs text-text-lo">
+                            {tender.organization && (
+                              <div>Funding agency: <span className="text-text-hi font-medium">{tender.organization}</span></div>
+                            )}
+                            {tender.category && (
+                              <div>Category: <span className="text-text-hi font-medium">{tender.category}</span></div>
+                            )}
+                            {tender.scraped_at && (
+                              <div>Posted: <span className="text-text-hi font-medium">{new Date(tender.scraped_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 flex flex-col items-end gap-3">
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge status={badge.status}>{badge.label}</Badge>
+                          </div>
+                          <div className="text-xs space-y-1">
+                            <div className="text-text-lo">
+                              Status: <span className="text-text-hi font-medium">{badge.label}</span>
+                            </div>
+                            {tender.location && (
+                              <div className="text-text-lo">
+                                Location: <span className="text-text-hi font-medium truncate max-w-[180px]">{tender.location}</span>
+                              </div>
+                            )}
+                            {formatBudget(tender.budget, tender.currency) && (
+                              <div className="text-text-lo">
+                                Budget: <span className="text-text-hi font-medium">{formatBudget(tender.budget, tender.currency)}</span>
+                              </div>
+                            )}
+                            {tender.closing_date && (
+                              <div className="text-text-lo">
+                                Deadline: <span className="text-text-hi font-medium">{new Date(tender.closing_date).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 px-4 py-3 border-t border-app-border/50 text-xs">
+                        <button
+                          onClick={() => setExpandedId(expandedId === tender.id ? null : tender.id)}
+                          className="text-text-lo hover:text-text-hi flex items-center gap-1"
+                        >
+                          <Icon icon={expandedId === tender.id ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={14} />
+                          {expandedId === tender.id ? "Hide" : "Show"} details
+                        </button>
+                        <button
+                          onClick={() => {
+                            const doc = fileLink(tender);
+                            if (doc) window.open(doc, "_blank");
+                          }}
+                          className="text-text-lo hover:text-brand-500 flex items-center gap-1"
+                        >
+                          <Icon icon={fileIcon(tender.format)} width={14} />
+                          Document
+                        </button>
+                        <button
+                          onClick={() => window.open(tenderHref(tender), "_self")}
+                          className="text-text-lo hover:text-brand-500 flex items-center gap-1 ml-auto"
+                        >
+                          <Icon icon="solar:eye-broken" width={14} />
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTender(tender)}
+                          className="text-text-lo hover:text-status-danger flex items-center gap-1"
+                        >
+                          <Icon icon="solar:trash-bin-broken" width={14} />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    {expandedId === tender.id && (
+                      <div className="bg-surface-2 rounded-lg p-4 border border-app-border/50 -mt-1">
+                        <TenderDetail
+                          tender={tender}
+                          isLoadingRaw={loadingRawContentId === tender.id}
+                          onPursuitSaved={(fields) => setTenders((prev) => prev.map((t) => (t.id === tender.id ? { ...t, ...fields } : t)))}
+                        />
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

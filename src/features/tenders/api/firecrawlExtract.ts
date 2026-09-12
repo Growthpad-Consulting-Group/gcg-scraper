@@ -150,7 +150,9 @@ export async function extractTenders(url: string, prompt: string, options?: Extr
 
 // Matches an actual downloadable file, not just any URL containing "file"-ish substrings
 // (e.g. a nav link like ".../targetproductprofiles" would false-positive on a bare /file/i test).
-const DOCUMENT_LINK_PATTERN = /\.pdf(\?|$)|\.docx?(\?|$)|\.xlsx?(\?|$)|\bdownload\b|\battachment\b/i;
+// .zip included alongside the document types — confirmed live that GIZ bundles its tender
+// documents (ToR + forms + annexes) as a single .zip per listing rather than individual PDFs.
+const DOCUMENT_LINK_PATTERN = /\.pdf(\?|$)|\.docx?(\?|$)|\.xlsx?(\?|$)|\.zip(\?|$)|\bdownload\b|\battachment\b/i;
 
 /** Fetches a tender's own detail page (one level deeper than the listing page extraction sees)
  * and picks out the real document/PDF link, for sources like UNGM where the listing-page
@@ -169,4 +171,23 @@ export async function resolveDocumentLink(url: string): Promise<string | null> {
 
   // Prefer a single-document link over a "download all" bundle when both are present.
   return candidates.find((l) => !/all/i.test(l)) ?? candidates[0];
+}
+
+function normalizeTitle(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Re-runs the same structured extraction used at scrape time, but title-scoped: a page listing
+ * several tenders (e.g. GIZ's country tender pages, one listing per country covering many open
+ * notices) can have the model return an otherwise-correct tender with its `attachments` array
+ * missed or misattributed to a neighboring listing. Rather than re-running the original
+ * multi-tender extraction and hoping for a better roll, this asks specifically for one tender's
+ * files and matches the result back by normalized title — lazy, on first detail-page view, same
+ * pattern as resolveDocumentLink above. */
+export async function resolveAttachments(url: string, title: string): Promise<{ url: string; name?: string | null }[] | null> {
+  const prompt = `This page lists one or more tenders/notices. Find the specific tender titled "${title}" and return every distinct downloadable file (ToR, application form, annexes, PDF/DOCX/ZIP, ...) linked for that tender specifically — not files belonging to a different tender on the same page. Omit entirely if it has no real file links.`;
+  const { tenders } = await extractTenders(url, prompt, { waitFor: 5000, timeout: 25000 });
+  const target = normalizeTitle(title);
+  const match = tenders.find((t) => normalizeTitle(t.title) === target) ?? tenders[0];
+  return match?.attachments?.length ? match.attachments : null;
 }

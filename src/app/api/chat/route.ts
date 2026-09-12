@@ -8,7 +8,10 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 // occasionally emits a malformed tool call — falling back to a second model (rather than just
 // retrying the same one again) recovers cases where the first is stuck in a bad pattern for this
 // specific conversation.
-const MODELS = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b"];
+// llama-3.3-70b-versatile was retired from Groq's catalog (confirmed live via /v1/models — every
+// call was silently 404ing and burning a full retry budget before ever reaching the working
+// fallback below). Both entries now come from Groq's actually-live model list.
+const MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"];
 const MAX_TOOL_ROUNDS = 4;
 
 const SYSTEM_PROMPT = `You are the in-app assistant for GCG Scraper, a tender/lead scraping tool. You answer questions about the team's own scraped data — tenders, leads, scrape runs, and scheduled tasks — using the tools provided. Never invent numbers or rows; only state what a tool call returned. If a tool returns zero results, say so plainly. Keep answers short and concrete — lead with the number/answer, then at most a few supporting details. Use markdown lists/tables only when they genuinely help. If a question isn't about this app's data, say you can only help with tenders, leads, runs, and schedules here.
@@ -76,7 +79,11 @@ export async function POST(req: NextRequest) {
       outer: for (const model of MODELS) {
         for (let attempt = 0; attempt <= MAX_TOOL_RETRIES_PER_ROUND; attempt++) {
           result = await callGroq(conversation, model);
-          if (!("retryable" in result)) break outer;
+          if ("choice" in result) break outer;
+          // A hard error (e.g. the model itself being unavailable) means retrying the same model
+          // again is pointless — move to the next model instead of burning the retry budget here.
+          // Only a `retryable` result (a malformed tool call) is worth retrying on this model.
+          if (!("retryable" in result)) break;
         }
       }
       if (!result || "retryable" in result) {
