@@ -9,6 +9,7 @@ import { Icon } from "@iconify/react";
 import PageHeader from "@/shared/ui/PageHeader";
 import Button from "@/shared/ui/Button";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
+import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
 import Badge, { type BadgeStatus } from "@/shared/ui/Badge";
 import LogPanel from "@/shared/ui/LogPanel";
 import { tenderHref } from "@/shared/lib/slug";
@@ -84,14 +85,153 @@ function formatBudget(budget?: number | null, currency?: string | null): string 
   return currency ? `${currency} ${formatted}` : formatted;
 }
 
+/** "Posted" needs to read as freshness at a glance in a dense list — an absolute date makes the
+ * reader do the day-math themselves. Falls back to the actual date past a week out, where "N days
+ * ago" stops being more useful than just naming the date. */
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return days === 1 ? "1 day ago" : `${days} days ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+const FAVICON_SIZE = 64;
+
 function faviconUrl(sourceUrl?: string | null): string | null {
   if (!sourceUrl) return null;
   try {
     const host = new URL(sourceUrl).hostname;
-    return `https://www.google.com/s2/favicons?sz=64&domain=${host}`;
+    return `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${host}&size=${FAVICON_SIZE}`;
   } catch {
     return null;
   }
+}
+
+/** Falls back to a generic case icon when there's no source_url to derive a favicon from, when the
+ * image fails outright, or when Google's faviconV2 service silently substitutes its own generic
+ * globe/document placeholder instead of erroring (its documented `fallback_opts` behavior for a
+ * domain with no real favicon) — that placeholder loads at a fixed intrinsic size well under the
+ * `size` we requested, so a naturalWidth far short of that is a reliable "no real favicon" signal,
+ * unlike an actual favicon which is served scaled up to match. */
+function TenderLogo({ sourceUrl }: { sourceUrl?: string | null }) {
+  const logo = faviconUrl(sourceUrl);
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="shrink-0 w-14 h-14 rounded-lg border border-app-border/50 bg-surface-2 flex items-center justify-center overflow-hidden">
+      {logo && !failed ? (
+        <img
+          src={logo}
+          alt="org-logo"
+          className="w-14 h-14 object-contain"
+          onError={() => setFailed(true)}
+          onLoad={(e) => {
+            if (e.currentTarget.naturalWidth < FAVICON_SIZE / 2) setFailed(true);
+          }}
+        />
+      ) : (
+        <Icon icon="solar:case-minimalistic-broken" width={24} className="text-text-lo" />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Column definitions with card-like rendering
+// ---------------------------------------------------------------------------
+
+function buildColumns(
+  expandedId: string | null,
+  setExpandedId: (id: string | null) => void
+): Column<Tender>[] {
+  return [
+    {
+      Header: "Tender",
+      accessor: "title",
+      sortable: true,
+      width: 480,
+      render: (row) => {
+        return (
+          <div className="flex items-start gap-4">
+            <TenderLogo sourceUrl={row.source_url} />
+            <div className="flex-1 min-w-0">
+              <Link
+                href={tenderHref(row)}
+                onClick={(e) => e.stopPropagation()}
+                className="font-medium text-text-hi hover:text-brand-500 line-clamp-2 text-sm leading-snug"
+              >
+                {row.title}
+              </Link>
+              <div className="space-y-1 text-xs text-text-lo mt-1">
+                {row.organization && (
+                  <div>Funding agency: <span className="text-text-hi font-medium">{row.organization}</span></div>
+                )}
+                {row.category && (
+                  <div>Category: <span className="text-text-hi font-medium">{row.category}</span></div>
+                )}
+                {row.scraped_at && (
+                  <div>Posted: <span className="text-text-hi font-medium">{formatRelativeTime(row.scraped_at)}</span></div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      Header: "Details",
+      accessor: "status",
+      sortable: false,
+      width: 200,
+      render: (row) => {
+        const badge = tenderStatusBadge(row);
+        return (
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-text-lo">Status:</span>
+              <Badge status={badge.status}>{badge.label}</Badge>
+            </div>
+            {row.location && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-lo shrink-0">Location:</span>
+                <span className="text-text-hi font-medium truncate">{row.location}</span>
+              </div>
+            )}
+            {formatBudget(row.budget, row.currency) && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-lo shrink-0">Budget:</span>
+                <span className="text-text-hi font-medium">{formatBudget(row.budget, row.currency)}</span>
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      Header: "Tender Stage",
+      accessor: "closing_date",
+      sortable: false,
+      width: 180,
+      render: (row) => {
+        return (
+          <div className="space-y-1.5 text-xs">
+            <Badge status="info">Procurement</Badge>
+            {row.closing_date && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-lo shrink-0">Deadline:</span>
+                <span className="text-text-hi font-medium">{new Date(row.closing_date).toLocaleDateString()}</span>
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +362,7 @@ function TendersContent() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"open" | "closed" | null>(null);
   const [pursuitFilter, setPursuitFilter] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [typeFilterValue, setTypeFilterValue] = useState<string | null>(typeFilter);
 
   // Keep the dropdown in sync if arriving fresh via a ?type= link (e.g. from Overview's Sources
@@ -414,7 +554,7 @@ function TendersContent() {
         </div>
       )}
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className={`flex flex-col gap-4 lg:flex-row lg:items-start ${sidebarOpen ? "lg:gap-4" : "lg:gap-0"}`}>
         {/* Always mounted (rather than conditionally rendered) so width/opacity can transition
               smoothly, matching the main nav Sidebar's transition-all duration-300 pattern —
               a mount/unmount can't animate. Hidden outright on mobile via `hidden` when closed,
@@ -603,133 +743,58 @@ function TendersContent() {
             </button>
           )}
 
-          {isLoading && !filteredTenders.length ? (
-            <div className="flex items-center justify-center py-12">
-              <Icon icon="mdi:loading" width={24} className="animate-spin text-text-lo" />
-            </div>
-          ) : filteredTenders.length === 0 ? (
-            <div className="rounded-lg border border-app-border bg-surface p-8 text-center text-text-lo">
-              <p>No tenders found. Start one from New Run, or set up a recurring search in Automation.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {filteredTenders.map((tender) => {
-                const badge = tenderStatusBadge(tender);
-                const logo = faviconUrl(tender.source_url);
-                return (
-                  <Fragment key={tender.id}>
-                    <div className="group rounded-lg border border-app-border bg-surface transition-all hover:border-text-lo hover:shadow-sm">
-                      <div className="flex items-start gap-4 p-4">
-                        {logo && (
-                          <div className="shrink-0 w-16 h-16 rounded-lg border border-app-border/50 bg-surface-2 flex items-center justify-center overflow-hidden">
-                            <img src={logo} alt="org-logo" className="w-10 h-10 object-contain" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <Link
-                            href={tenderHref(tender)}
-                            className="text-sm font-medium text-text-hi hover:text-brand-500 line-clamp-2 block mb-2"
-                          >
-                            {tender.title}
-                          </Link>
-                          <div className="space-y-1 text-xs text-text-lo">
-                            {tender.organization && (
-                              <div>Funding agency: <span className="text-text-hi font-medium">{tender.organization}</span></div>
-                            )}
-                            {tender.category && (
-                              <div>Category: <span className="text-text-hi font-medium">{tender.category}</span></div>
-                            )}
-                            {tender.scraped_at && (
-                              <div>Posted: <span className="text-text-hi font-medium">{new Date(tender.scraped_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="shrink-0 flex gap-8 text-xs">
-                          <div className="flex flex-col gap-2">
-                            <div className="font-semibold text-text-hi uppercase tracking-wide text-[10px]">Details</div>
-                            <div className="space-y-2">
-                              <div>
-                                <div className="text-text-lo text-[10px] uppercase">Status</div>
-                                <Badge status={badge.status}>{badge.label}</Badge>
-                              </div>
-                              {tender.location && (
-                                <div>
-                                  <div className="text-text-lo text-[10px] uppercase">Location</div>
-                                  <div className="text-text-hi font-medium truncate max-w-[150px]">{tender.location}</div>
-                                </div>
-                              )}
-                              {formatBudget(tender.budget, tender.currency) && (
-                                <div>
-                                  <div className="text-text-lo text-[10px] uppercase">Budget</div>
-                                  <div className="text-text-hi font-medium">{formatBudget(tender.budget, tender.currency)}</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <div className="font-semibold text-text-hi uppercase tracking-wide text-[10px]">Tender Stage</div>
-                            <div className="space-y-2">
-                              <div>
-                                <Badge status="info">Procurement</Badge>
-                              </div>
-                              {tender.closing_date && (
-                                <div>
-                                  <div className="text-text-lo text-[10px] uppercase">Deadline</div>
-                                  <div className="text-text-hi font-medium">{new Date(tender.closing_date).toLocaleDateString()}</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 px-4 py-3 border-t border-app-border/50 text-xs">
-                        <button
-                          onClick={() => setExpandedId(expandedId === tender.id ? null : tender.id)}
-                          className="text-text-lo hover:text-text-hi flex items-center gap-1"
-                        >
-                          <Icon icon={expandedId === tender.id ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"} width={14} />
-                          {expandedId === tender.id ? "Hide" : "Show"} details
-                        </button>
-                        <button
-                          onClick={() => {
-                            const doc = fileLink(tender);
-                            if (doc) window.open(doc, "_blank");
-                          }}
-                          className="text-text-lo hover:text-brand-500 flex items-center gap-1"
-                        >
-                          <Icon icon={fileIcon(tender.format)} width={14} />
-                          Document
-                        </button>
-                        <button
-                          onClick={() => window.open(tenderHref(tender), "_self")}
-                          className="text-text-lo hover:text-brand-500 flex items-center gap-1 ml-auto"
-                        >
-                          <Icon icon="solar:eye-broken" width={14} />
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTender(tender)}
-                          className="text-text-lo hover:text-status-danger flex items-center gap-1"
-                        >
-                          <Icon icon="solar:trash-bin-broken" width={14} />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    {expandedId === tender.id && (
-                      <div className="bg-surface-2 rounded-lg p-4 border border-app-border/50 -mt-1">
-                        <TenderDetail
-                          tender={tender}
-                          isLoadingRaw={loadingRawContentId === tender.id}
-                          onPursuitSaved={(fields) => setTenders((prev) => prev.map((t) => (t.id === tender.id ? { ...t, ...fields } : t)))}
-                        />
-                      </div>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </div>
-          )}
+          <GenericTable<Tender>
+            data={filteredTenders}
+            columns={buildColumns(expandedId, setExpandedId)}
+            loading={isLoading}
+            title="Tenders"
+            emptyMessage="No tenders found. Start one from New Run, or set up a recurring search in Automation."
+            selectable
+            searchable
+            searchPlaceholder="Search tenders…"
+            enableDateFilter
+            enableStatusPills={false}
+            showExportButton
+            exportType="tenders"
+            exportTitle="Tenders"
+            onDelete={handleDeleteTender}
+            confirmDelete
+            deleteConfirmationProps={{
+              itemType: "tender",
+              message: (item) => `"${item?.title || "this tender"}"`,
+              suppressToast: false,
+            }}
+            customRowRender={(row, _index, defaultRow) => (
+              <Fragment key={row.id}>
+                {defaultRow}
+                {expandedId === row.id && (
+                  <tr className="bg-surface-2">
+                    <td
+                      colSpan={10}
+                      className="border-b border-app-border p-0"
+                    >
+                      <TenderDetail
+                        tender={row}
+                        isLoadingRaw={loadingRawContentId === row.id}
+                        onPursuitSaved={(fields) => setTenders((prev) => prev.map((t) => (t.id === row.id ? { ...t, ...fields } : t)))}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )}
+            fixedLayout
+            hideActionsColumn
+            pageSize={40}
+            hideEmptyColumns={false}
+            fullPageHeight={true}
+            enableRefresh
+            onRefresh={fetchTenders}
+            showBulkBar
+            getRowClassName={(row) =>
+              expandedId === row.id ? "bg-surface-2/50" : ""
+            }
+          />
         </div>
       </div>
 

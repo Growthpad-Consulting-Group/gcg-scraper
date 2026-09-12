@@ -149,6 +149,15 @@ export interface GenericTableProps<T = any> {
   tableMaxHeight?: string | number;
   fullPageHeight?: boolean;
   afterActions?: (row: T) => ReactNode;
+  /** Use table-layout: fixed so each Column's `width` is actually binding instead of a hint the
+   * browser's auto layout can override based on cell content. Off by default since existing callers
+   * (website-sources, leads, blocked-domains, automation) don't set column widths at all — turning
+   * this on for them would force all their columns to equal width instead of content-based sizing. */
+  fixedLayout?: boolean;
+  /** Hide the per-row Actions column (view/edit/delete icons) while keeping `onDelete` wired for
+   * the checkbox-selection bulk-delete bar, whose "Delete Selected" button and confirm flow read
+   * `onDelete` directly and don't depend on the per-row column being rendered at all. */
+  hideActionsColumn?: boolean;
 }
 
 const DEFAULT_STATUS_PATTERNS = [
@@ -227,6 +236,8 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
   fullPageHeight = true,
   afterActions,
   onImport,
+  fixedLayout = false,
+  hideActionsColumn = false,
 }: GenericTableProps<T>) {
   const { resolvedMode } = useTheme();
   const displayMode = resolvedMode; // Always use resolvedMode for child components
@@ -653,6 +664,15 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
     }
   };
 
+  // Gated separately from the raw onEdit/onView/onDelete/actions props: handleBulkDelete and
+  // handleDeleteAction above read those props directly and stay wired regardless, so hiding this
+  // column never breaks bulk-select delete — it only stops TableHeader/TableRow/MobileCard/
+  // TabletCard from rendering the per-row Actions cell.
+  const rowActions = hideActionsColumn ? [] : actions;
+  const rowOnEdit = hideActionsColumn ? undefined : (canEdit ? onEdit : undefined);
+  const rowOnView = hideActionsColumn ? undefined : (onView ? onView : undefined);
+  const rowOnDelete = hideActionsColumn ? undefined : (canEdit ? onDelete : undefined);
+
   const clearSelection = () => {
     table.clearSelection();
     if (onSelectionChange) {
@@ -895,10 +915,10 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
                 enhancedColumns={enhancedColumns}
                 selectable={selectable}
                 table={table}
-                actions={actions}
-                onEdit={canEdit ? onEdit : undefined}
-                onView={onView ? onView : undefined}
-                onDelete={canEdit ? onDelete : undefined}
+                actions={rowActions}
+                onEdit={rowOnEdit}
+                onView={rowOnView}
+                onDelete={rowOnDelete}
                 handleDeleteAction={handleDeleteAction}
                 onRowClick={onRowClick}
                 rowClickable={rowClickable}
@@ -929,10 +949,10 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
                 enhancedColumns={enhancedColumns}
                 selectable={selectable}
                 table={table}
-                actions={actions}
-                onEdit={canEdit ? onEdit : undefined}
-                onView={onView}
-                onDelete={canEdit ? onDelete : undefined}
+                actions={rowActions}
+                onEdit={rowOnEdit}
+                onView={rowOnView}
+                onDelete={rowOnDelete}
                 handleDeleteAction={handleDeleteAction}
                 onRowClick={onRowClick}
                 rowClickable={rowClickable}
@@ -945,24 +965,29 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
           className={`w-full ${tableMaxHeight ? 'overflow-auto' : 'overflow-x-auto overflow-y-visible'} scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent`}
           style={tableMaxHeight ? { maxHeight: tableMaxHeight } : {}}
         >
-          <table className="min-w-full w-auto border-collapse">
-            <colgroup>
-              {selectable && <col className="" />}
-              {enhancedColumns.map((_col, index) => (
-                <col key={index} className="" />
-              ))}
-              {(actions.length > 0 || onEdit || onView || onDelete) && <col />}
-            </colgroup>
+          <table className={`min-w-full border-collapse ${fixedLayout ? "table-fixed" : "w-auto"}`}>
+            {fixedLayout && (
+              <colgroup>
+                {selectable && <col style={{ width: 28 }} />}
+                {enhancedColumns.map((col, index) => (
+                  <col
+                    key={index}
+                    style={col.width ? { width: typeof col.width === "number" ? `${col.width}px` : col.width } : undefined}
+                  />
+                ))}
+                {(rowActions.length > 0 || rowOnEdit || rowOnView || rowOnDelete) && <col style={{ width: 100 }} />}
+              </colgroup>
+            )}
 
             <TableHeader
               mode={displayMode}
               enhancedColumns={enhancedColumns}
               table={table}
               selectable={selectable}
-              actions={actions}
-              onEdit={canEdit ? onEdit : undefined}
-              onView={onView ? onView : undefined}
-              onDelete={canEdit ? onDelete : undefined}
+              actions={rowActions}
+              onEdit={rowOnEdit}
+              onView={rowOnView}
+              onDelete={rowOnDelete}
               stickyHeader={derivedStickyHeader}
               stickyTopOffset={effectiveStickyTopOffset}
             />
@@ -976,7 +1001,7 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
                     colSpan={
                       enhancedColumns.length +
                       (selectable ? 1 : 0) +
-                      (actions.length > 0 || onEdit || onView || onDelete ? 1 : 0)
+                      (rowActions.length > 0 || rowOnEdit || rowOnView || rowOnDelete ? 1 : 0)
                     }
                     className="px-4 py-12"
                   >
@@ -1000,10 +1025,10 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
                       enhancedColumns={enhancedColumns}
                       selectable={selectable}
                       table={table}
-                      actions={actions}
-                      onEdit={canEdit ? onEdit : undefined}
-                      onView={onView ? onView : undefined}
-                      onDelete={canEdit ? onDelete : undefined}
+                      actions={rowActions}
+                      onEdit={rowOnEdit}
+                      onView={rowOnView}
+                      onDelete={rowOnDelete}
                       handleDeleteAction={handleDeleteAction}
                       getRowClassName={getRowClassName}
                       onRowClick={onRowClick}

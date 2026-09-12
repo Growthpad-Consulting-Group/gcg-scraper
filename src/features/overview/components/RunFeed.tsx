@@ -18,6 +18,7 @@ import {
   relativeTime,
   resultsHref,
   hasRejectedCandidates,
+  hasResults,
   type RunJob,
 } from "@/features/overview/lib/runFeed";
 
@@ -188,7 +189,7 @@ function JobRow({
         <TableTd mono>{duration ?? (job.status === "queued" ? "…" : "—")}</TableTd>
         <TableTd onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2">
-            {job.status === "done" && (
+            {job.status === "done" && hasResults(job) && (
               <Link href={resultsHref(job)} className="font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline">
                 View
               </Link>
@@ -231,7 +232,7 @@ function JobRow({
               ].filter((l): l is { text: string; tone: "info" | "default" | "danger" | "success" } => l !== null)}
             />
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {job.status === "done" && (
+              {job.status === "done" && hasResults(job) && (
                 <Link href={resultsHref(job)}>
                   <Button size="sm">
                     <Icon icon="solar:arrow-right-broken" width={14} />

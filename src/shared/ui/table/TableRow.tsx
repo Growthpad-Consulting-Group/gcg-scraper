@@ -98,10 +98,10 @@ const TableRow = <T extends Record<string, any> = any>({
     return (
       <>
         {selectable && (
-          <td className={`sticky left-0 z-10 w-12 px-1 sm:px-2 py-3 sm:py-4 text-center border-r border-slate-200/50 dark:border-slate-800/70 transition-colors duration-200 ${index % 2 === 0
-            ? 'bg-white/90 dark:bg-zinc-900/60'
-            : 'bg-slate-50/90 dark:bg-zinc-800/50'
-            } group-hover:bg-[#e8e9ed]! dark:group-hover:bg-gcg-orange/10!`}>
+          <td className={`sticky left-0 z-10 w-7 px-0.5 py-3 sm:py-4 text-center border-r border-slate-200/50 dark:border-slate-800/70 transition-colors duration-200 ${index % 2 === 0
+            ? 'bg-white/50 dark:bg-zinc-900/40'
+            : 'bg-slate-100/40 dark:bg-zinc-800/40'
+            } group-hover:bg-gcg-orange/5! dark:group-hover:bg-gcg-orange/5!`}>
             <input
               type="checkbox"
               checked={table.selected.includes(row.id)}
@@ -114,7 +114,7 @@ const TableRow = <T extends Record<string, any> = any>({
           const value = getNestedValue(row, col.accessor);
 
           // Calculate cumulative width for sticky left columns
-          let leftOffset = selectable ? 48 : 0; // w-12 is 48px
+          let leftOffset = selectable ? 28 : 0; // w-7 is 28px
           if (col.sticky === 'left' || col.sticky === true) {
             for (let i = 0; i < index; i++) {
               const prevCol = enhancedColumns[i];
@@ -132,9 +132,9 @@ const TableRow = <T extends Record<string, any> = any>({
 
           const stickyClass = isSticky
             ? `sticky ${stickySide === 'left' ? 'z-10' : 'z-10'} transition-colors duration-200 ${index % 2 === 0
-              ? 'bg-white/90 dark:bg-zinc-900/60'
-              : 'bg-slate-50/90 dark:bg-zinc-800/50'
-            } group-hover:bg-[#e8e9ed]! dark:group-hover:bg-gcg-orange/10!`
+              ? 'bg-white/50 dark:bg-zinc-900/40'
+              : 'bg-slate-100/40 dark:bg-zinc-800/40'
+            } group-hover:bg-gcg-orange/5! dark:group-hover:bg-gcg-orange/5!`
             : "";
 
           const style: React.CSSProperties = {};
@@ -188,9 +188,9 @@ const TableRow = <T extends Record<string, any> = any>({
         })}
         {(actions.length > 0 || onEdit || onView || onDelete) && (
           <td className={`sticky right-0 z-10 px-2 sm:px-4 py-3 sm:py-4 transition-colors duration-200 ${index % 2 === 0
-            ? 'bg-white/90 dark:bg-zinc-900/60'
-            : 'bg-slate-50/90 dark:bg-zinc-800/50'
-            } group-hover:bg-[#e8e9ed]! dark:group-hover:bg-gcg-orange/10!`}>
+            ? 'bg-white/50 dark:bg-zinc-900/40'
+            : 'bg-slate-100/40 dark:bg-zinc-800/40'
+            } group-hover:bg-gcg-orange/5! dark:group-hover:bg-gcg-orange/5!`}>
             <div className="flex items-center gap-1 sm:gap-2">
               {/* Custom actions */}
               {(() => {
@@ -494,7 +494,7 @@ const TableRow = <T extends Record<string, any> = any>({
       className={`group transition-all duration-200 border-b border-slate-100 dark:border-slate-800/60 ${index % 2 === 0
         ? 'bg-white/50 dark:bg-zinc-900/40'
         : 'bg-slate-100/40 dark:bg-zinc-800/40'
-        } hover:bg-gcg-orange/10 dark:hover:bg-gcg-orange/10 ${rowClickable ? "cursor-pointer" : ""} ${getRowClassName ? getRowClassName(row) : ""} ${showDropdown ? "relative z-60" : ""}`}
+        } hover:bg-gcg-orange/5 dark:hover:bg-gcg-orange/5 ${rowClickable ? "cursor-pointer" : ""} ${getRowClassName ? getRowClassName(row) : ""} ${showDropdown ? "relative z-60" : ""}`}
       onClick={handleRowClick}
     >
       {renderRowCells()}

@@ -45,7 +45,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
         {selectable && (
           <th
             key="__select__"
-            className={`${stickyHeader ? 'sticky z-30' : ''} top-0 left-0 w-12 px-1 sm:px-2 py-3 sm:py-4 text-center bg-gray-50 dark:bg-zinc-900 border-r border-slate-200/50 dark:border-zinc-800 transition-colors duration-500`}
+            className={`${stickyHeader ? 'sticky z-30' : ''} top-0 left-0 w-7 px-0.5 py-3 sm:py-4 text-center bg-gray-50 dark:bg-zinc-900 border-r border-slate-200/50 dark:border-zinc-800 transition-colors duration-500`}
             style={{ ...stickyStyle }}
           >
             <input
@@ -63,7 +63,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
         )}
         {enhancedColumns.map((col, index) => {
           // Calculate cumulative width for sticky left columns
-          let leftOffset = selectable ? 48 : 0; // w-12 is 48px
+          let leftOffset = selectable ? 28 : 0; // w-7 is 28px
           if (col.sticky === 'left' || col.sticky === true) {
             for (let i = 0; i < index; i++) {
               const prevCol = enhancedColumns[i];
@@ -100,7 +100,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
           return (
             <th
               key={`${col.accessor}-${index}`}
-              className={`${stickyHeader ? 'sticky z-20' : ''} top-0 px-2 sm:px-4 py-3 sm:py-4 ${col.headerClassName || "text-left"
+              className={`${stickyHeader ? 'sticky z-20' : ''} top-0 px-2 sm:px-4 py-3 sm:py-4 font-semibold text-sm ${col.headerClassName || "text-left"
                 } bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 ${col.sortable !== false
                   ? `cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-white/5`
                   : ""
@@ -163,7 +163,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
         {/* Only render actions column if needed */}
         {(actions.length > 0 || onEdit || onView || onDelete) && (
           <th
-            className={`${stickyHeader ? 'sticky z-20' : ''} top-0 right-0 px-2 sm:px-4 py-3 sm:py-4 text-left bg-gray-50 dark:bg-zinc-900 text-slate-500 dark:text-gray-400 shrink-0`}
+            className={`${stickyHeader ? 'sticky z-20' : ''} top-0 right-0 px-2 sm:px-4 py-3 sm:py-4 text-left font-normal text-sm bg-gray-50 dark:bg-zinc-900 text-slate-500 dark:text-gray-400 shrink-0`}
             style={{ ...stickyStyle }}
           >
             Actions

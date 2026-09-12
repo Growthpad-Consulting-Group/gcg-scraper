@@ -42,6 +42,20 @@ export function runErrorMessage(job: RunJob): string | null {
   return typeof error === "string" ? error : null;
 }
 
+/** Gates the "View tenders"/"View leads" links — without this, a job that extracted candidates
+ * but had all of them rejected (country/keyword mismatch) or deduplicated away still showed an
+ * active link, landing on a correctly-filtered but confusing empty /tenders?job=<id> page. Only
+ * checks fields we know represent a "found" count for some kind (tendersFound, totalTenders,
+ * leadsFound); if none of those are present in result_summary we don't know this job's shape, so
+ * default to true rather than guessing a job has nothing to show. */
+export function hasResults(job: RunJob): boolean {
+  const s = job.result_summary;
+  if (!s) return true;
+  const known = [s.tendersFound, s.totalTenders, s.leadsFound].filter((v): v is number => typeof v === "number");
+  if (known.length === 0) return true;
+  return known.some((v) => v > 0);
+}
+
 /** Whether this job actually rejected anything worth inspecting via the rejected_tenders table —
  * gates showing the "View rejected candidates" toggle so it doesn't appear on jobs with nothing
  * to show (rejectedBy is only ever set on result_summary when at least one candidate was rejected). */
