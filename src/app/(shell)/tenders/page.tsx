@@ -93,9 +93,8 @@ function formatBudget(budget?: number | null, currency?: string | null): string 
   return currency ? `${currency} ${formatted}` : formatted;
 }
 
-/** "Posted" needs to read as freshness at a glance in a dense list — an absolute date makes the
- * reader do the day-math themselves. Falls back to the actual date past a week out, where "N days
- * ago" stops being more useful than just naming the date. */
+/** "Posted" as consistent relative time across all dates — gives freshness signal uniformly
+ * rather than switching to absolute dates for older tenders. */
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -106,7 +105,12 @@ function formatRelativeTime(dateStr: string): string {
   if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return days === 1 ? "1 day ago" : `${days} days ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return months === 1 ? "1 month ago" : `${months} months ago`;
+  const years = Math.floor(days / 365);
+  return years === 1 ? "1 year ago" : `${years} years ago`;
 }
 
 const FAVICON_SIZE = 64;
