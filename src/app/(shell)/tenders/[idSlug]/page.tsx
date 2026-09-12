@@ -73,6 +73,13 @@ function formatBudget(budget?: number | null, currency?: string | null): string 
   return currency ? `${currency} ${formatted}` : formatted;
 }
 
+/** "HTML" is an internal fallback meaning "no downloadable file was detected, this is just a
+ * webpage" — not a label a non-technical user would find meaningful next to "PDF" or "DOCX". */
+function formatLabel(format?: string | null): string | null {
+  if (!format) return null;
+  return format === "HTML" ? "Web" : format;
+}
+
 // tenders.closing_date is NOT NULL — an unknown deadline is stored as this far-future sentinel
 // (see tenderRow.ts's resolveClosingDate) rather than left blank, so it never reads as closed.
 const NO_DEADLINE_SENTINEL = "9999-12-31";
@@ -429,7 +436,21 @@ export default function TenderDetailPage() {
                 {tender.format && (
                   <>
                     <div className="font-medium text-text-lo">Format:</div>
-                    <div className="text-text-hi">{tender.format}</div>
+                    <div className="text-text-hi">{formatLabel(tender.format)}</div>
+                  </>
+                )}
+                {tender.source_url && (
+                  <>
+                    <div className="font-medium text-text-lo">Source:</div>
+                    <a
+                      href={tender.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-brand-500 hover:underline truncate"
+                    >
+                      View original
+                      <Icon icon="solar:arrow-right-up-broken" width={12} className="shrink-0" />
+                    </a>
                   </>
                 )}
               </div>

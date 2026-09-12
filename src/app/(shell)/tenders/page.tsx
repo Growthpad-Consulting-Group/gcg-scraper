@@ -79,6 +79,14 @@ function fileIcon(format?: string | null): string {
   return "solar:file-download-broken";
 }
 
+/** "HTML" is an internal fallback meaning "no downloadable file was detected, this is just a
+ * webpage" (see fileLink) — not a label a non-technical user would find meaningful next to "PDF"
+ * or "DOCX", so it's shown as "Web" instead. */
+function formatLabel(format?: string | null): string | null {
+  if (!format) return null;
+  return format === "HTML" ? "Web" : format;
+}
+
 function formatBudget(budget?: number | null, currency?: string | null): string | null {
   if (budget == null) return null;
   const formatted = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(budget);
@@ -291,7 +299,7 @@ function TenderDetail({
             ["Location", tender.location],
             ["Country", tender.country],
             ["Type", tender.tender_type],
-            ["Format", tender.format],
+            ["Format", formatLabel(tender.format)],
             ["Scraped", tender.scraped_at ? new Date(tender.scraped_at).toLocaleString() : null],
             ["Source URL", tender.source_url],
             ["Document", tender.document_url],
