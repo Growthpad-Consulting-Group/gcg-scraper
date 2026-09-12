@@ -644,29 +644,41 @@ function TendersContent() {
                             )}
                           </div>
                         </div>
-                        <div className="shrink-0 flex flex-col items-end gap-3">
-                          <div className="flex flex-col items-end gap-2">
-                            <Badge status={badge.status}>{badge.label}</Badge>
-                          </div>
-                          <div className="text-xs space-y-1">
-                            <div className="text-text-lo">
-                              Status: <span className="text-text-hi font-medium">{badge.label}</span>
+                        <div className="shrink-0 flex gap-8 text-xs">
+                          <div className="flex flex-col gap-2">
+                            <div className="font-semibold text-text-hi uppercase tracking-wide text-[10px]">Details</div>
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-text-lo text-[10px] uppercase">Status</div>
+                                <Badge status={badge.status}>{badge.label}</Badge>
+                              </div>
+                              {tender.location && (
+                                <div>
+                                  <div className="text-text-lo text-[10px] uppercase">Location</div>
+                                  <div className="text-text-hi font-medium truncate max-w-[150px]">{tender.location}</div>
+                                </div>
+                              )}
+                              {formatBudget(tender.budget, tender.currency) && (
+                                <div>
+                                  <div className="text-text-lo text-[10px] uppercase">Budget</div>
+                                  <div className="text-text-hi font-medium">{formatBudget(tender.budget, tender.currency)}</div>
+                                </div>
+                              )}
                             </div>
-                            {tender.location && (
-                              <div className="text-text-lo">
-                                Location: <span className="text-text-hi font-medium truncate max-w-[180px]">{tender.location}</span>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <div className="font-semibold text-text-hi uppercase tracking-wide text-[10px]">Tender Stage</div>
+                            <div className="space-y-2">
+                              <div>
+                                <Badge status="info">Procurement</Badge>
                               </div>
-                            )}
-                            {formatBudget(tender.budget, tender.currency) && (
-                              <div className="text-text-lo">
-                                Budget: <span className="text-text-hi font-medium">{formatBudget(tender.budget, tender.currency)}</span>
-                              </div>
-                            )}
-                            {tender.closing_date && (
-                              <div className="text-text-lo">
-                                Deadline: <span className="text-text-hi font-medium">{new Date(tender.closing_date).toLocaleDateString()}</span>
-                              </div>
-                            )}
+                              {tender.closing_date && (
+                                <div>
+                                  <div className="text-text-lo text-[10px] uppercase">Deadline</div>
+                                  <div className="text-text-hi font-medium">{new Date(tender.closing_date).toLocaleDateString()}</div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
