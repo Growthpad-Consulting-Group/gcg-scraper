@@ -175,16 +175,21 @@ export const runScrapeJob = inngest.createFunction(
             const pageRejections: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
             const pageRejected: { tender: ExtractedTender; reason: RejectionReason }[] = [];
             const rows = extracted.flatMap((t) => {
-              const reason = classifyRejection(t, { countries, markdown, fallbackUrl: result.url, skipKeywords: true });
+              // Search-time relevance (the query itself) is enough for the ad-hoc single-query
+              // Run Query path, where queryList is one free-text phrase rather than a curated
+              // term list — word-boundary matching that phrase against the tender would
+              // over-reject. But for the scheduled multi-query path, a search hit is often a
+              // general tender-aggregator listing page: the page matched the query, but
+              // extraction pulls *every* tender listed on it, not just the one that matched —
+              // confirmed live (sports shoes, dairy sensitization, office fit-out tenders slipping
+              // into a "MEL, Evaluation & Instructional Design" run). The task's curated
+              // search_terms double as a real keyword backstop here, same as run-source-scrape.ts.
+              const reason = classifyRejection(t, { countries, markdown, fallbackUrl: result.url, keywords: isMultiQuery ? queryList : undefined, skipKeywords: !isMultiQuery });
               if (reason) {
                 pageRejections[reason] += 1;
                 pageRejected.push({ tender: t, reason });
                 return [];
               }
-              // This path filters at search time, not on keyword text (skipKeywords above), so
-              // this is label-only: which of the task's search terms actually appear in the
-              // found tender. Empty for the ad-hoc single-query Run Query path where queryList
-              // is a free-text phrase rather than a curated term list.
               const matched = matchedKeywords(t, queryList);
               return [
                 {
