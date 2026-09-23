@@ -41,11 +41,13 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       extractOptions?: ExtractOptions;
       keywords?: string[];
       countries?: string[];
-      /** Scopes the default batch query to `websites.scope` (e.g. 'kenya' vs 'international') so
-       * two "Website Tenders"-type scheduled tasks can each rotate through a distinct subset of
-       * the table instead of both pulling from the exact same next-N-by-last_scraped_at batch.
-       * Ignored when websiteId/websiteIds targets specific sites directly. Defaults to 'kenya' —
-       * the scope nearly every existing site already carries. */
+      /** Scopes the default batch query to `websites.scope` (e.g. 'regional' vs 'international')
+       * so two "Website Tenders"-type scheduled tasks can each rotate through a distinct subset
+       * of the table instead of both pulling from the exact same next-N-by-last_scraped_at batch.
+       * Ignored when websiteId/websiteIds targets specific sites directly. Defaults to 'regional'
+       * — the scope nearly every existing site already carries (covers every country task 88's
+       * own countries filter allows: Kenya, Ghana, Zambia, East/West Africa — not just Kenya,
+       * despite the task's own "Kenya NGO..." name). */
       websiteScope?: string;
     };
     const supabase = createServerSupabaseClient();
@@ -66,7 +68,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
             : supabase
                 .from("websites")
                 .select(WEBSITE_COLUMNS)
-                .eq("scope", websiteScope || "kenya")
+                .eq("scope", websiteScope || "regional")
                 .order("last_scraped_at", { ascending: true, nullsFirst: true })
                 .limit(BATCH_SIZE);
         // No `.limit` — this is the curated GCG keyword list (228 terms), not a handful of

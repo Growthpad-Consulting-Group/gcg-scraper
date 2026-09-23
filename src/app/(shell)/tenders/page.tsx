@@ -363,6 +363,8 @@ function TendersContent() {
   const jobFilter = searchParams?.get("job") || null;
   const dateFilter = searchParams?.get("date") || null;
   const typeFilter = searchParams?.get("type") || null;
+  const sourceFilter = searchParams?.get("source") || null;
+  const sourceLabel = searchParams?.get("sourceLabel") || sourceFilter;
 
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [total, setTotal] = useState(0);
@@ -387,7 +389,8 @@ function TendersContent() {
     setIsLoading(true);
     try {
       const jobParam = jobFilter ? `&job=${jobFilter}` : "";
-      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=0${jobParam}`);
+      const sourceParam = sourceFilter ? `&source=${encodeURIComponent(sourceFilter)}` : "";
+      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=0${jobParam}${sourceParam}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch tenders");
       setTenders(data.tenders || []);
@@ -398,13 +401,14 @@ function TendersContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [jobFilter]);
+  }, [jobFilter, sourceFilter]);
 
   const loadMore = useCallback(async () => {
     setIsLoadingMore(true);
     try {
       const jobParam = jobFilter ? `&job=${jobFilter}` : "";
-      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=${tenders.length}${jobParam}`);
+      const sourceParam = sourceFilter ? `&source=${encodeURIComponent(sourceFilter)}` : "";
+      const res = await fetch(`/api/tenders?limit=${PAGE_SIZE}&offset=${tenders.length}${jobParam}${sourceParam}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch tenders");
       setTenders((prev) => [...prev, ...(data.tenders || [])]);
@@ -413,7 +417,7 @@ function TendersContent() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [tenders.length, jobFilter]);
+  }, [tenders.length, jobFilter, sourceFilter]);
 
   useEffect(() => {
     fetchTenders();
@@ -540,6 +544,21 @@ function TendersContent() {
           onClear={() => router.push("/tenders")}
           resultsNoun="tenders"
         />
+      )}
+
+      {sourceFilter && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-app-border bg-surface px-3 py-2 text-sm">
+          <Badge status="info">Filtered</Badge>
+          <span className="text-text-hi">Tenders from {sourceLabel}</span>
+          <span className="font-mono text-[11px] text-text-lo">{total} tenders</span>
+          <button
+            onClick={() => router.push("/tenders")}
+            className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
+          >
+            <Icon icon="mdi:close" width={12} />
+            Clear filter
+          </button>
+        </div>
       )}
 
       {dateFilter && (

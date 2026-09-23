@@ -31,6 +31,17 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** tenders_count and the /tenders?source= link both key off hostname substring matching against
+ * source_url (there's no website_id FK on tenders to join on directly) — this keeps both in sync
+ * with the same value. Falls back to the raw url if it doesn't parse. */
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
 export default function UploadWebsitePage() {
   const router = useRouter();
   const { resolvedMode: mode } = useTheme();
@@ -105,7 +116,7 @@ export default function UploadWebsitePage() {
         row.scope === "international" ? (
           <Badge status="info">International</Badge>
         ) : (
-          <Badge status="neutral">Kenya</Badge>
+          <Badge status="neutral">Regional</Badge>
         ),
     },
     {
@@ -114,7 +125,13 @@ export default function UploadWebsitePage() {
       sortable: true,
       render: (row) =>
         row.tenders_count > 0 ? (
-          <span className="font-mono text-sm font-medium text-text-hi">{row.tenders_count.toLocaleString()}</span>
+          <a
+            href={`/tenders?source=${encodeURIComponent(hostnameOf(row.url))}&sourceLabel=${encodeURIComponent(row.name || row.url)}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-mono text-sm font-medium text-brand-500 hover:underline"
+          >
+            {row.tenders_count.toLocaleString()}
+          </a>
         ) : (
           <span className="text-text-lo">—</span>
         ),
@@ -140,7 +157,7 @@ export default function UploadWebsitePage() {
   const filteredWebsites = useMemo(
     () =>
       websites.filter((w) => {
-        if (scopeFilter && (w.scope || "kenya") !== scopeFilter) return false;
+        if (scopeFilter && (w.scope || "regional") !== scopeFilter) return false;
         if (locationFilter && w.location !== locationFilter) return false;
         return true;
       }),
@@ -225,10 +242,10 @@ export default function UploadWebsitePage() {
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="w-40">
               <Select
-                value={scopeFilter ? { value: scopeFilter, label: scopeFilter === "international" ? "International" : "Kenya" } : null}
+                value={scopeFilter ? { value: scopeFilter, label: scopeFilter === "international" ? "International" : "Regional" } : null}
                 onChange={(opt) => setScopeFilter(getSelectValue(opt) || null)}
                 options={[
-                  { value: "kenya", label: "Kenya" },
+                  { value: "regional", label: "Regional" },
                   { value: "international", label: "International" },
                 ]}
                 placeholder="All scopes"

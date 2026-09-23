@@ -17,6 +17,7 @@ const LIST_COLUMNS =
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("query")?.trim();
   const jobId = req.nextUrl.searchParams.get("job")?.trim();
+  const source = req.nextUrl.searchParams.get("source")?.trim();
   const limitParam = Number(req.nextUrl.searchParams.get("limit"));
   const offsetParam = Number(req.nextUrl.searchParams.get("offset"));
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, MAX_LIMIT) : DEFAULT_LIMIT;
@@ -34,6 +35,12 @@ export async function GET(req: NextRequest) {
   }
   if (jobId) {
     request = request.eq("job_id", jobId);
+  }
+  // "Which tenders came from this specific website source" — Website Sources' per-row count has
+  // no direct FK to key off (tenders don't record which `websites` row they were scraped from),
+  // so this matches on hostname appearing in source_url instead, same as tenders_count itself.
+  if (source) {
+    request = request.ilike("source_url", `%${source}%`);
   }
 
   const { data: tenders, error, count } = await request;
