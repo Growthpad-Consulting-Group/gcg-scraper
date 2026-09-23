@@ -10,6 +10,7 @@ export interface ScheduledTaskRow {
   search_terms: string[] | null;
   countries: string[] | null;
   linkedin_search_phrases?: string[] | null;
+  website_scope?: string | null;
 }
 
 const LEAD_TASK_KINDS: Record<string, string> = {
@@ -58,7 +59,7 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
   } else if (tenderType === "Website Tenders") {
     await inngest.send({
       name: "tenders/website.queued",
-      data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [] },
+      data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [], websiteScope: task.website_scope || undefined },
     });
   } else if (tenderType === "LinkedIn Tenders") {
     await inngest.send({

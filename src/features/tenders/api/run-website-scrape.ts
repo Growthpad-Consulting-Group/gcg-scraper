@@ -31,7 +31,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
   // same way to avoid contributing to 429 bursts (see run-source-scrape-job).
   { id: "run-website-scrape-job", retries: 0, triggers: { event: "tenders/website.queued" }, throttle: { limit: 3, period: "1m" } },
   async ({ event, step }) => {
-    const { jobId, websiteId, websiteIds, extractOptions, keywords, countries } = event.data as {
+    const { jobId, websiteId, websiteIds, extractOptions, keywords, countries, websiteScope } = event.data as {
       jobId: string;
       websiteId?: number;
       /** Targets a specific set of sites regardless of scrape-rotation order — e.g. covering a
@@ -41,6 +41,12 @@ export const runWebsiteScrapeJob = inngest.createFunction(
       extractOptions?: ExtractOptions;
       keywords?: string[];
       countries?: string[];
+      /** Scopes the default batch query to `websites.scope` (e.g. 'kenya' vs 'international') so
+       * two "Website Tenders"-type scheduled tasks can each rotate through a distinct subset of
+       * the table instead of both pulling from the exact same next-N-by-last_scraped_at batch.
+       * Ignored when websiteId/websiteIds targets specific sites directly. Defaults to 'kenya' —
+       * the scope nearly every existing site already carries. */
+      websiteScope?: string;
     };
     const supabase = createServerSupabaseClient();
 
@@ -60,6 +66,7 @@ export const runWebsiteScrapeJob = inngest.createFunction(
             : supabase
                 .from("websites")
                 .select(WEBSITE_COLUMNS)
+                .eq("scope", websiteScope || "kenya")
                 .order("last_scraped_at", { ascending: true, nullsFirst: true })
                 .limit(BATCH_SIZE);
         // No `.limit` — this is the curated GCG keyword list (228 terms), not a handful of

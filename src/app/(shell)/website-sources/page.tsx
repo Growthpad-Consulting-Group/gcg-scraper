@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import Select from "react-select";
 import PageHeader from "@/shared/ui/PageHeader";
 import Badge from "@/shared/ui/Badge";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
+import { useTheme } from "@/shared/contexts/ThemeContext";
+import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
 
 interface Website {
   id: number;
@@ -13,9 +16,9 @@ interface Website {
   url: string;
   location: string | null;
   tender_type: string | null;
-  created_at: string | null;
   last_scraped_at: string | null;
   tenders_count: number;
+  scope: string | null;
 }
 
 /** GenericTable requires a string `id`; the API uses numeric ids. */
@@ -30,9 +33,12 @@ function formatDate(iso: string | null): string {
 
 export default function UploadWebsitePage() {
   const router = useRouter();
+  const { resolvedMode: mode } = useTheme();
   const [websites, setWebsites] = useState<Website[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [scanningId, setScanningId] = useState<number | null>(null);
+  const [scopeFilter, setScopeFilter] = useState<string | null>(null);
+  const [locationFilter, setLocationFilter] = useState<string | null>(null);
 
   const fetchWebsites = useCallback(async () => {
     setIsLoading(true);
@@ -92,6 +98,17 @@ export default function UploadWebsitePage() {
         row.location ? <Badge status="neutral">{row.location}</Badge> : <span className="text-text-lo">—</span>,
     },
     {
+      Header: "Scope",
+      accessor: "scope",
+      sortable: true,
+      render: (row) =>
+        row.scope === "international" ? (
+          <Badge status="info">International</Badge>
+        ) : (
+          <Badge status="neutral">Kenya</Badge>
+        ),
+    },
+    {
       Header: "Tenders Found",
       accessor: "tenders_count",
       sortable: true,
@@ -113,13 +130,22 @@ export default function UploadWebsitePage() {
           <Badge status="warning">Never</Badge>
         ),
     },
-    {
-      Header: "Date Added",
-      accessor: "created_at",
-      sortable: true,
-      render: (row) => <span className="text-sm text-text-lo">{formatDate(row.created_at)}</span>,
-    },
   ];
+
+  const locationOptions = useMemo(
+    () => Array.from(new Set(websites.map((w) => w.location).filter((l): l is string => Boolean(l)))).sort(),
+    [websites]
+  );
+
+  const filteredWebsites = useMemo(
+    () =>
+      websites.filter((w) => {
+        if (scopeFilter && (w.scope || "kenya") !== scopeFilter) return false;
+        if (locationFilter && w.location !== locationFilter) return false;
+        return true;
+      }),
+    [websites, scopeFilter, locationFilter]
+  );
 
   const actions: Action<WebsiteRow>[] = [
     {
@@ -183,7 +209,7 @@ export default function UploadWebsitePage() {
       />
 
       <GenericTable<WebsiteRow>
-        data={websites.map((w) => ({ ...w, id: String(w.id) }))}
+        data={filteredWebsites.map((w) => ({ ...w, id: String(w.id) }))}
         columns={columns}
         loading={isLoading}
         title="Website Sources"
@@ -195,6 +221,43 @@ export default function UploadWebsitePage() {
         showExportButton
         exportType="website-sources"
         exportTitle="Website Sources"
+        extraFilters={
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="w-40">
+              <Select
+                value={scopeFilter ? { value: scopeFilter, label: scopeFilter === "international" ? "International" : "Kenya" } : null}
+                onChange={(opt) => setScopeFilter(getSelectValue(opt) || null)}
+                options={[
+                  { value: "kenya", label: "Kenya" },
+                  { value: "international", label: "International" },
+                ]}
+                placeholder="All scopes"
+                isClearable
+                className="react-select-container"
+                classNamePrefix="react-select"
+                styles={getSelectStyles<{ value: string; label: string }>(mode)}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                menuPosition="fixed"
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                value={locationFilter ? { value: locationFilter, label: locationFilter } : null}
+                onChange={(opt) => setLocationFilter(getSelectValue(opt) || null)}
+                options={locationOptions.map((l) => ({ value: l, label: l }))}
+                placeholder="All locations"
+                isClearable
+                isSearchable
+                noOptionsMessage={() => "No locations found"}
+                className="react-select-container"
+                classNamePrefix="react-select"
+                styles={getSelectStyles<{ value: string; label: string }>(mode)}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                menuPosition="fixed"
+              />
+            </div>
+          </div>
+        }
         enableDateFilter
         enableRefresh
         onRefresh={fetchWebsites}
