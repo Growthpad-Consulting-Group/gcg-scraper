@@ -3,7 +3,9 @@
 // call that *starts* something new (an actor run, a run-sync dataset call) can rotate freely
 // between keys. Once a run exists, every subsequent status/dataset/abort call must reuse the
 // exact key that started it — a different account's token can't see another account's run.
-const KEYS = [
+// Exported for the same reason as firecrawl.ts's KEYS — providerUsage.ts derives its labeled
+// list from this array rather than maintaining a second hand-copied one.
+export const KEYS = [
   process.env.APIFY_API_TOKEN,
   process.env.APIFY_API_TOKEN_FALLBACK_1,
   process.env.APIFY_API_TOKEN_FALLBACK_2,

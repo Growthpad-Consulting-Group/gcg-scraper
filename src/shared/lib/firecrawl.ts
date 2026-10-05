@@ -4,7 +4,11 @@
 // its own credit balance and its own rate-limit budget — rotating through them (rather than
 // retrying the same one) is what actually resolves a 402/429, not just a second attempt against
 // the same constrained account.
-const KEYS = [
+// Exported so providerUsage.ts (Settings page's per-key credit display) can derive its labeled
+// list from this same array instead of hand-copying the env var names a second time — the two
+// lists silently drifted apart once already (fallbacks 4-6 existed here but not there) before
+// this became the single source of truth.
+export const KEYS = [
   process.env.FIRECRAWL_API_KEY,
   process.env.FIRECRAWL_API_KEY_FALLBACK_1,
   process.env.FIRECRAWL_API_KEY_FALLBACK_2,
@@ -12,6 +16,8 @@ const KEYS = [
   process.env.FIRECRAWL_API_KEY_FALLBACK_4,
   process.env.FIRECRAWL_API_KEY_FALLBACK_5,
   process.env.FIRECRAWL_API_KEY_FALLBACK_6,
+  process.env.FIRECRAWL_API_KEY_FALLBACK_7,
+  process.env.FIRECRAWL_API_KEY_FALLBACK_8,
 ].filter((key): key is string => !!key);
 
 // 402 is Firecrawl's documented status for an exhausted/insufficient-credit account. 429 is rate

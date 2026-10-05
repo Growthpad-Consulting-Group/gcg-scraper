@@ -2,6 +2,8 @@
 // running low on an account is visible ahead of time instead of discovered reactively via a
 // job's 402/429 failure (confirmed live, repeatedly, before the multi-key rotation was added).
 // Both endpoints' shapes were verified live before writing this, not assumed from docs.
+import { KEYS as FIRECRAWL_KEYS } from "./firecrawl";
+import { KEYS as APIFY_KEYS } from "./apify";
 
 export type ProviderUsage = {
   provider: "firecrawl" | "apify";
@@ -47,22 +49,20 @@ async function getApifyUsage(label: string, token: string): Promise<ProviderUsag
   }
 }
 
-/** Every configured key/token across both providers, labeled by rotation order (matches the
- * order shared/lib/firecrawl.ts and shared/lib/apify.ts actually try them in) — not just the
- * primary, since a fallback silently running low is just as worth knowing about. */
-export async function getAllProviderUsage(): Promise<ProviderUsage[]> {
-  const firecrawlKeys = [
-    { label: "Firecrawl — primary", key: process.env.FIRECRAWL_API_KEY },
-    { label: "Firecrawl — fallback 1", key: process.env.FIRECRAWL_API_KEY_FALLBACK_1 },
-    { label: "Firecrawl — fallback 2", key: process.env.FIRECRAWL_API_KEY_FALLBACK_2 },
-    { label: "Firecrawl — fallback 3", key: process.env.FIRECRAWL_API_KEY_FALLBACK_3 },
-  ].filter((k): k is { label: string; key: string } => !!k.key);
+/** Labels a provider's rotation-ordered key array ("primary", "fallback 1", "fallback 2", ...)
+ * without hand-listing env var names a second time — index 0 is always primary since that's how
+ * both firecrawl.ts and apify.ts build their KEYS arrays. */
+function labelKeys(providerName: string, keys: string[]): { label: string; key: string }[] {
+  return keys.map((key, i) => ({ label: i === 0 ? `${providerName} — primary` : `${providerName} — fallback ${i}`, key }));
+}
 
-  const apifyKeys = [
-    { label: "Apify — primary", key: process.env.APIFY_API_TOKEN },
-    { label: "Apify — fallback 1", key: process.env.APIFY_API_TOKEN_FALLBACK_1 },
-    { label: "Apify — fallback 2", key: process.env.APIFY_API_TOKEN_FALLBACK_2 },
-  ].filter((k): k is { label: string; key: string } => !!k.key);
+/** Every configured key/token across both providers, labeled by rotation order (matches the
+ * order shared/lib/firecrawl.ts and shared/lib/apify.ts actually try them in, since it reads the
+ * exact same KEYS arrays) — not just the primary, since a fallback silently running low is just
+ * as worth knowing about. */
+export async function getAllProviderUsage(): Promise<ProviderUsage[]> {
+  const firecrawlKeys = labelKeys("Firecrawl", FIRECRAWL_KEYS);
+  const apifyKeys = labelKeys("Apify", APIFY_KEYS);
 
   return Promise.all([
     ...firecrawlKeys.map((k) => getFirecrawlUsage(k.label, k.key)),
