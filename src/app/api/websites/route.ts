@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, url, location } = await req.json();
+  const { name, url, location, scope } = await req.json();
   if (!url) return NextResponse.json({ error: "url is required" }, { status: 400 });
 
   let normalizedUrl: string;
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       url: normalizedUrl,
       location: location?.trim() || null,
       tender_type: "Uploaded Websites",
+      ...(scope === "international" ? { scope: "international" } : {}),
     })
     .select("*")
     .single();

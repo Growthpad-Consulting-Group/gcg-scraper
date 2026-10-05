@@ -46,9 +46,11 @@ function RunQueryContent() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [websiteName, setWebsiteName] = useState("");
   const [websiteLocation, setWebsiteLocation] = useState("");
+  const [websiteScope, setWebsiteScope] = useState<"regional" | "international">("regional");
   const [websiteKeywords, setWebsiteKeywords] = useState<string[]>([]);
   const [websiteCountries, setWebsiteCountries] = useState<string[]>([]);
   const [isAddingWebsite, setIsAddingWebsite] = useState(false);
+  const [isSavingWebsite, setIsSavingWebsite] = useState(false);
   const [websiteSources, setWebsiteSources] = useState<WebsiteSource[]>([]);
 
   const [gmbSearchTerm, setGmbSearchTerm] = useState("");
@@ -186,21 +188,38 @@ function RunQueryContent() {
     }
   };
 
+  const createWebsiteSource = async () => {
+    const createRes = await fetch("/api/websites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: websiteUrl.trim(),
+        name: websiteName.trim() || undefined,
+        location: websiteLocation.trim() || undefined,
+        scope: websiteScope,
+      }),
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok) throw new Error(createData.error || "Failed to add website");
+    return createData.website;
+  };
+
+  const resetWebsiteForm = () => {
+    setWebsiteUrl("");
+    setWebsiteName("");
+    setWebsiteLocation("");
+    setWebsiteScope("regional");
+  };
+
   const handleRunWebsite = async (extractOptions: ExtractOptions) => {
     if (!websiteUrl.trim()) return;
     setIsAddingWebsite(true);
     toast.loading("Adding source and starting scan...", { id: "website-start" });
 
     try {
-      const createRes = await fetch("/api/websites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: websiteUrl.trim(), name: websiteName.trim() || undefined, location: websiteLocation.trim() || undefined }),
-      });
-      const createData = await createRes.json();
-      if (!createRes.ok) throw new Error(createData.error || "Failed to add website");
+      const website = await createWebsiteSource();
 
-      const scanRes = await fetch(`/api/websites/${createData.website.id}/scan`, {
+      const scanRes = await fetch(`/api/websites/${website.id}/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ extractOptions, keywords: websiteKeywords, countries: websiteCountries }),
@@ -209,14 +228,29 @@ function RunQueryContent() {
       if (!scanRes.ok) throw new Error(scanData.error || "Failed to start scan");
 
       startJob(scanData.jobId, "website");
-      setWebsiteUrl("");
-      setWebsiteName("");
-      setWebsiteLocation("");
+      resetWebsiteForm();
       toast.dismiss("website-start");
     } catch (err: any) {
       toast.error("Failed to run website scrape: " + err.message, { id: "website-start" });
     } finally {
       setIsAddingWebsite(false);
+    }
+  };
+
+  // Save-only path — adds the source without an immediate scan, so it's just picked up by the
+  // next scheduled batch run instead of burning a Firecrawl call right away (confirmed live:
+  // bulk-adding several sources previously meant that many unnecessary ad-hoc scans).
+  const handleAddWebsite = async () => {
+    if (!websiteUrl.trim()) return;
+    setIsSavingWebsite(true);
+    try {
+      await createWebsiteSource();
+      toast.success("Source added — it'll be picked up on the next scheduled run.");
+      resetWebsiteForm();
+    } catch (err: any) {
+      toast.error("Failed to add website: " + err.message);
+    } finally {
+      setIsSavingWebsite(false);
     }
   };
 
@@ -371,14 +405,19 @@ function RunQueryContent() {
                 setName={setWebsiteName}
                 location={websiteLocation}
                 setLocation={setWebsiteLocation}
+                scope={websiteScope}
+                setScope={setWebsiteScope}
                 isRunning={isAddingWebsite || scrapeStatus === "running"}
+                isAdding={isSavingWebsite}
                 onRun={handleRunWebsite}
+                onAdd={handleAddWebsite}
                 mode={mode}
                 sources={websiteSources}
                 onSelectSource={(s) => {
                   setWebsiteUrl(s.url);
                   setWebsiteName(s.name || "");
                   setWebsiteLocation(s.location || "");
+                  setWebsiteScope(s.scope === "international" ? "international" : "regional");
                 }}
                 countries={countries.map((c) => c.country_name)}
                 selectedCountries={websiteCountries}

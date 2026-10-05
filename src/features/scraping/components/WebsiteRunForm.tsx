@@ -18,6 +18,7 @@ export interface WebsiteSource {
   name: string | null;
   url: string;
   location: string | null;
+  scope?: string | null;
 }
 
 type SourceOption = { value: number; label: string; url: string };
@@ -52,8 +53,12 @@ export default function WebsiteRunForm({
   setName,
   location,
   setLocation,
+  scope = "regional",
+  setScope,
   isRunning,
+  isAdding,
   onRun,
+  onAdd,
   mode,
   sources = [],
   onSelectSource,
@@ -70,8 +75,21 @@ export default function WebsiteRunForm({
   setName: (v: string) => void;
   location: string;
   setLocation: (v: string) => void;
+  /** 'regional' (Kenya/Ghana/Zambia/East+West Africa — the default scheduled task's country
+   * filter applies) vs 'international' (no country filter — the International NGO RFPs task).
+   * Confirmed live: skipping this meant every new site silently defaulted to 'regional' even
+   * when it was a global multi-country feed, rejecting exactly the tenders someone added it for. */
+  scope?: "regional" | "international";
+  setScope?: (v: "regional" | "international") => void;
   isRunning: boolean;
+  /** Separate from isRunning — "Add source" (save only, scanned later on schedule) and "Run now"
+   * (save + scan immediately) are two distinct actions that can each be in flight. */
+  isAdding?: boolean;
   onRun: (options: ExtractOptions) => void;
+  /** Save-only path — adds the source without triggering an immediate scan, so it's just picked
+   * up by the next scheduled batch run instead of burning a Firecrawl call right away. Omit to
+   * hide the "Add source" button (e.g. for a caller that only ever wants to run immediately). */
+  onAdd?: () => void;
   mode?: "light" | "dark";
   /** Already-tracked sites, so re-running one doesn't mean retyping its URL. */
   sources?: WebsiteSource[];
@@ -197,7 +215,29 @@ export default function WebsiteRunForm({
           <div className="flex flex-col gap-2 sm:flex-row">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className={`${inputClass} flex-1`} />
             <LocationInput value={location} onChange={setLocation} countries={countries} mode={mode} className="w-full sm:w-56 shrink-0" />
+            {setScope && (
+              <div className="w-full sm:w-44 shrink-0">
+                <Select
+                  value={{ value: scope, label: scope === "international" ? "International" : "Regional" }}
+                  onChange={(opt) => opt && setScope(opt.value as "regional" | "international")}
+                  options={[
+                    { value: "regional", label: "Regional" },
+                    { value: "international", label: "International" },
+                  ]}
+                  isClearable={false}
+                  isSearchable={false}
+                  styles={compactSelectStyles}
+                  classNamePrefix="react-select"
+                />
+              </div>
+            )}
           </div>
+          {setScope && (
+            <p className="text-xs italic text-text-lo">
+              Regional applies the default task's country filter (Kenya/Ghana/Zambia/East+West Africa). International skips the country
+              filter entirely — use it for a global multi-country RFP feed like Clinton's.
+            </p>
+          )}
           <div>
             <label className="mb-1 block text-xs text-text-lo">
               Keywords{" "}
@@ -298,10 +338,18 @@ export default function WebsiteRunForm({
             </div>
           </Popover>
         </div>
-        <Button size="sm" onClick={handleRun} disabled={isRunning || !canRun}>
-          <Icon icon={isRunning ? "mdi:loading" : "solar:play-circle-broken"} width={15} className={isRunning ? "animate-spin" : ""} />
-          {isRunning ? "Running…" : "Run"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {onAdd && (
+            <Button size="sm" variant="secondary" onClick={onAdd} disabled={isRunning || isAdding || !canRun}>
+              <Icon icon={isAdding ? "mdi:loading" : "solar:add-circle-broken"} width={15} className={isAdding ? "animate-spin" : ""} />
+              {isAdding ? "Adding…" : "Add source"}
+            </Button>
+          )}
+          <Button size="sm" onClick={handleRun} disabled={isRunning || isAdding || !canRun}>
+            <Icon icon={isRunning ? "mdi:loading" : "solar:play-circle-broken"} width={15} className={isRunning ? "animate-spin" : ""} />
+            {isRunning ? "Running…" : "Run now"}
+          </Button>
+        </div>
       </div>
     </GlassPanel>
   );
