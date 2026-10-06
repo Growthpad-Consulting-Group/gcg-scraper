@@ -121,23 +121,45 @@ export async function notifyTaskOwner(
 ): Promise<void> {
   if (tendersFound <= 0) return;
 
-  const { data: job } = await supabase.from("scrape_jobs").select("task_id, label").eq("id", jobId).maybeSingle();
-  if (!job?.task_id) return;
+  const { data: job } = await supabase.from("scrape_jobs").select("task_id, label, notify_on_completion").eq("id", jobId).maybeSingle();
 
-  const { data: task } = await supabase
-    .from("scheduled_tasks")
-    .select("user_id, name, email_notifications_enabled, slack_notifications_enabled, custom_emails")
-    .eq("task_id", job.task_id)
-    .maybeSingle();
-  if (!task?.user_id) return;
+  // Scheduled tasks always have a task_id; ad-hoc jobs don't. Ad-hoc jobs only notify if
+  // notify_on_completion is explicitly true.
+  const isScheduledRun = !!job?.task_id;
+  const isAdHocWithNotify = !isScheduledRun && job?.notify_on_completion;
+  if (!isScheduledRun && !isAdHocWithNotify) return;
 
-  const label = task.name || job.label || "Scheduled task";
+  let task: any = null;
+  let label = job.label || "Search query";
+  let slackEnabled = false;
+  let emailEnabled = false;
+  let customEmails: string[] = [];
+  let userId: string | null = null;
+
+  if (isScheduledRun) {
+    const { data: t } = await supabase
+      .from("scheduled_tasks")
+      .select("user_id, name, email_notifications_enabled, slack_notifications_enabled, custom_emails")
+      .eq("task_id", job.task_id)
+      .maybeSingle();
+    if (!t?.user_id) return;
+    task = t;
+    label = t.name || job.label || "Scheduled task";
+    slackEnabled = t.slack_notifications_enabled;
+    emailEnabled = t.email_notifications_enabled;
+    customEmails = (t.custom_emails || "").split(",").map((e: string) => e.trim()).filter(Boolean);
+    userId = t.user_id;
+
+    // job_id lets the in-app notification link straight to this run's results via the Tenders
+    // page's existing `?job=` filter, instead of a message with nothing to click through to.
+    await supabase.from("notifications").insert({ user_id: userId, message: `"${label}" found ${tendersFound} new tender${tendersFound === 1 ? "" : "s"}.`, read: false, job_id: jobId });
+  } else {
+    // Ad-hoc job with notify flag set — post to Slack only (no in-app notification or email)
+    slackEnabled = true;
+  }
+
   const message = `"${label}" found ${tendersFound} new tender${tendersFound === 1 ? "" : "s"}.`;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
-  // job_id lets the in-app notification link straight to this run's results via the Tenders
-  // page's existing `?job=` filter, instead of a message with nothing to click through to.
-  await supabase.from("notifications").insert({ user_id: task.user_id, message, read: false, job_id: jobId });
 
   // insertTenderRows already drops closed tenders before they ever reach here, so `tenders` is
   // always open — no status split needed.
@@ -158,12 +180,8 @@ export async function notifyTaskOwner(
     return urgency ? `${formatClosingDate(t.closing_date)} (${urgency})` : formatClosingDate(t.closing_date);
   };
 
-  if (task.email_notifications_enabled) {
-    const extraEmails = (task.custom_emails || "")
-      .split(",")
-      .map((e: string) => e.trim())
-      .filter(Boolean);
-    const recipients = [task.user_id, ...extraEmails];
+  if (emailEnabled && userId) {
+    const recipients = [userId, ...customEmails];
     try {
       const listHtml = listedTenders.length
         ? `<ul>${listedTenders
@@ -183,7 +201,7 @@ export async function notifyTaskOwner(
     }
   }
 
-  if (task.slack_notifications_enabled) {
+  if (slackEnabled) {
     try {
       // No separate banner line — the message above ("found N tenders") already says this, a
       // second "TENDER NOTIFICATION" header directly under it was pure repetition.

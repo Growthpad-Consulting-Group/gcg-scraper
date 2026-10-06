@@ -53,6 +53,8 @@ function RunQueryContent() {
   const [isSavingWebsite, setIsSavingWebsite] = useState(false);
   const [websiteSources, setWebsiteSources] = useState<WebsiteSource[]>([]);
 
+  const [notifyOnCompletion, setNotifyOnCompletion] = useState(false);
+
   const [gmbSearchTerm, setGmbSearchTerm] = useState("");
   const [gmbLocation, setGmbLocation] = useState("");
   const [gmbMaxResults, setGmbMaxResults] = useState(30);
@@ -175,7 +177,7 @@ function RunQueryContent() {
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, resultsLimit }),
+        body: JSON.stringify({ query, resultsLimit, notifyOnCompletion }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start scraping");
@@ -395,6 +397,15 @@ function RunQueryContent() {
                 handleAddScheduledTask={handleAddScheduledTask}
                 mode={mode}
               />
+              <label className="mt-2 flex items-center gap-2 text-sm text-text-lo">
+                <input
+                  type="checkbox"
+                  checked={notifyOnCompletion}
+                  onChange={(e) => setNotifyOnCompletion(e.target.checked)}
+                  className="h-4 w-4 rounded border-app-border"
+                />
+                <span>Notify on Slack when complete</span>
+              </label>
             </div>
 
             <div className={runMode === "website" ? undefined : "hidden"}>

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { query, taskId, resultsLimit } = await req.json();
+  const { query, taskId, resultsLimit, notifyOnCompletion } = await req.json();
   if (!query) {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
@@ -27,7 +27,13 @@ export async function POST(req: NextRequest) {
   const supabase = createServerSupabaseClient();
   const { data: job, error } = await supabase
     .from("scrape_jobs")
-    .insert({ task_id: taskId ?? null, status: "queued", kind: "search-query", label: query })
+    .insert({
+      task_id: taskId ?? null,
+      status: "queued",
+      kind: "search-query",
+      label: query,
+      notify_on_completion: notifyOnCompletion ?? false,
+    })
     .select("id")
     .single();
 
