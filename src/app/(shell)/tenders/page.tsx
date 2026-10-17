@@ -263,7 +263,7 @@ function TenderDetail({
 
   return (
     <div className="flex flex-col gap-3 py-3 px-4">
-      <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
+      <div className="rounded-xl border border-app-border bg-surface-2 p-3">
         <PursuitPanel
           tenderId={tender.id}
           compact
@@ -284,8 +284,8 @@ function TenderDetail({
             onClick={() => setView(v)}
             className={`rounded-md px-2 py-1 font-mono text-[11px] uppercase tracking-wide transition-colors ${
               view === v
-                ? "bg-gcg-orange/10 text-gcg-orange dark:bg-gcg-orange/20 dark:text-blue-300"
-                : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                ? "bg-brand-500/10 text-brand-500"
+                : "text-text-lo hover:text-text-hi"
             }`}
           >
             {v}
@@ -294,7 +294,7 @@ function TenderDetail({
       </div>
 
       {view === "parsed" ? (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 text-sm md:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-app-border bg-surface-2 p-4 text-sm md:grid-cols-3">
           {([
             ["Organization", tender.organization],
             ["Category", tender.category],
@@ -310,7 +310,7 @@ function TenderDetail({
             ["Description", tender.description],
           ] as [string, string | null | undefined][]).map(([label, value]) => (
             <div key={label} className="flex flex-col gap-0.5">
-              <dt className="font-mono text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              <dt className="font-mono text-[10px] uppercase tracking-wide text-text-lo">
                 {label}
               </dt>
               {(label === "Source URL" || label === "Document") && value ? (
@@ -319,19 +319,19 @@ function TenderDetail({
                     href={value}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gcg-orange hover:underline dark:text-blue-400"
+                    className="text-brand-500 hover:underline"
                   >
                     {value}
                   </a>
                 </dd>
               ) : (
-                <dd className="truncate text-gray-800 dark:text-gray-200">{value || "—"}</dd>
+                <dd className="truncate text-text-hi">{value || "—"}</dd>
               )}
             </div>
           ))}
         </dl>
       ) : isLoadingRaw ? (
-        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 text-sm text-gray-400">
+        <div className="rounded-xl border border-app-border bg-surface-2 p-4 text-sm text-text-lo">
           Loading raw content…
         </div>
       ) : (
@@ -543,40 +543,24 @@ function TendersContent() {
         />
       )}
 
-      {sourceFilter && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-app-border bg-surface px-3 py-2 text-sm">
-          <Badge status="info">Filtered</Badge>
-          <span className="text-text-hi">Tenders from {sourceLabel}</span>
-          <span className="font-mono text-[11px] text-text-lo">{total} tenders</span>
-          <button
-            onClick={() => router.push("/tenders")}
-            className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
-          >
-            <Icon icon="mdi:close" width={12} />
-            Clear filter
-          </button>
-        </div>
-      )}
-
-      {dateFilter && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-app-border bg-surface px-3 py-2 text-sm">
-          <Badge status="info">Filtered</Badge>
-          <span className="text-text-hi">
-            Tenders scraped on{" "}
-            {new Date(`${dateFilter}T00:00:00`).toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "short",
-              day: "numeric",
-            })}
+      {(sourceFilter || dateFilter) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-brand-500/20 bg-brand-500/5 px-4 py-2.5 text-sm">
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-500/15">
+            <Icon icon="solar:filter-bold" width={12} className="text-brand-500" />
+          </div>
+          <span className="text-text-hi font-medium">
+            {sourceFilter
+              ? `Tenders from ${sourceLabel}`
+              : `Tenders scraped on ${new Date(`${dateFilter}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}`}
           </span>
           <span className="font-mono text-[11px] text-text-lo">
-            {filteredTenders.length} tenders
+            {sourceFilter ? `${total} tenders` : `${filteredTenders.length} tenders`}
           </span>
           <button
             onClick={() => router.push("/tenders")}
-            className="ml-auto flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
+            className="ml-auto flex items-center gap-1.5 rounded-lg border border-app-border bg-surface px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-text-lo transition-colors hover:border-brand-500/30 hover:text-brand-500"
           >
-            <Icon icon="mdi:close" width={12} />
+            <Icon icon="solar:close-circle-broken" width={12} />
             Clear filter
           </button>
         </div>
@@ -761,12 +745,14 @@ function TendersContent() {
           {!sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(true)}
-              className="flex w-fit items-center gap-1.5 rounded-md border border-app-border bg-surface px-3 py-1.5 text-sm text-text-hi hover:border-text-lo"
+              className="flex w-fit items-center gap-2 rounded-xl border border-app-border bg-surface px-3 py-2 text-sm text-text-lo shadow-sm transition-all hover:border-brand-500/30 hover:bg-surface-2 hover:text-text-hi hover:shadow-md"
             >
-              <Icon icon="solar:filter-broken" width={14} />
-              Show filters
+              <Icon icon="solar:filter-bold" width={14} className={activeFilterCount > 0 ? "text-brand-500" : ""} />
+              <span className="font-medium">Filters</span>
               {activeFilterCount > 0 && (
-                <Badge status="info">{activeFilterCount}</Badge>
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 font-mono text-[10px] font-bold text-white">
+                  {activeFilterCount}
+                </span>
               )}
             </button>
           )}

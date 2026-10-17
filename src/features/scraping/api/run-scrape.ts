@@ -20,6 +20,9 @@ const RESULTS_LIMIT = 10;
 // the same window too, so this stays conservative rather than sized to what one job alone could
 // get away with.
 const MAX_CONCURRENT_EXTRACTS = 4;
+// Skip re-extracting a URL that was already scraped within this many days — the tender content
+// hasn't changed, and extract credits are the most expensive part of each run.
+const RECENT_SCRAPE_WINDOW_DAYS = 7;
 const MAX_CONCURRENT_SEARCHES = 4;
 // A scheduled task can have several distinct search terms selected — each needs its own actual
 // search (searching "term1 term2 term3" as one combined string dilutes relevance into a
@@ -124,12 +127,51 @@ export const runScrapeJob = inngest.createFunction(
         return allowed;
       });
 
+      // Skip URLs already scraped recently — avoids burning extract credits on pages whose
+      // content hasn't changed since the last run. Checked against `tenders.source_url` rather
+      // than a separate cache table so it's always in sync with the live tender data with no
+      // extra maintenance. The window matches the most common automation cadence (weekly), so
+      // a URL scraped last Monday is fresh enough to skip this Monday but not next Monday.
+      const dedupedResults = await step.run("filter-recently-scraped", async () => {
+        const urls = filteredResults.map((r) => r.url);
+        const cutoff = new Date(Date.now() - RECENT_SCRAPE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+        const { data } = await supabase
+          .from("tenders")
+          .select("source_url")
+          .in("source_url", urls)
+          .gte("scraped_at", cutoff);
+        const recentUrls = new Set((data ?? []).map((r: { source_url: string }) => r.source_url));
+        const fresh = filteredResults.filter((r) => !recentUrls.has(r.url));
+        if (recentUrls.size > 0) {
+          console.log(`[run-scrape] dedup: skipping ${recentUrls.size} URL(s) scraped within ${RECENT_SCRAPE_WINDOW_DAYS}d, ${fresh.length} remaining`);
+        }
+        return fresh;
+      });
+
       await step.run("progress-searched", async () => {
-        await supabase.from("scrape_jobs").update({ progress: { visited: 0, total: filteredResults.length, stage: "extracting" } }).eq("id", jobId);
+        await supabase.from("scrape_jobs").update({ progress: { visited: 0, total: dedupedResults.length, stage: "extracting" } }).eq("id", jobId);
       });
 
       if (await step.run("check-canceled-before-extract", () => isJobCanceled(supabase, jobId))) {
         return { jobId, visited: 0, tendersFound: 0, canceled: true };
+      }
+
+      // If dedup removed everything, skip straight to done with zero results rather than logging
+      // an error or leaving the job running forever.
+      if (dedupedResults.length === 0) {
+        await step.run("mark-done-all-cached", async () => {
+          await supabase
+            .from("scrape_jobs")
+            .update({
+              status: "done",
+              finished_at: new Date().toISOString(),
+              result_summary: { urls_visited: 0, tendersFound: 0, totalTenders: 0, totalExtracted: 0, openTenders: 0, closedTenders: 0, urlsSkippedAsCached: filteredResults.length, urlsSkipped: results.length - filteredResults.length },
+            })
+            .eq("id", jobId)
+            .neq("status", "canceled");
+        });
+        await step.run("log-done-all-cached", () => logJobOutcome(supabase, jobId, `All ${filteredResults.length} URL(s) recently scraped — skipped to save credits.`));
+        return { jobId, visited: 0, tendersFound: 0, allCached: true };
       }
 
       // Confirmed live: a tenderyetu detail page for one tender had a "Related posts:" footer
@@ -152,7 +194,7 @@ export const runScrapeJob = inngest.createFunction(
       // Extracted concurrently instead of one-at-a-time — this was the single biggest latency
       // cost in the whole pipeline (up to ~60s × 10 results run sequentially before) — but
       // bounded, not a full-width Promise.all, to stay under Firecrawl's per-minute rate limit.
-      await mapWithConcurrency(filteredResults, MAX_CONCURRENT_EXTRACTS, async (result) => {
+      await mapWithConcurrency(dedupedResults, MAX_CONCURRENT_EXTRACTS, async (result) => {
           const { tenders: extracted, markdown } = await step.run(`extract-${result.url}`, async () => {
             try {
               return await extractTenders(result.url, prompt);
@@ -225,7 +267,7 @@ export const runScrapeJob = inngest.createFunction(
           await step.run(`progress-${result.url}`, async () => {
             await supabase
               .from("scrape_jobs")
-              .update({ progress: { visited, total: results.length, current_url: result.url, stage: "extracting" } })
+              .update({ progress: { visited, total: dedupedResults.length, current_url: result.url, stage: "extracting" } })
               .eq("id", jobId);
           });
       });
@@ -256,6 +298,7 @@ export const runScrapeJob = inngest.createFunction(
               openTenders: openCount,
               closedTenders: closedCount,
               urlsSkipped: (results.length - filteredResults.length),
+              urlsSkippedAsCached: filteredResults.length - dedupedResults.length,
               passedFilters: totalExtracted - Object.values(rejectionCounts).reduce((a, b) => a + b, 0),
               droppedAsDuplicate: totalExtracted - Object.values(rejectionCounts).reduce((a, b) => a + b, 0) - totalInserted,
               ...(rejectionSummary(rejectionCounts) ? { rejectedBy: rejectionSummary(rejectionCounts) } : {}),
