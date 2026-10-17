@@ -37,7 +37,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],
-        mono: ["var(--font-jetbrains-mono)", "monospace"],
+        mono: ["var(--font-figtree)", "var(--font-inter)", "sans-serif"],
         display: ["var(--font-clover-display)", "sans-serif"],
       },
       borderRadius: {
@@ -46,7 +46,14 @@ module.exports = {
         lg: "8px",
       },
       animation: {
-        ping: 'ping 2.0s linear infinite', // Adjust the duration here
+        ping: 'ping 2.0s linear infinite',
+        shimmer: 'shimmer 1.5s ease-in-out infinite',
+      },
+      keyframes: {
+        shimmer: {
+          '0%':   { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(300%)' },
+        },
       },
     },
   },

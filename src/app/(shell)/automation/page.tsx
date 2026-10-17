@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Select from "react-select";
-import PageHeader from "@/shared/ui/PageHeader";
+import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import Badge from "@/shared/ui/Badge";
 import { Icon } from "@iconify/react";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
@@ -273,22 +273,18 @@ export default function AutomationPage() {
     setTasks((prev) => prev.filter((t) => String(t.task_id) !== String(task.id)));
   };
 
+  usePageHeader({
+    title: "Automation",
+    description: "Recurring scheduled scraping tasks",
+    icon: "solar:calendar-broken",
+    actions: [
+      { label: "Add Automation", icon: "mdi:plus", variant: "primary", onClick: () => setIsAddModalOpen(true) },
+    ],
+  });
+
   return (
     <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <PageHeader
-          title="Automation"
-          description="Recurring versions of what New Run does one-off — set a schedule here instead of launching it manually each time."
-          icon="solar:calendar-broken"
-          actions={[
-            {
-              label: "Add Automation",
-              icon: "mdi:plus",
-              variant: "primary",
-              onClick: () => setIsAddModalOpen(true),
-            },
-          ]}
-        />
 
         <GenericTable<ScheduledTaskRow>
           data={filteredTasks.map((t) => ({

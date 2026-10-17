@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Select from "react-select";
-import PageHeader from "@/shared/ui/PageHeader";
+import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import Badge from "@/shared/ui/Badge";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
 import { useTheme } from "@/shared/contexts/ThemeContext";
@@ -209,21 +209,17 @@ export default function UploadWebsitePage() {
     }
   };
 
+  usePageHeader({
+    title: "Website Sources",
+    description: "Tracked websites on every scheduled run",
+    icon: "solar:global-broken",
+    actions: [
+      { label: "Add Source", icon: "solar:add-circle-broken", variant: "primary", onClick: () => router.push("/run-query?mode=website") },
+    ],
+  });
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4">
-      <PageHeader
-        title="Website Sources"
-        description="Tracked websites checked on every scheduled run. Add a new one from Run Query → Website."
-        icon="solar:global-broken"
-        actions={[
-          {
-            label: "Add Source",
-            icon: "solar:add-circle-broken",
-            variant: "primary",
-            onClick: () => router.push("/run-query?mode=website"),
-          },
-        ]}
-      />
 
       <GenericTable<WebsiteRow>
         data={filteredWebsites.map((w) => ({ ...w, id: String(w.id) }))}

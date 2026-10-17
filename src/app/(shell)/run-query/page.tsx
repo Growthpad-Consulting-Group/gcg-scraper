@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import PageHeader from "@/shared/ui/PageHeader";
+import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import QueryComposer from "@/features/scraping/components/QueryComposer";
@@ -352,14 +352,15 @@ function RunQueryContent() {
 
   const summaryKind = jobKind === "gmb-leads" || jobKind === "linkedin-leads" || jobKind === "reddit-leads" ? "leads" : "tenders";
 
+  usePageHeader({
+    title: "New Run",
+    description: "Search, scrape, and find leads",
+    icon: "solar:database-broken",
+  });
+
   return (
     <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <PageHeader
-          title="New Run"
-          description="Search, scrape, and find leads from one place — pick a mode below to get started."
-          icon="solar:database-broken"
-        />
 
         {error && <div className="rounded-md bg-status-danger/10 p-4 text-sm text-status-danger">{error}</div>}
 

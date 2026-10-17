@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import PageHeader from "@/shared/ui/PageHeader";
+import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
 import Badge from "@/shared/ui/Badge";
 import LogPanel from "@/shared/ui/LogPanel";
@@ -337,22 +337,22 @@ function LeadsContent() {
 
   const clearFilter = () => router.push("/leads");
 
+  usePageHeader({
+    title: "Leads",
+    description: "Google Maps, LinkedIn & Reddit leads",
+    icon: "solar:map-point-broken",
+    actions: [
+      {
+        label: "Find Leads",
+        icon: "solar:play-circle-broken",
+        variant: "primary",
+        onClick: () => router.push(`/run-query?mode=${activeTab === "gmb" ? "gmb-leads" : activeTab === "linkedin" ? "linkedin-leads" : "reddit-leads"}`),
+      },
+    ],
+  });
+
   return (
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <PageHeader
-          title="Leads"
-          description="Business and people leads from Google Maps and LinkedIn."
-          icon="solar:map-point-broken"
-          actions={[
-            {
-              label: "Find Leads",
-              icon: "solar:play-circle-broken",
-              variant: "primary",
-              onClick: () =>
-                router.push(`/run-query?mode=${activeTab === "gmb" ? "gmb-leads" : activeTab === "linkedin" ? "linkedin-leads" : "reddit-leads"}`),
-            },
-          ]}
-        />
 
         <div className="flex w-fit gap-1 rounded-md border border-app-border bg-surface p-1">
           {tabs.map((tab) => (

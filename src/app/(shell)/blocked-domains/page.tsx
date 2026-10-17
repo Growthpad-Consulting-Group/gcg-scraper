@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import PageHeader from "@/shared/ui/PageHeader";
+import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import Badge from "@/shared/ui/Badge";
 import GlassPanel from "@/shared/ui/GlassPanel";
 import Button from "@/shared/ui/Button";
@@ -112,13 +112,14 @@ export default function BlockedDomainsPage() {
     },
   ];
 
+  usePageHeader({
+    title: "Blocked Domains",
+    description: "Domains skipped during scraping",
+    icon: "solar:shield-cross-broken",
+  });
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4">
-      <PageHeader
-        title="Blocked Domains"
-        description="Domains listed here are skipped during search-query scraping — useful for paywalled sites, login-required portals, or sources that never return useful tender data."
-        icon="solar:shield-cross-broken"
-      />
 
       {/* Add form */}
       <GlassPanel mode={mode} className="flex flex-col gap-3 rounded-lg p-4">

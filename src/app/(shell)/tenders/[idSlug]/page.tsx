@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import { motion } from "framer-motion";
@@ -282,6 +283,15 @@ export default function TenderDetailPage() {
   };
 
   const deadline = tender ? daysUntilDeadline(tender.closing_date, tender.status) : null;
+
+  usePageHeader(tender ? {
+    title: tender.title,
+    description: tender.organization ?? tender.tender_type ?? "Tender detail",
+    icon: "solar:case-minimalistic-broken",
+    actions: [
+      { label: "Back to Tenders", icon: "solar:arrow-left-broken", onClick: () => router.push("/tenders") },
+    ],
+  } : null);
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4">

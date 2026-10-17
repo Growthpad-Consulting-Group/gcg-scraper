@@ -11,6 +11,7 @@ import useUserProfile from "@/features/auth/hooks/useUserProfile";
 import { useNotifications } from "@/shared/contexts/NotificationsContext";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import { CommandPaletteProvider } from "@/shared/contexts/CommandPaletteContext";
+import { PageHeaderProvider } from "@/shared/contexts/PageHeaderContext";
 import { useNavShortcuts } from "@/widgets/app-shell/lib/shortcuts";
 
 /**
@@ -27,6 +28,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   useNavShortcuts();
 
   return (
+    <PageHeaderProvider>
     <CommandPaletteProvider>
       {/* Fixed to the viewport height with `main` as the single internal scroll region — needed
           so position:sticky works for anything inside main (e.g. the Tenders page's filter
@@ -68,5 +70,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <ChatWidget />
       </div>
     </CommandPaletteProvider>
+    </PageHeaderProvider>
   );
 }

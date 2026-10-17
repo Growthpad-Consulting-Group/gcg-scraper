@@ -1,18 +1,19 @@
 "use client";
 
-import PageHeader from "@/shared/ui/PageHeader";
+import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import KeywordListPanel from "@/features/settings/components/KeywordListPanel";
 import RetentionSettingsPanel from "@/features/settings/components/RetentionSettingsPanel";
 import UsagePanel from "@/features/settings/components/UsagePanel";
 
 export default function SettingsPage() {
+  usePageHeader({
+    title: "Settings",
+    description: "Keywords, retention & usage",
+    icon: "solar:settings-broken",
+  });
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4">
-      <PageHeader
-        title="Settings"
-        description="Business-tunable knobs — keyword libraries and retention/timing windows. API keys and other secrets are configured via environment variables, not here."
-        icon="solar:settings-broken"
-      />
 
       <UsagePanel />
 

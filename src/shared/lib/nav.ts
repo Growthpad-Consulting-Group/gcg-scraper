@@ -29,6 +29,7 @@ export const sidebarNavGroups: NavGroup[] = [
       // Previously only reachable by already knowing to go to New Run's Website mode — a
       // 200+-site tracked list deserves its own entry point.
       { href: "/website-sources", icon: "solar:global-broken", label: "Website Sources" },
+      { href: "/rejected-candidates", icon: "solar:danger-triangle-broken", label: "Rejected Candidates" },
     ],
   },
   {

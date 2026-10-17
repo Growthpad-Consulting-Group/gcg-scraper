@@ -6,7 +6,7 @@ import Link from "next/link";
 import Select from "react-select";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
-import PageHeader from "@/shared/ui/PageHeader";
+import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import Button from "@/shared/ui/Button";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
@@ -523,20 +523,17 @@ function TendersContent() {
   };
 
 
+  usePageHeader({
+    title: "Tenders",
+    description: "All collected tenders",
+    icon: "solar:case-minimalistic-broken",
+    actions: [
+      { label: "Add Source", icon: "solar:upload-broken", onClick: () => router.push("/website-sources") },
+    ],
+  });
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4">
-      <PageHeader
-        title="Tenders"
-        description="All tenders collected so far — click into any one to see which run found it."
-        icon="solar:case-minimalistic-broken"
-        actions={[
-          {
-            label: "Add Source",
-            icon: "solar:upload-broken",
-            onClick: () => router.push("/website-sources"),
-          },
-        ]}
-      />
 
       {jobFilter && (
         <RunFilterBanner
