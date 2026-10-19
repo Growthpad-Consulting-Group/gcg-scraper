@@ -14,6 +14,7 @@ import ConfirmDeleteModal from "@/shared/ui/ConfirmDeleteModal";
 import LogsModal, { type TaskLogEntry } from "@/features/scheduler/components/LogsModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import { getSourceConfig } from "@/features/tenders/api/sourceConfigs";
+import StatCard from "@/shared/ui/StatCard";
 
 interface ScheduledTask {
   task_id: number;
@@ -44,6 +45,7 @@ export default function AutomationPage() {
   const [currentTask, setCurrentTask] = useState<ScheduledTask | null>(null);
   const [logs, setLogs] = useState<TaskLogEntry[]>([]);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [automationStatusFilter, setAutomationStatusFilter] = useState<string>('all');
 
   const fetchTenderTypes = useCallback(async () => {
     try {
@@ -263,7 +265,12 @@ export default function AutomationPage() {
     () => [...new Set(tasks.map((t) => t.tender_type).filter((t): t is string => !!t))].sort(),
     [tasks]
   );
-  const filteredTasks = typeFilter ? tasks.filter((t) => t.tender_type === typeFilter) : tasks;
+  const filteredTasks = tasks.filter((t) => {
+    if (typeFilter && t.tender_type !== typeFilter) return false;
+    if (automationStatusFilter === "enabled"  && !t.is_enabled) return false;
+    if (automationStatusFilter === "disabled" &&  t.is_enabled) return false;
+    return true;
+  });
 
   const AUTOMATION_FILTER_CATEGORIES: FilterCategoryDef[] = [
     { id: 'status', label: 'Status', icon: 'solar:info-circle-broken' },
@@ -278,12 +285,12 @@ export default function AutomationPage() {
     tender_type: typeOptions.map(t => ({ id: t, label: t, category: 'tender_type', value: t })),
   }), [typeOptions]);
 
-  const [automationStatusFilter, setAutomationStatusFilter] = useState<string>('all');
   const automationInitialFilters = useMemo<ActiveFilter[]>(() => {
     const f: ActiveFilter[] = [];
     if (typeFilter) f.push({ category: 'tender_type', values: [typeFilter], label: `Type: is ${typeFilter}`, operator: 'is' });
+    if (automationStatusFilter && automationStatusFilter !== 'all') f.push({ category: 'status', values: [automationStatusFilter], label: `Status: is ${automationStatusFilter}`, operator: 'is' });
     return f;
-  }, [typeFilter]);
+  }, [typeFilter, automationStatusFilter]);
 
   const handleAutomationFilterChange = useCallback((filters: ActiveFilter[]) => {
     const get = (cat: string) => filters.find(f => f.category === cat)?.values[0] ?? null;
@@ -308,9 +315,22 @@ export default function AutomationPage() {
     ],
   });
 
+  const activeCount   = tasks.filter((t) => t.is_enabled).length;
+  const pausedCount   = tasks.filter((t) => !t.is_enabled).length;
+  const neverRunCount = tasks.filter((t) => !t.last_run).length;
+
   return (
     <>
       <div className="mx-auto flex max-w-7xl flex-col gap-4">
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard title="Total" value={isLoading ? "—" : tasks.length} icon="solar:calendar-broken" color="blue" loading={isLoading} />
+          <StatCard title="Active" value={isLoading ? "—" : activeCount} icon="solar:play-circle-broken" color="green" loading={isLoading}
+            onClick={() => setAutomationStatusFilter(automationStatusFilter === "enabled" ? "all" : "enabled")} />
+          <StatCard title="Paused" value={isLoading ? "—" : pausedCount} icon="solar:pause-circle-broken" color="gray" loading={isLoading}
+            onClick={() => setAutomationStatusFilter(automationStatusFilter === "disabled" ? "all" : "disabled")} />
+          <StatCard title="Never Run" value={isLoading ? "—" : neverRunCount} icon="solar:clock-circle-broken" color="yellow" loading={isLoading} />
+        </div>
 
         <GenericTable<ScheduledTaskRow>
           data={filteredTasks.map((t) => ({

@@ -46,18 +46,13 @@ export default function TenderSourceRunForm({ tenderTypes, sourceHealth, selecte
   return (
     <GlassPanel mode={mode} className="flex flex-col gap-5 rounded-2xl p-5">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg">
-          <Icon icon="solar:server-broken" width={20} className="text-white" />
-        </div>
         <div>
-          <p className="text-sm font-semibold text-text-hi">Tender Source</p>
-          <p className="text-xs text-text-lo">Trigger an ad-hoc run of a specific configured source.</p>
+          <p className="text-sm font-semibold text-text-hi">Pick a tender Source</p>
         </div>
       </div>
 
       {/* Source picker */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-text-lo">Source</label>
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
           {tenderTypes.map((type) => {
             const h = healthMap[type];

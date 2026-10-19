@@ -123,7 +123,7 @@ function SimpleModal({
             className="fixed inset-0"
             style={{
               filter: "url(#glass-distortion)",
-              backdropFilter: "blur(12px) saturate(180%)",
+              backdropFilter: "blur(4px) saturate(140%)",
             }}
             onClick={handleOutsideClick}
           />
@@ -148,7 +148,7 @@ function SimpleModal({
           >
             <GlassPanel
               mode={mode}
-              className={`rounded-3xl overflow-hidden ${mode === "dark" ? "bg-gray-900/50" : "bg-white/70"}`}
+              className={`rounded-xl overflow-hidden ${mode === "dark" ? "bg-gray-900" : "bg-white/90"}`}
             >
               {/* Header */}
               <div

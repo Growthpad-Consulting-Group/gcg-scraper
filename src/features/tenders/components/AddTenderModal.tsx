@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import toast from "react-hot-toast";
 import SimpleModal from "@/shared/ui/SimpleModal";
+import LocationInput from "@/features/scraping/components/LocationInput";
+import { useTheme } from "@/shared/contexts/ThemeContext";
 
 interface Props {
   isOpen: boolean;
@@ -47,8 +49,18 @@ const INPUT_CLS =
   "w-full rounded-xl border border-app-border bg-surface px-3 py-2 text-sm text-text-hi placeholder:text-text-lo focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/30 transition-colors";
 
 export default function AddTenderModal({ isOpen, onClose, onAdded }: Props) {
+  const { resolvedMode: mode } = useTheme();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [countries, setCountries] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isOpen && countries.length === 0) {
+      fetch("/api/countries").then((r) => r.json()).then((d) => {
+        if (Array.isArray(d)) setCountries(d.map((c: any) => c.country_name).sort());
+      }).catch(() => {});
+    }
+  }, [isOpen, countries.length]);
 
   const isDirty = Object.values(form).some(Boolean);
 
@@ -133,12 +145,12 @@ export default function AddTenderModal({ isOpen, onClose, onAdded }: Props) {
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Location">
-            <input
-              type="text"
-              className={INPUT_CLS}
-              placeholder="e.g. Nairobi, Kenya"
+            <LocationInput
               value={form.location}
-              onChange={set("location")}
+              onChange={(v) => setForm((prev) => ({ ...prev, location: v }))}
+              countries={countries}
+              placeholder="e.g. Nairobi, Kenya"
+              mode={mode}
             />
           </Field>
           <Field label="Closing date">

@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { Icon } from "@iconify/react";
 import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import Badge from "@/shared/ui/Badge";
+import Button from "@/shared/ui/Button";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
+import SimpleModal from "@/shared/ui/SimpleModal";
+import LocationInput from "@/features/scraping/components/LocationInput";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import type { ActiveFilter, FilterCategoryDef, FilterOption } from "@/shared/ui/UnifiedSearchFilter";
 
@@ -41,11 +45,90 @@ function hostnameOf(url: string): string {
   }
 }
 
+function AddSourceModal({ isOpen, onClose, onAdded, mode }: { isOpen: boolean; onClose: () => void; onAdded: (w: Website) => void; mode: "light" | "dark" }) {
+  const [url, setUrl] = useState("");
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [scope, setScope] = useState<"regional" | "international">("regional");
+  const [saving, setSaving] = useState(false);
+  const [countries, setCountries] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setUrl(""); setName(""); setLocation(""); setScope("regional");
+      setTimeout(() => inputRef.current?.focus(), 50);
+      fetch("/api/countries").then((r) => r.json()).then((d) => {
+        if (Array.isArray(d)) setCountries(d.map((c: any) => c.country_name).sort());
+      }).catch(() => {});
+    }
+  }, [isOpen]);
+
+  const handleSave = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/websites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed, name: name.trim() || undefined, location: location.trim() || undefined, scope }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add source");
+      onAdded(data.website);
+      toast.success(`${data.website.name || data.website.url} added`);
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputClass = "h-10 w-full rounded-lg border border-app-border bg-canvas px-3 text-sm text-text-hi outline-none placeholder:text-text-lo focus:border-brand-500";
+
+  return (
+    <SimpleModal isOpen={isOpen} onClose={onClose} title="Add Website Source" subtitle="This website will be included in every scheduled scrape run." width="max-w-lg">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-text-lo">URL <span className="text-status-danger">*</span></label>
+          <input ref={inputRef} value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSave()} placeholder="https://example.com/tenders" className={inputClass} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-text-lo">Name <span className="font-normal">(optional)</span></label>
+          <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSave()} placeholder="e.g. Example Procurement Portal" className={inputClass} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-text-lo">Location <span className="font-normal">(optional)</span></label>
+          <LocationInput value={location} onChange={setLocation} countries={countries} placeholder="e.g. Kenya" mode={mode} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-text-lo">Scope</label>
+          <div className="flex gap-2">
+            {(["regional", "international"] as const).map((s) => (
+              <button key={s} onClick={() => setScope(s)} className={`flex-1 rounded-lg border px-3 py-2 text-sm capitalize transition-colors ${scope === s ? "border-brand-500/40 bg-brand-500/10 text-brand-500" : "border-app-border text-text-lo hover:border-brand-500/30 hover:text-text-hi"}`}>{s}</button>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving || !url.trim()}>
+            <Icon icon={saving ? "mdi:loading" : "solar:add-circle-broken"} width={14} className={saving ? "animate-spin" : ""} />
+            {saving ? "Saving…" : "Add Source"}
+          </Button>
+        </div>
+      </div>
+    </SimpleModal>
+  );
+}
+
 export default function UploadWebsitePage() {
   const router = useRouter();
   const { resolvedMode: mode } = useTheme();
   const [websites, setWebsites] = useState<Website[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [scanningId, setScanningId] = useState<number | null>(null);
   const [scopeFilter, setScopeFilter] = useState<string | null>(null);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
@@ -239,18 +322,23 @@ export default function UploadWebsitePage() {
     description: "Tracked websites on every scheduled run",
     icon: "solar:global-broken",
     actions: [
-      { label: "Add Source", icon: "solar:add-circle-broken", variant: "primary", onClick: () => router.push("/run-query?mode=website") },
+      { label: "Add Source", icon: "solar:add-circle-broken", variant: "primary", onClick: () => setIsModalOpen(true) },
     ],
   });
 
+  const handleSourceAdded = (w: Website) => {
+    setWebsites((prev) => [w, ...prev].sort((a, b) => (a.name || a.url).localeCompare(b.name || b.url)));
+  };
+
   return (
+    <>
     <div className="mx-auto flex max-w-7xl flex-col gap-4">
 
       <GenericTable<WebsiteRow>
         data={filteredWebsites.map((w) => ({ ...w, id: String(w.id) }))}
         columns={columns}
         loading={isLoading}
-        emptyMessage="No tracked websites yet — add one from Run Query."
+        emptyMessage="No tracked websites yet — add one with the button above."
         searchable
         searchPlaceholder="Search sources…"
         filterCategories={WEBSITE_FILTER_CATEGORIES}
@@ -277,5 +365,8 @@ export default function UploadWebsitePage() {
         }}
       />
     </div>
+
+    <AddSourceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAdded={handleSourceAdded} mode={mode} />
+    </>
   );
 }

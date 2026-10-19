@@ -687,7 +687,7 @@ function TendersContent() {
         icon: "solar:danger-triangle-broken",
         onClick: () => router.push(jobFilter ? `/rejected-candidates?job_id=${jobFilter}` : "/rejected-candidates"),
       },
-      { label: "Add Source", icon: "solar:upload-broken", onClick: () => router.push("/website-sources") },
+      { label: "Website Sources", icon: "solar:global-broken", onClick: () => router.push("/website-sources") },
     ],
   });
 
