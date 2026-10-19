@@ -156,6 +156,15 @@ export const runScrapeJob = inngest.createFunction(
         return { jobId, visited: 0, tendersFound: 0, canceled: true };
       }
 
+      // Load the allowlist once per job — URLs added here were manually recovered by a user and
+      // bypass all rejection filters so future runs don't drop them again. step.run serializes
+      // through JSON so we return a plain array and build the Set outside the step boundary.
+      const allowlistArr = await step.run("load-allowlist", async () => {
+        const { data } = await supabase.from("tender_allowlist").select("source_url");
+        return (data ?? []).map((r: { source_url: string }) => r.source_url);
+      });
+      const allowlistedUrls = new Set<string>(allowlistArr);
+
       // If dedup removed everything, skip straight to done with zero results rather than logging
       // an error or leaving the job running forever.
       if (dedupedResults.length === 0) {
@@ -226,7 +235,7 @@ export const runScrapeJob = inngest.createFunction(
               // confirmed live (sports shoes, dairy sensitization, office fit-out tenders slipping
               // into a "MEL, Evaluation & Instructional Design" run). The task's curated
               // search_terms double as a real keyword backstop here, same as run-source-scrape.ts.
-              const reason = classifyRejection(t, { countries, markdown, fallbackUrl: result.url, keywords: isMultiQuery ? queryList : undefined, skipKeywords: !isMultiQuery });
+              const reason = classifyRejection(t, { countries, markdown, fallbackUrl: result.url, keywords: isMultiQuery ? queryList : undefined, skipKeywords: !isMultiQuery, allowlistedUrls });
               if (reason) {
                 pageRejections[reason] += 1;
                 pageRejected.push({ tender: t, reason });

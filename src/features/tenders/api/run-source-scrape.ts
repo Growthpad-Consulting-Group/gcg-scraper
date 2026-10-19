@@ -63,11 +63,20 @@ export const runSourceScrapeJob = inngest.createFunction(
         return extractTenders(config.url, prompt, { waitFor: config.waitFor, timeout: config.timeout, proxy: config.proxy });
       });
 
+      // Load the allowlist once per job — URLs added here were manually recovered and bypass all
+      // rejection filters so future runs don't drop the same tender again. step.run serializes
+      // through JSON so we return a plain array and build the Set outside the step boundary.
+      const allowlistArr = await step.run("load-allowlist", async () => {
+        const { data } = await supabase.from("tender_allowlist").select("source_url");
+        return (data ?? []).map((r: { source_url: string }) => r.source_url);
+      });
+      const allowlistedUrls = new Set<string>(allowlistArr);
+
       const { inserted, open: openCount, closed: closedCount, rows: insertedTenders, rejectionCounts, rejected } = await step.run("save-tenders", async () => {
         const rejectionCounts: Record<RejectionReason, number> = { no_url: 0, country: 0, keywords: 0, source_content: 0 };
         const rejected: { tender: typeof extracted[number]; reason: RejectionReason }[] = [];
         const rows = extracted.flatMap((t) => {
-          const reason = classifyRejection(t, { keywords, countries, markdown });
+          const reason = classifyRejection(t, { keywords, countries, markdown, allowlistedUrls });
           if (reason) {
             rejectionCounts[reason] += 1;
             rejected.push({ tender: t, reason });

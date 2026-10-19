@@ -324,9 +324,13 @@ export type RejectionReason = "no_url" | "country" | "keywords" | "source_conten
 
 export function classifyRejection(
   tender: { title: string; source_url?: string | null; description?: string | null; category?: string | null; organization?: string | null; location?: string | null },
-  opts: { keywords?: string[] | null; countries?: string[] | null; markdown: string | null; fallbackUrl?: string; skipKeywords?: boolean }
+  opts: { keywords?: string[] | null; countries?: string[] | null; markdown: string | null; fallbackUrl?: string; skipKeywords?: boolean; allowlistedUrls?: Set<string> }
 ): RejectionReason | null {
-  if (!(tender.source_url || opts.fallbackUrl)) return "no_url";
+  const url = tender.source_url || opts.fallbackUrl;
+  if (!url) return "no_url";
+  // Allowlisted URLs were manually recovered by a user — bypass all content checks so future
+  // runs don't re-reject them regardless of which filter originally dropped them.
+  if (opts.allowlistedUrls?.has(url)) return null;
   if (!matchesCountries(tender, opts.countries)) return "country";
   if (!opts.skipKeywords && !matchesKeywords(tender, opts.keywords)) return "keywords";
   if (!matchesSourceContent(tender, opts.markdown)) return "source_content";

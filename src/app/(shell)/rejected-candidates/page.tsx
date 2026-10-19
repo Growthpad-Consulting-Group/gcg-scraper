@@ -10,6 +10,7 @@ import GenericTable, { type Column } from "@/shared/ui/GenericTable";
 import Select from "react-select";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
+import toast from "react-hot-toast";
 
 type RejectionReason = "no_url" | "country" | "keywords" | "source_content";
 
@@ -43,6 +44,13 @@ const REASON_COLORS: Record<RejectionReason, string> = {
 const ALL_REASONS: RejectionReason[] = ["no_url", "country", "keywords", "source_content"];
 const FETCH_LIMIT = 500;
 
+const RECOVER_TOOLTIP: Record<RejectionReason, string> = {
+  no_url:         "Promote this tender — no URL to allowlist, so it won't recur automatically",
+  country:        "Promote & allowlist — future runs will skip the country filter for this URL",
+  keywords:       "Promote & allowlist — future runs will skip the keyword filter for this URL",
+  source_content: "Promote & allowlist — future runs will skip the content check for this URL",
+};
+
 function ReasonBadge({ reason }: { reason: RejectionReason }) {
   return (
     <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 font-mono text-[10px] font-semibold", REASON_COLORS[reason])}>
@@ -57,7 +65,7 @@ function formatDate(iso: string) {
   });
 }
 
-function buildColumns(): Column<RejectedTender>[] {
+function buildColumns(onRecover: (row: RejectedTender) => void, recoveringId: string | null): Column<RejectedTender>[] {
   return [
     {
       Header: "Title",
@@ -139,6 +147,35 @@ function buildColumns(): Column<RejectedTender>[] {
         <span className="font-mono text-xs text-text-lo">{formatDate(row.rejected_at)}</span>
       ),
     },
+    {
+      Header: "",
+      accessor: "id",
+      sortable: false,
+      width: 90,
+      render: (row) => {
+        const isRecovering = recoveringId === row.id;
+        return (
+          <button
+            title={RECOVER_TOOLTIP[row.reason]}
+            disabled={isRecovering}
+            onClick={(e) => { e.stopPropagation(); onRecover(row); }}
+            className={cn(
+              "flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition-colors",
+              isRecovering
+                ? "cursor-wait border-brand-500/20 bg-brand-500/5 text-brand-500/50"
+                : "border-app-border bg-surface text-text-lo hover:border-brand-500/40 hover:bg-brand-500/5 hover:text-brand-500"
+            )}
+          >
+            {isRecovering ? (
+              <Icon icon="solar:refresh-broken" width={11} className="animate-spin" />
+            ) : (
+              <Icon icon="solar:restart-bold" width={11} />
+            )}
+            Recover
+          </button>
+        );
+      },
+    },
   ];
 }
 
@@ -154,6 +191,7 @@ function RejectedCandidatesContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [reasonFilter, setReasonFilter] = useState<RejectionReason | "">(initialReason);
   const [typeFilter, setTypeFilter] = useState("");
+  const [recoveringId, setRecoveringId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -172,6 +210,24 @@ function RejectedCandidatesContent() {
   }, [jobId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleRecover = useCallback(async (row: RejectedTender) => {
+    setRecoveringId(row.id);
+    try {
+      const res = await fetch(`/api/rejected-tenders/${row.id}/promote`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to recover tender.");
+      } else {
+        toast.success("Tender recovered and added to allowlist.");
+        setAllItems((prev) => prev.filter((i) => i.id !== row.id));
+      }
+    } catch {
+      toast.error("Network error — could not recover tender.");
+    } finally {
+      setRecoveringId(null);
+    }
+  }, []);
 
   // Client-side filtering on top of the fetched batch
   const filtered = allItems.filter((item) => {
@@ -259,7 +315,7 @@ function RejectedCandidatesContent() {
 
       <GenericTable<RejectedTender>
         data={filtered}
-        columns={buildColumns()}
+        columns={buildColumns(handleRecover, recoveringId)}
         loading={isLoading}
         title="Rejected Candidates"
         emptyMessage="No rejected candidates match the current filters."
