@@ -7,10 +7,41 @@ import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/lib/cn";
 import GenericTable, { type Column } from "@/shared/ui/GenericTable";
-import Select from "react-select";
 import { useTheme } from "@/shared/contexts/ThemeContext";
-import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
+import type { ActiveFilter, FilterCategoryDef, FilterOption } from "@/shared/ui/UnifiedSearchFilter";
 import toast from "react-hot-toast";
+
+const FAVICON_SIZE = 64;
+
+function faviconUrl(sourceUrl?: string | null): string | null {
+  if (!sourceUrl) return null;
+  try {
+    const host = new URL(sourceUrl).hostname;
+    return `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${host}&size=${FAVICON_SIZE}`;
+  } catch {
+    return null;
+  }
+}
+
+function TenderLogo({ sourceUrl }: { sourceUrl?: string | null }) {
+  const logo = faviconUrl(sourceUrl);
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="shrink-0 w-7 h-7 rounded-md border border-app-border/50 bg-surface-2 flex items-center justify-center overflow-hidden">
+      {logo && !failed ? (
+        <img
+          src={logo}
+          alt=""
+          className="w-7 h-7 object-contain"
+          onError={() => setFailed(true)}
+          onLoad={(e) => { if (e.currentTarget.naturalWidth < FAVICON_SIZE / 2) setFailed(true); }}
+        />
+      ) : (
+        <Icon icon="solar:close-circle-broken" width={13} className="text-text-lo" />
+      )}
+    </div>
+  );
+}
 
 type RejectionReason = "no_url" | "country" | "keywords" | "source_content";
 
@@ -73,38 +104,41 @@ function buildColumns(onRecover: (row: RejectedTender) => void, recoveringId: st
       sortable: true,
       width: 420,
       render: (row) => (
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-start gap-2">
-            {row.source_url ? (
-              <a
-                href={row.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="line-clamp-2 font-medium text-text-hi underline-offset-2 hover:text-brand-500 hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {row.title ?? "(no title)"}
-              </a>
-            ) : (
-              <span className="line-clamp-2 font-medium text-text-hi">
-                {row.title ?? "(no title)"}
-              </span>
-            )}
-            {row.source_url && (
-              <a
-                href={row.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-0.5 shrink-0 text-text-lo opacity-0 transition-opacity group-hover:opacity-60"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Icon icon="solar:arrow-right-up-broken" width={12} />
-              </a>
+        <div className="flex items-start gap-2.5">
+          <TenderLogo sourceUrl={row.source_url} />
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <div className="flex items-start gap-2">
+              {row.source_url ? (
+                <a
+                  href={row.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="line-clamp-2 font-medium text-text-hi underline-offset-2 hover:text-brand-500 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {row.title ?? "(no title)"}
+                </a>
+              ) : (
+                <span className="line-clamp-2 font-medium text-text-hi">
+                  {row.title ?? "(no title)"}
+                </span>
+              )}
+              {row.source_url && (
+                <a
+                  href={row.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-0.5 shrink-0 text-text-lo opacity-0 transition-opacity group-hover:opacity-60"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Icon icon="solar:arrow-right-up-broken" width={12} />
+                </a>
+              )}
+            </div>
+            {row.location && (
+              <p className="text-[11px] text-text-lo">{row.location}</p>
             )}
           </div>
-          {row.location && (
-            <p className="text-[11px] text-text-lo">{row.location}</p>
-          )}
         </div>
       ),
     },
@@ -148,7 +182,7 @@ function buildColumns(onRecover: (row: RejectedTender) => void, recoveringId: st
       ),
     },
     {
-      Header: "",
+      Header: "Actions",
       accessor: "id",
       sortable: false,
       width: 90,
@@ -182,7 +216,7 @@ function buildColumns(onRecover: (row: RejectedTender) => void, recoveringId: st
 function RejectedCandidatesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { resolvedMode: mode } = useTheme();
+
 
   const jobId = searchParams.get("job_id") ?? "";
   const initialReason = (searchParams.get("reason") ?? "") as RejectionReason | "";
@@ -240,6 +274,23 @@ function RejectedCandidatesContent() {
     .filter((r) => allItems.some((i) => i.reason === r))
     .map((r) => ({ value: r, label: REASON_LABELS[r] }));
 
+  const REJECTED_FILTER_CATEGORIES: FilterCategoryDef[] = [
+    { id: 'reason', label: 'Reason', icon: 'solar:danger-triangle-broken' },
+  ];
+
+  const rejectedCategoryOptions: Record<string, FilterOption[]> = {
+    reason: reasonOptions.map(o => ({ id: o.value, label: o.label, category: 'reason', value: o.value })),
+  };
+
+  const rejectedInitialFilters: ActiveFilter[] = reasonFilter
+    ? [{ category: 'reason', values: [reasonFilter], label: `Reason: is ${REASON_LABELS[reasonFilter]}`, operator: 'is' }]
+    : [];
+
+  const handleRejectedFilterChange = useCallback((filters: ActiveFilter[]) => {
+    const r = filters.find(f => f.category === 'reason')?.values[0] ?? '';
+    setReasonFilter(r as RejectionReason | '');
+  }, []);
+
   usePageHeader({
     title: "Rejected Candidates",
     description: "Tenders filtered out by rejection rules",
@@ -252,8 +303,6 @@ function RejectedCandidatesContent() {
       },
     ],
   });
-
-  const activeFilterCount = [reasonFilter, typeFilter].filter(Boolean).length;
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4">
@@ -277,50 +326,18 @@ function RejectedCandidatesContent() {
         </div>
       )}
 
-      {/* Extra filters row */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="w-48">
-          <Select
-            value={reasonFilter ? { value: reasonFilter, label: REASON_LABELS[reasonFilter] } : null}
-            onChange={(opt) => setReasonFilter((getSelectValue(opt) as RejectionReason | null) ?? "")}
-            options={reasonOptions}
-            placeholder="All reasons"
-            isClearable
-            className="react-select-container"
-            classNamePrefix="react-select"
-            styles={getSelectStyles<{ value: string; label: string }>(mode)}
-            menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-            menuPosition="fixed"
-          />
-        </div>
-
-        <input
-          type="text"
-          placeholder="Filter by source…"
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="w-44 rounded-lg border border-app-border bg-surface px-3 py-2 text-sm text-text-hi placeholder:text-text-lo focus:border-brand-500 focus:outline-none"
-        />
-
-        {activeFilterCount > 0 && (
-          <button
-            onClick={() => { setReasonFilter(""); setTypeFilter(""); }}
-            className="flex items-center gap-1.5 rounded-lg border border-app-border bg-surface px-2.5 py-2 text-xs text-text-lo transition-colors hover:border-brand-500/30 hover:text-brand-500"
-          >
-            <Icon icon="solar:close-circle-broken" width={13} />
-            Clear {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
-          </button>
-        )}
-      </div>
-
       <GenericTable<RejectedTender>
         data={filtered}
         columns={buildColumns(handleRecover, recoveringId)}
         loading={isLoading}
-        title="Rejected Candidates"
         emptyMessage="No rejected candidates match the current filters."
         searchable
         searchPlaceholder="Search title or organisation…"
+        filterCategories={REJECTED_FILTER_CATEGORIES}
+        categoryOptions={rejectedCategoryOptions}
+        singleSelectCategories={['reason']}
+        initialFilters={rejectedInitialFilters}
+        onUnifiedFilterChange={handleRejectedFilterChange}
         pageSize={50}
         fullPageHeight
         enableRefresh

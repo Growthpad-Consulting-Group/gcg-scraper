@@ -67,6 +67,23 @@ export async function startTaskRun(supabase: SupabaseClient, task: ScheduledTask
       data: { jobId: job.id, keywords: task.search_terms || [], countries: task.countries || [], searchPhrases: task.linkedin_search_phrases || [] },
     });
   } else if (tenderType && getSourceConfig(tenderType)) {
+    const sourceConfig = getSourceConfig(tenderType)!;
+    const minHours = sourceConfig.scrapeFrequencyHours ?? 24;
+    // Check source_health to see if this source was scraped too recently — skip if within cadence
+    const { data: health } = await supabase
+      .from("source_health")
+      .select("last_run_at")
+      .eq("tender_type", tenderType)
+      .maybeSingle();
+    if (health?.last_run_at) {
+      const hoursSince = (Date.now() - new Date(health.last_run_at).getTime()) / (1000 * 60 * 60);
+      if (hoursSince < minHours) {
+        // Cancel the queued job and log the skip — job was already inserted above
+        await supabase.from("scrape_jobs").update({ status: "canceled", finished_at: new Date().toISOString(), result_summary: { skippedReason: `Source scraped ${Math.round(hoursSince)}h ago; cadence is ${minHours}h` } }).eq("id", job.id);
+        await logTaskEvent(supabase, task.task_id, `Skipped — ${tenderType} scraped ${Math.round(hoursSince)}h ago (cadence: every ${minHours}h).`);
+        return job.id;
+      }
+    }
     await inngest.send({
       name: "tenders/source.queued",
       data: { jobId: job.id, tenderType, keywords: task.search_terms || [], countries: task.countries || [] },

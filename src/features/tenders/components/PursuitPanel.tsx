@@ -45,7 +45,11 @@ export interface PursuitFields {
   pursuit_status: string | null;
   assigned_to: string | null;
   pursuit_notes: string | null;
+  bid_submitted_at: string | null;
+  bid_value: number | null;
 }
+
+const BID_STATUSES = new Set(["applied", "won", "lost"]);
 
 async function patchTender(id: string | number, updates: Partial<PursuitFields>): Promise<PursuitFields> {
   const res = await fetch(`/api/tenders/${id}`, {
@@ -190,6 +194,46 @@ export default function PursuitPanel({
               rows={3}
               className="w-full resize-y rounded-lg bg-transparent p-2.5 text-sm text-text-hi outline-none placeholder:text-text-lo"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Bid fields — only shown once a bid decision has been made */}
+      {!compact && fields.pursuit_status && BID_STATUSES.has(fields.pursuit_status) && (
+        <div className="flex flex-col gap-2 rounded-xl border border-brand-500/20 bg-brand-500/5 p-3">
+          <p className="text-xs font-medium text-brand-500">Bid details</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-text-lo">Submitted on</label>
+              <div className="relative flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={fields.bid_submitted_at ?? ""}
+                  onChange={(e) => setFields((prev) => ({ ...prev, bid_submitted_at: e.target.value || null }))}
+                  onBlur={() => save({ bid_submitted_at: fields.bid_submitted_at || null }, "bid_submitted_at" as keyof PursuitFields)}
+                  className={inputClass}
+                />
+                {savingField === ("bid_submitted_at" as keyof PursuitFields) && <Icon icon="mdi:loading" width={12} className="animate-spin text-text-lo" />}
+                {justSaved === ("bid_submitted_at" as keyof PursuitFields) && <Icon icon="solar:check-circle-bold" width={12} className="text-status-success" />}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-text-lo">Bid value (USD)</label>
+              <div className="relative flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={fields.bid_value ?? ""}
+                  onChange={(e) => setFields((prev) => ({ ...prev, bid_value: e.target.value ? Number(e.target.value) : null }))}
+                  onBlur={() => save({ bid_value: fields.bid_value }, "bid_value" as keyof PursuitFields)}
+                  placeholder="e.g. 50000"
+                  className={`${inputClass} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                />
+                {savingField === ("bid_value" as keyof PursuitFields) && <Icon icon="mdi:loading" width={12} className="animate-spin text-text-lo" />}
+                {justSaved === ("bid_value" as keyof PursuitFields) && <Icon icon="solar:check-circle-bold" width={12} className="text-status-success" />}
+              </div>
+            </div>
           </div>
         </div>
       )}

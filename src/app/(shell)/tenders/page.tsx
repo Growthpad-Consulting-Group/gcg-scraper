@@ -1,21 +1,22 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback, useMemo, Fragment } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import Select from "react-select";
 import toast from "react-hot-toast";
 import { Icon } from "@iconify/react";
 import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import Button from "@/shared/ui/Button";
 import RunFilterBanner from "@/shared/ui/RunFilterBanner";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
+import StatCard from "@/shared/ui/StatCard";
+import type { ActiveFilter, FilterCategoryDef, FilterOption } from "@/shared/ui/UnifiedSearchFilter";
 import Badge, { type BadgeStatus } from "@/shared/ui/Badge";
 import LogPanel from "@/shared/ui/LogPanel";
 import { tenderHref } from "@/shared/lib/slug";
 import PursuitPanel, { PURSUIT_OPTIONS, type PursuitFields } from "@/features/tenders/components/PursuitPanel";
+import AddTenderModal from "@/features/tenders/components/AddTenderModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
-import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
 
 const PAGE_SIZE = 500;
 
@@ -133,19 +134,30 @@ function faviconUrl(sourceUrl?: string | null): string | null {
  * unlike an actual favicon which is served scaled up to match. */
 function TenderLogo({ sourceUrl }: { sourceUrl?: string | null }) {
   const logo = faviconUrl(sourceUrl);
-  const [failed, setFailed] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const fallbackRef = useRef<HTMLDivElement>(null);
+
+  const showFallback = () => {
+    if (imgRef.current) imgRef.current.style.display = "none";
+    if (fallbackRef.current) fallbackRef.current.style.display = "flex";
+  };
+
   return (
-    <div className="shrink-0 w-14 h-14 rounded-lg border border-app-border/50 bg-surface-2 flex items-center justify-center overflow-hidden">
-      {logo && !failed ? (
-        <img
-          src={logo}
-          alt="org-logo"
-          className="w-14 h-14 object-contain"
-          onError={() => setFailed(true)}
-          onLoad={(e) => {
-            if (e.currentTarget.naturalWidth < FAVICON_SIZE / 2) setFailed(true);
-          }}
-        />
+    <div className="shrink-0 w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden">
+      {logo ? (
+        <>
+          <img
+            ref={imgRef}
+            src={logo}
+            alt=""
+            className="w-10 h-10 object-contain"
+            onError={showFallback}
+            onLoad={(e) => { if (e.currentTarget.naturalWidth < FAVICON_SIZE / 2) showFallback(); }}
+          />
+          <div ref={fallbackRef} style={{ display: "none" }} className="w-12 h-12 items-center justify-center">
+            <Icon icon="solar:case-minimalistic-broken" width={24} className="text-text-lo" />
+          </div>
+        </>
       ) : (
         <Icon icon="solar:case-minimalistic-broken" width={24} className="text-text-lo" />
       )}
@@ -157,6 +169,28 @@ function TenderLogo({ sourceUrl }: { sourceUrl?: string | null }) {
 // Column definitions with card-like rendering
 // ---------------------------------------------------------------------------
 
+const PURSUIT_BADGE: Record<string, { label: string; status: BadgeStatus }> = {
+  watching:  { label: "Watching",  status: "info" },
+  preparing: { label: "Preparing", status: "warning" },
+  applied:   { label: "Applied",   status: "neutral" },
+  won:       { label: "Won",       status: "success" },
+  lost:      { label: "Lost",      status: "danger" },
+  skipped:   { label: "Skipped",   status: "neutral" },
+};
+
+const NO_DEADLINE_SENTINEL = "9999-12-31";
+
+function deadlineDisplay(row: Tender): { dateStr: string | null; daysLeft: number | null; urgent: boolean } {
+  if (!row.closing_date || row.closing_date === NO_DEADLINE_SENTINEL) return { dateStr: null, daysLeft: null, urgent: false };
+  const deadline = new Date(row.closing_date);
+  if (isNaN(deadline.getTime())) return { dateStr: null, daysLeft: null, urgent: false };
+  const dateStr = deadline.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  if (row.status !== "open") return { dateStr, daysLeft: null, urgent: false };
+  const days = Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return { dateStr, daysLeft: null, urgent: false };
+  return { dateStr, daysLeft: days, urgent: days <= 7 };
+}
+
 function buildColumns(
   expandedId: string | null,
   setExpandedId: (id: string | null) => void
@@ -166,78 +200,123 @@ function buildColumns(
       Header: "Tender",
       accessor: "title",
       sortable: true,
-      width: 480,
-      render: (row) => {
-        return (
-          <div className="flex items-start gap-4">
-            <TenderLogo sourceUrl={row.source_url} />
-            <div className="flex-1 min-w-0">
-              <Link
-                href={tenderHref(row)}
-                onClick={(e) => e.stopPropagation()}
-                className="font-medium text-text-hi hover:text-brand-500 line-clamp-2 text-sm leading-snug"
-              >
-                {row.title}
-              </Link>
-              <div className="space-y-1 text-xs text-text-lo mt-1">
-                {row.organization && (
-                  <div>Funding agency: <span className="text-text-hi font-medium">{row.organization}</span></div>
-                )}
-                {row.category && (
-                  <div>Category: <span className="text-text-hi font-medium">{row.category}</span></div>
-                )}
-                {row.scraped_at && (
-                  <div>Posted: <span className="text-text-hi font-medium">{formatRelativeTime(row.scraped_at)}</span></div>
-                )}
-              </div>
+      width: 440,
+      render: (row) => (
+        <div className="flex items-start gap-3">
+          <TenderLogo sourceUrl={row.source_url} />
+          <div className="flex-1 min-w-0">
+            <Link
+              href={tenderHref(row)}
+              onClick={(e) => e.stopPropagation()}
+              className="font-medium text-text-hi hover:text-brand-500 line-clamp-2 text-sm leading-snug"
+            >
+              {row.title}
+            </Link>
+            <div className="mt-1 space-y-0.5 text-xs text-text-lo">
+              {row.organization && (
+                <div className="truncate"><span className="text-text-hi font-medium">{row.organization}</span></div>
+              )}
+              {row.category && (
+                <div className="truncate">{row.category}</div>
+              )}
+              {row.scraped_at && (
+                <div>Posted {formatRelativeTime(row.scraped_at)}</div>
+              )}
             </div>
           </div>
-        );
-      },
+        </div>
+      ),
     },
     {
-      Header: "Details",
-      accessor: "status",
-      sortable: false,
-      width: 200,
+      Header: "Deadline",
+      accessor: "closing_date",
+      sortable: true,
+      width: 160,
       render: (row) => {
+        const { dateStr, daysLeft, urgent } = deadlineDisplay(row);
         const badge = tenderStatusBadge(row);
         return (
           <div className="space-y-1.5 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="text-text-lo">Status:</span>
-              <Badge status={badge.status}>{badge.label}</Badge>
-            </div>
-            {row.location && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-text-lo shrink-0">Location:</span>
-                <span className="text-text-hi font-medium truncate">{row.location}</span>
+            <Badge status={badge.status}>{badge.label}</Badge>
+            {dateStr ? (
+              <div className="space-y-0.5">
+                <div className="font-medium text-text-hi">{dateStr}</div>
+                {daysLeft !== null && (
+                  <div className={urgent ? "font-semibold text-status-warning" : "text-text-lo"}>
+                    {daysLeft === 0 ? "closes today" : daysLeft === 1 ? "1 day left" : `${daysLeft} days left`}
+                  </div>
+                )}
               </div>
-            )}
-            {formatBudget(row.budget, row.currency) && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-text-lo shrink-0">Budget:</span>
-                <span className="text-text-hi font-medium">{formatBudget(row.budget, row.currency)}</span>
-              </div>
+            ) : (
+              <div className="text-text-lo">No deadline</div>
             )}
           </div>
         );
       },
     },
     {
-      Header: "Tender Stage",
-      accessor: "closing_date",
-      sortable: false,
+      Header: "Location / Budget",
+      accessor: "location",
+      sortable: true,
       width: 180,
+      render: (row) => (
+        <div className="space-y-1 text-xs">
+          {row.location ? (
+            <div className="flex items-start gap-1">
+              <Icon icon="solar:map-point-broken" width={12} className="mt-0.5 shrink-0 text-text-lo" />
+              <span className="text-sm font-medium capitalize line-clamp-2">{row.location}</span>
+            </div>
+          ) : (
+            <span className="text-text-lo">—</span>
+          )}
+          {formatBudget(row.budget, row.currency) && (
+            <div className="flex items-center gap-1 text-text-lo">
+              <Icon icon="solar:dollar-minimalistic-broken" width={12} className="shrink-0" />
+              <span className="text-text-hi font-medium">{formatBudget(row.budget, row.currency)}</span>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      Header: "Source",
+      accessor: "tender_type",
+      sortable: true,
+      width: 160,
+      render: (row) => (
+        <div className="space-y-1.5 text-xs">
+          {row.tender_type && (
+            <div className="font-medium text-sm">{row.tender_type}</div>
+          )}
+          {row.matched_keywords && (row.matched_keywords as string[]).length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {(row.matched_keywords as string[]).slice(0, 3).map((kw) => (
+                <span key={kw} className="rounded bg-brand-500/10 px-1.5 py-0.5 font-mono text-[10px] text-brand-500">
+                  {kw}
+                </span>
+              ))}
+              {(row.matched_keywords as string[]).length > 3 && (
+                <span className="text-[10px] text-text-lo">+{(row.matched_keywords as string[]).length - 3}</span>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      Header: "Pursuit",
+      accessor: "pursuit_status",
+      sortable: true,
+      width: 120,
       render: (row) => {
+        const ps = row.pursuit_status as string | null;
+        if (!ps) return <span className="text-xs text-text-lo">—</span>;
+        const b = PURSUIT_BADGE[ps] ?? { label: ps, status: "neutral" as BadgeStatus };
         return (
-          <div className="space-y-1.5 text-xs">
-            <Badge status="info">Procurement</Badge>
-            {row.closing_date && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-text-lo shrink-0">Deadline:</span>
-                <span className="text-text-hi font-medium">{new Date(row.closing_date).toLocaleDateString()}</span>
-              </div>
+          <div className="space-y-1 text-xs">
+            <Badge status={b.status}>{b.label}</Badge>
+            {row.assigned_to && (
+              <div className="truncate text-[11px] text-text-lo">{row.assigned_to as string}</div>
             )}
           </div>
         );
@@ -271,6 +350,8 @@ function TenderDetail({
             pursuit_status: tender.pursuit_status ?? null,
             assigned_to: tender.assigned_to ?? null,
             pursuit_notes: tender.pursuit_notes ?? null,
+            bid_submitted_at: (tender.bid_submitted_at as string | null) ?? null,
+            bid_value: (tender.bid_value as number | null) ?? null,
           }}
           onSaved={onPursuitSaved}
         />
@@ -368,6 +449,7 @@ function TendersContent() {
   const sourceFilter = searchParams?.get("source") || null;
   const sourceLabel = searchParams?.get("sourceLabel") || sourceFilter;
 
+  const [addTenderOpen, setAddTenderOpen] = useState(false);
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -376,10 +458,9 @@ function TendersContent() {
   const [loadingRawContentId, setLoadingRawContentId] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"open" | "closed" | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"open" | "closed" | "closing_soon" | null>(null);
   const pursuitParam = searchParams?.get("pursuit") || null;
   const [pursuitFilter, setPursuitFilter] = useState<string | null>(pursuitParam);
-  const [sidebarOpen, setSidebarOpen] = useState(!!pursuitParam);
   const [typeFilterValue, setTypeFilterValue] = useState<string | null>(typeFilter);
 
   // Keep the dropdown in sync if arriving fresh via a ?type= link (e.g. from Overview's Sources
@@ -461,13 +542,26 @@ function TendersContent() {
 
   // Matches the local-day bucketing TendersTrendChart uses on Overview, so clicking a bar and
   // landing here shows exactly the tenders that bar counted.
-  const dateFilteredTenders = dateFilter
-    ? tenders.filter((t) => {
+  const dateFilteredTenders = (() => {
+    if (dateFilter) {
+      const [y, m, d] = dateFilter.split("-").map(Number);
+      return tenders.filter((t) => {
         if (!t.scraped_at) return false;
-        const [y, m, d] = dateFilter.split("-").map(Number);
         return new Date(t.scraped_at).toDateString() === new Date(y, m - 1, d).toDateString();
-      })
-    : tenders;
+      });
+    }
+    if (dateFromParam && dateToParam) {
+      // Use UTC day boundaries so scraped_at (stored in UTC) isn't cut off by local timezone.
+      const from = new Date(dateFromParam + "T00:00:00.000Z");
+      const to   = new Date(dateToParam   + "T23:59:59.999Z");
+      return tenders.filter((t) => {
+        if (!t.scraped_at) return false;
+        const d = new Date(t.scraped_at);
+        return d >= from && d <= to;
+      });
+    }
+    return tenders;
+  })();
 
   // Cascading facets: each sidebar dropdown's options come from tenders matching every *other*
   // active facet (not itself), so e.g. picking a Country narrows which Categories are even
@@ -480,7 +574,15 @@ function TendersContent() {
       if (skip !== "type" && typeFilterValue) list = list.filter((t) => t.tender_type === typeFilterValue);
       if (skip !== "country" && countryFilter) list = list.filter((t) => t.country === countryFilter);
       if (skip !== "category" && categoryFilter) list = list.filter((t) => t.category === categoryFilter);
-      if (skip !== "status" && statusFilter) list = list.filter((t) => t.status === statusFilter);
+      if (skip !== "status" && statusFilter) {
+        const now = new Date();
+        const sevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        if (statusFilter === "closing_soon") {
+          list = list.filter((t) => t.status === "open" && t.closing_date && new Date(t.closing_date) >= now && new Date(t.closing_date) <= sevenDays);
+        } else {
+          list = list.filter((t) => t.status === statusFilter);
+        }
+      }
       if (skip !== "pursuit" && pursuitFilter) list = list.filter((t) => (pursuitFilter === "none" ? !t.pursuit_status : t.pursuit_status === pursuitFilter));
       return list;
     },
@@ -525,12 +627,61 @@ function TendersContent() {
     if (typeFilter) router.push("/tenders");
   };
 
+  // Unified search filter integration
+  const TENDER_FILTER_CATEGORIES: FilterCategoryDef[] = [
+    { id: 'status', label: 'Status', icon: 'solar:info-circle-broken' },
+    { id: 'pursuit', label: 'Pursuit', icon: 'solar:eye-broken' },
+    { id: 'tender_type', label: 'Type', icon: 'solar:folder-2-broken' },
+    { id: 'country', label: 'Country', icon: 'solar:map-point-broken' },
+    { id: 'category', label: 'Category', icon: 'solar:tag-broken' },
+  ];
+
+  const tenderCategoryOptions = useMemo<Record<string, FilterOption[]>>(() => ({
+    status: [
+      { id: 'open', label: 'Open', category: 'status', value: 'open' },
+      { id: 'closing_soon', label: 'Closing Soon', category: 'status', value: 'closing_soon' },
+      { id: 'closed', label: 'Closed', category: 'status', value: 'closed' },
+    ].filter(o => o.value === 'closing_soon' || statusOptionValues.has(o.value)),
+    pursuit: [
+      { id: 'none', label: 'Not reviewed', category: 'pursuit', value: 'none' },
+      ...PURSUIT_OPTIONS.map(o => ({ id: o.value, label: o.label, category: 'pursuit', value: o.value })),
+    ].filter(o => pursuitOptionValues.has(o.value)),
+    tender_type: typeOptions.map(t => ({ id: t, label: t, category: 'tender_type', value: t })),
+    country: countryOptions.map(c => ({ id: c, label: c, category: 'country', value: c })),
+    category: categoryOptions.map(c => ({ id: c, label: c, category: 'category', value: c })),
+  }), [statusOptionValues, pursuitOptionValues, typeOptions, countryOptions, categoryOptions]);
+
+  // Reflect current sidebar filter state as initial pills in the unified bar
+  const tenderInitialFilters = useMemo<ActiveFilter[]>(() => {
+    const f: ActiveFilter[] = [];
+    if (statusFilter) f.push({ category: 'status', values: [statusFilter], label: `Status: is ${statusFilter === 'closing_soon' ? 'closing soon' : statusFilter}`, operator: 'is' });
+    if (pursuitFilter) f.push({ category: 'pursuit', values: [pursuitFilter === 'none' ? 'none' : pursuitFilter], label: `Pursuit: is ${pursuitFilter === 'none' ? 'not reviewed' : PURSUIT_OPTIONS.find(o => o.value === pursuitFilter)?.label ?? pursuitFilter}`, operator: 'is' });
+    if (typeFilterValue) f.push({ category: 'tender_type', values: [typeFilterValue], label: `Type: is ${typeFilterValue}`, operator: 'is' });
+    if (countryFilter) f.push({ category: 'country', values: [countryFilter], label: `Country: is ${countryFilter}`, operator: 'is' });
+    if (categoryFilter) f.push({ category: 'category', values: [categoryFilter], label: `Category: is ${categoryFilter}`, operator: 'is' });
+    return f;
+  }, [statusFilter, pursuitFilter, typeFilterValue, countryFilter, categoryFilter]);
+
+  const handleUnifiedFilterChange = useCallback((filters: ActiveFilter[]) => {
+    const get = (cat: string) => filters.find(f => f.category === cat)?.values[0] ?? null;
+    setStatusFilter(get('status') as 'open' | 'closed' | 'closing_soon' | null);
+    setPursuitFilter(get('pursuit'));
+    setTypeFilterValue(get('tender_type'));
+    setCountryFilter(get('country'));
+    setCategoryFilter(get('category'));
+  }, []);
+
 
   usePageHeader({
     title: "Tenders",
     description: "All collected tenders",
     icon: "solar:case-minimalistic-broken",
     actions: [
+      {
+        label: "Add tender",
+        icon: "solar:add-circle-broken",
+        onClick: () => setAddTenderOpen(true),
+      },
       {
         label: "Rejected candidates",
         icon: "solar:danger-triangle-broken",
@@ -574,206 +725,42 @@ function TendersContent() {
         </div>
       )}
 
-      <div className={`flex flex-col gap-4 lg:flex-row lg:items-start ${sidebarOpen ? "lg:gap-4" : "lg:gap-0"}`}>
-        {/* Always mounted (rather than conditionally rendered) so width/opacity can transition
-              smoothly, matching the main nav Sidebar's transition-all duration-300 pattern —
-              a mount/unmount can't animate. Hidden outright on mobile via `hidden` when closed,
-              since there's no side-by-side layout there to shrink into. */}
-        <aside
-          className={`flex h-fit shrink-0 flex-col gap-4 overflow-hidden rounded-2xl border border-app-border px-6 py-5 shadow-lg shadow-gray-400/10 bg-surface transition-all duration-300 ease-in-out lg:sticky lg:top-4 ${
-            sidebarOpen
-              ? "p-4 lg:w-[220px] lg:opacity-100"
-              : "hidden lg:block lg:w-0 lg:border-0 lg:p-0 lg:opacity-0"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="whitespace-nowrap font-mono text-xs font-medium uppercase tracking-wide text-text-lo">
-              Filters
-            </span>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="text-text-lo hover:text-text-hi"
-              aria-label="Hide filters"
-            >
-              <Icon icon="mdi:close" width={16} />
-            </button>
+      {/* Stat cards */}
+      {!isLoading && tenders.length > 0 && (() => {
+        const now = new Date();
+        const sevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const openCount = filteredTenders.filter(t => t.status === "open").length;
+        const closingSoon = filteredTenders.filter(t => {
+          if (t.status !== "open" || !t.closing_date) return false;
+          const d = new Date(t.closing_date);
+          return d >= now && d <= sevenDays;
+        }).length;
+        const tracked = filteredTenders.filter(t => t.pursuit_status).length;
+        const notReviewed = filteredTenders.filter(t => !t.pursuit_status).length;
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <StatCard title="Open" value={openCount} icon="solar:check-circle-broken" color="green" onClick={() => setStatusFilter(statusFilter === "open" ? null : "open")} />
+            <StatCard title="Closing Soon" value={closingSoon} icon="solar:alarm-broken" color="yellow" onClick={() => setStatusFilter(statusFilter === "closing_soon" ? null : "closing_soon")} />
+            <StatCard title="Tracked" value={tracked} icon="solar:eye-broken" color="blue" onClick={() => setPursuitFilter(pursuitFilter === "watching" ? null : "watching")} />
+            <StatCard title="Not Reviewed" value={notReviewed} icon="solar:file-broken" color="gray" onClick={() => setPursuitFilter(pursuitFilter === "none" ? null : "none")} />
           </div>
+        );
+      })()}
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-lo">
-              Status
-            </label>
-            <Select
-              value={
-                statusFilter
-                  ? {
-                      value: statusFilter,
-                      label: statusFilter === "open" ? "Open" : "Closed",
-                    }
-                  : null
-              }
-              onChange={(opt) =>
-                setStatusFilter(
-                  (getSelectValue(opt) as "open" | "closed" | null) || null,
-                )
-              }
-              options={[
-                { value: "open", label: "Open" },
-                { value: "closed", label: "Closed" },
-              ].filter((o) => statusOptionValues.has(o.value))}
-              placeholder="All statuses"
-              isClearable
-              className="react-select-container"
-              classNamePrefix="react-select"
-              styles={getSelectStyles<{ value: string; label: string }>(mode)}
-              menuPortalTarget={
-                typeof document !== "undefined" ? document.body : undefined
-              }
-              menuPosition="fixed"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-lo">
-              Pursuit
-            </label>
-            <Select
-              value={
-                pursuitFilter
-                  ? { value: pursuitFilter, label: pursuitFilter === "none" ? "Not reviewed" : PURSUIT_OPTIONS.find((o) => o.value === pursuitFilter)?.label || pursuitFilter }
-                  : null
-              }
-              onChange={(opt) => setPursuitFilter(getSelectValue(opt) || null)}
-              options={[{ value: "none", label: "Not reviewed" }, ...PURSUIT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))].filter((o) =>
-                pursuitOptionValues.has(o.value)
-              )}
-              placeholder="All"
-              isClearable
-              className="react-select-container"
-              classNamePrefix="react-select"
-              styles={getSelectStyles<{ value: string; label: string }>(mode)}
-              menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-              menuPosition="fixed"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-lo">
-              Source
-            </label>
-            <Select
-              value={
-                typeFilterValue
-                  ? { value: typeFilterValue, label: typeFilterValue }
-                  : null
-              }
-              onChange={(opt) =>
-                setTypeFilterValue(getSelectValue(opt) || null)
-              }
-              options={typeOptions.map((t) => ({ value: t, label: t }))}
-              placeholder="All sources"
-              isClearable
-              isSearchable
-              noOptionsMessage={() => "No sources found"}
-              className="react-select-container"
-              classNamePrefix="react-select"
-              styles={getSelectStyles<{ value: string; label: string }>(mode)}
-              menuPortalTarget={
-                typeof document !== "undefined" ? document.body : undefined
-              }
-              menuPosition="fixed"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-lo">
-              Country
-            </label>
-            <Select
-              value={
-                countryFilter
-                  ? { value: countryFilter, label: countryFilter }
-                  : null
-              }
-              onChange={(opt) => setCountryFilter(getSelectValue(opt) || null)}
-              options={countryOptions.map((c) => ({ value: c, label: c }))}
-              placeholder="All countries"
-              isClearable
-              isSearchable
-              noOptionsMessage={() => "No countries found"}
-              className="react-select-container"
-              classNamePrefix="react-select"
-              styles={getSelectStyles<{ value: string; label: string }>(mode)}
-              menuPortalTarget={
-                typeof document !== "undefined" ? document.body : undefined
-              }
-              menuPosition="fixed"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-lo">
-              Category
-            </label>
-            <Select
-              value={
-                categoryFilter
-                  ? { value: categoryFilter, label: categoryFilter }
-                  : null
-              }
-              onChange={(opt) => setCategoryFilter(getSelectValue(opt) || null)}
-              options={categoryOptions.map((c) => ({ value: c, label: c }))}
-              placeholder="All categories"
-              isClearable
-              isSearchable
-              noOptionsMessage={() => "No categories found"}
-              className="react-select-container"
-              classNamePrefix="react-select"
-              styles={getSelectStyles<{ value: string; label: string }>(mode)}
-              menuPortalTarget={
-                typeof document !== "undefined" ? document.body : undefined
-              }
-              menuPosition="fixed"
-            />
-          </div>
-
-          {activeFilterCount > 0 && (
-            <button
-              onClick={clearAllFilters}
-              className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-brand-500 hover:underline"
-            >
-              <Icon icon="mdi:close" width={12} />
-              Clear {activeFilterCount} filter
-              {activeFilterCount === 1 ? "" : "s"}
-            </button>
-          )}
-        </aside>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="flex w-fit items-center gap-2 rounded-xl border border-app-border bg-surface px-3 py-2 text-sm text-text-lo shadow-sm transition-all hover:border-brand-500/30 hover:bg-surface-2 hover:text-text-hi hover:shadow-md"
-            >
-              <Icon icon="solar:filter-bold" width={14} className={activeFilterCount > 0 ? "text-brand-500" : ""} />
-              <span className="font-medium">Filters</span>
-              {activeFilterCount > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 font-mono text-[10px] font-bold text-white">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-          )}
-
+      <div className="flex flex-col gap-4">
           <GenericTable<Tender>
             data={filteredTenders}
             columns={buildColumns(expandedId, setExpandedId)}
             loading={isLoading}
-            title="Tenders"
             emptyMessage="No tenders found. Start one from New Run, or set up a recurring search in Automation."
             selectable
             searchable
             searchPlaceholder="Search tenders…"
+            filterCategories={TENDER_FILTER_CATEGORIES}
+            categoryOptions={tenderCategoryOptions}
+            singleSelectCategories={['status', 'pursuit', 'tender_type', 'country', 'category']}
+            initialFilters={tenderInitialFilters}
+            onUnifiedFilterChange={handleUnifiedFilterChange}
             enableDateFilter
             {...(dateFromParam && dateToParam ? {
               dateRange: {
@@ -824,7 +811,6 @@ function TendersContent() {
               expandedId === row.id ? "bg-surface-2/50" : ""
             }
           />
-        </div>
       </div>
 
       {!isLoading && tenders.length < total && (
@@ -843,6 +829,12 @@ function TendersContent() {
           Load more ({tenders.length} of {total})
         </Button>
       )}
+
+      <AddTenderModal
+        isOpen={addTenderOpen}
+        onClose={() => setAddTenderOpen(false)}
+        onAdded={fetchTenders}
+      />
     </div>
   );
 }

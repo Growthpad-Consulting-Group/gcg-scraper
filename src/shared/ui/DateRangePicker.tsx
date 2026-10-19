@@ -745,7 +745,7 @@ const DateRangePicker = function DateRangePicker(
             transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gcg-orange/40
             ${isDark
               ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10 hover:border-white/20'
-              : 'bg-white/50 border-white/40 text-gray-700 hover:bg-white/70 hover:border-white/60'
+              : 'bg-white/50 border-slate-200 text-gray-700 hover:bg-white/70 hover:border-slate-300'
             }
             ${isOpen
               ? isDark

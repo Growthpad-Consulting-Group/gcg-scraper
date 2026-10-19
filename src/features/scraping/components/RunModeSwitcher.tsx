@@ -23,6 +23,12 @@ export const RUN_MODES = [
     tooltip: "Upload a PDF, DOCX, XLSX or HTML file to extract tender data",
   },
   {
+    id: "tender-source",
+    label: "Tender Source",
+    icon: "solar:server-broken",
+    tooltip: "Trigger an ad-hoc run of a specific configured tender source (PPIP, AfDB, World Bank, etc.)",
+  },
+  {
     id: "gmb-leads",
     label: "Business Leads",
     icon: "solar:map-point-broken",

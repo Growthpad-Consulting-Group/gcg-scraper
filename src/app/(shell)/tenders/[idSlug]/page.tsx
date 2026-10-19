@@ -37,6 +37,8 @@ interface Tender {
   pursuit_status?: string | null;
   assigned_to?: string | null;
   pursuit_notes?: string | null;
+  bid_submitted_at?: string | null;
+  bid_value?: number | null;
   matched_keywords?: string[] | null;
   sectors?: string[] | null;
   languages?: string[] | null;
@@ -192,6 +194,8 @@ export default function TenderDetailPage() {
   const [relatedTenders, setRelatedTenders] = useState<RelatedTender[]>([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [parsedDocs, setParsedDocs] = useState<{ id: number; url: string; filename: string | null; parsed_content: string | null; parse_error: string | null }[]>([]);
+  const [expandedDocId, setExpandedDocId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchTender = async () => {
@@ -215,6 +219,15 @@ export default function TenderDetailPage() {
     fetch(`/api/tenders/${tender.id}/related`)
       .then((res) => res.json())
       .then((data) => setRelatedTenders(Array.isArray(data.tenders) ? data.tenders : []))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tender?.id]);
+
+  useEffect(() => {
+    if (!tender?.id) return;
+    fetch(`/api/tenders/${tender.id}/documents`)
+      .then((res) => res.json())
+      .then((data) => setParsedDocs(Array.isArray(data.documents) ? data.documents : []))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tender?.id]);
@@ -529,6 +542,60 @@ export default function TenderDetailPage() {
                 )}
               </motion.div>
 
+              {parsedDocs.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.09 }}
+                  className="overflow-hidden rounded-2xl border backdrop-blur-xl border-slate-100/10 shadow-xl shadow-slate-200/40 dark:shadow-black/20 bg-surface p-4"
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-brand-500">
+                      <Icon icon="solar:file-text-broken" width={16} />
+                    </div>
+                    <h2 className="font-mono font-bold text-sm uppercase tracking-wide text-text-lo">
+                      Parsed Documents ({parsedDocs.length})
+                    </h2>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {parsedDocs.map((doc) => (
+                      <div key={doc.id} className="rounded-xl border border-app-border overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedDocId(expandedDocId === doc.id ? null : doc.id)}
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface-2"
+                        >
+                          <Icon
+                            icon={doc.parse_error ? "solar:danger-triangle-broken" : "solar:document-text-broken"}
+                            width={14}
+                            className={doc.parse_error ? "shrink-0 text-status-warning" : "shrink-0 text-text-lo"}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-xs text-text-hi">{doc.filename || doc.url}</span>
+                          <Icon
+                            icon={expandedDocId === doc.id ? "solar:alt-arrow-up-broken" : "solar:alt-arrow-down-broken"}
+                            width={13}
+                            className="shrink-0 text-text-lo"
+                          />
+                        </button>
+                        {expandedDocId === doc.id && (
+                          <div className="border-t border-app-border bg-canvas/40 p-3">
+                            {doc.parse_error ? (
+                              <p className="text-xs text-status-warning">Parse failed: {doc.parse_error}</p>
+                            ) : doc.parsed_content ? (
+                              <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap text-xs text-text-hi leading-relaxed">
+                                {doc.parsed_content}
+                              </pre>
+                            ) : (
+                              <p className="text-xs text-text-lo">No content extracted.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -547,6 +614,8 @@ export default function TenderDetailPage() {
                     pursuit_status: tender.pursuit_status ?? null,
                     assigned_to: tender.assigned_to ?? null,
                     pursuit_notes: tender.pursuit_notes ?? null,
+                    bid_submitted_at: (tender.bid_submitted_at as string | null) ?? null,
+                    bid_value: (tender.bid_value as number | null) ?? null,
                   }}
                   showAssignedTo={false}
                   showNotes={false}

@@ -153,7 +153,6 @@ export default function BlockedDomainsPage() {
         data={domains.map((d) => ({ ...d, id: String(d.id) }))}
         columns={columns}
         loading={isLoading}
-        title="Blocked Domains"
         emptyMessage="No domains blocked yet — add one above."
         searchable
         searchPlaceholder="Search domains…"

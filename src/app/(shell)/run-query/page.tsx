@@ -15,6 +15,8 @@ import RunModeSwitcher, { isRunMode, type RunMode } from "@/features/scraping/co
 import RunConsole from "@/features/scraping/components/RunConsole";
 import SummaryModal from "@/features/scraping/components/SummaryModal";
 import AddSchedulerModal from "@/features/scheduler/components/AddSchedulerModal";
+import TenderSourceRunForm, { type SourceHealth } from "@/features/scraping/components/TenderSourceRunForm";
+import RecentRunsPanel from "@/features/scraping/components/RecentRunsPanel";
 import useRealtimeJob from "@/features/scraping/hooks/useRealtimeJob";
 import type { SearchTerm, BaseKeyword, Country } from "@/features/scraping/types";
 import type { ExtractOptions } from "@/features/tenders/api/firecrawlExtract";
@@ -65,6 +67,9 @@ function RunQueryContent() {
   const [redditLocation, setRedditLocation] = useState("");
   const [redditMaxResults, setRedditMaxResults] = useState(25);
 
+  const [selectedTenderSource, setSelectedTenderSource] = useState("");
+  const [sourceHealth, setSourceHealth] = useState<SourceHealth[]>([]);
+
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobKind, setJobKind] = useState<RunMode>("search-query");
   const [isCanceling, setIsCanceling] = useState(false);
@@ -72,6 +77,8 @@ function RunQueryContent() {
   const [error, setError] = useState<string | null>(null);
   const [tenderTypes, setTenderTypes] = useState<string[]>([]);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [recentJobs, setRecentJobs] = useState<any[]>([]);
+  const [recentJobsLoading, setRecentJobsLoading] = useState(true);
 
   const {
     scrapeStatus,
@@ -112,20 +119,23 @@ function RunQueryContent() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [searchTermsRes, baseKeywordsRes, countriesRes, tenderTypesRes, websitesRes] = await Promise.all([
+        const [searchTermsRes, baseKeywordsRes, countriesRes, tenderTypesRes, websitesRes, sourceHealthRes] = await Promise.all([
           fetch("/api/search-terms"),
           fetch("/api/base-keywords"),
           fetch("/api/countries"),
           fetch("/api/tender-types"),
           fetch("/api/websites?limit=50"),
+          fetch("/api/source-health"),
         ]);
         const searchTermsData = await searchTermsRes.json();
         const baseKeywordsData = await baseKeywordsRes.json();
         const countriesData: Country[] = await countriesRes.json();
         const tenderTypesData = await tenderTypesRes.json();
         const websitesData = await websitesRes.json();
+        const sourceHealthData = await sourceHealthRes.json();
         setTenderTypes(Array.isArray(tenderTypesData.tenderTypes) ? tenderTypesData.tenderTypes : []);
         setWebsiteSources(Array.isArray(websitesData.websites) ? websitesData.websites : []);
+        setSourceHealth(Array.isArray(sourceHealthData.sources) ? sourceHealthData.sources : []);
 
         setSearchTerms(searchTermsData.search_terms || []);
         if (searchTermsData.search_terms?.length > 0) setSelectedTerms([searchTermsData.search_terms[0].term]);
@@ -147,6 +157,24 @@ function RunQueryContent() {
 
     fetchData();
   }, []);
+
+  const fetchRecentJobs = async () => {
+    setRecentJobsLoading(true);
+    try {
+      const res = await fetch("/api/jobs?limit=5");
+      const data = await res.json();
+      setRecentJobs(Array.isArray(data.jobs) ? data.jobs : []);
+    } catch { /* silent */ } finally {
+      setRecentJobsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchRecentJobs(); }, []);
+
+  // Refresh recent jobs list whenever the current job finishes
+  useEffect(() => {
+    if (scrapeStatus === "complete" || scrapeStatus === "error") fetchRecentJobs();
+  }, [scrapeStatus]);
 
   const handleAddScheduledTask = () => {
     if (selectedTerms.length === 0 || selectedBaseKeywords.length === 0) {
@@ -330,6 +358,25 @@ function RunQueryContent() {
     }
   };
 
+  const handleRunTenderSource = async () => {
+    if (!selectedTenderSource) return;
+    toast.loading("Starting tender source run…", { id: "source-start" });
+    try {
+      const res = await fetch("/api/jobs/tender-source", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenderType: selectedTenderSource }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start run");
+      startJob(data.jobId, "tender-source" as RunMode);
+      toast.dismiss("source-start");
+    } catch (err: any) {
+      setScrapeStatus("error");
+      toast.error("Failed to start: " + err.message, { id: "source-start" });
+    }
+  };
+
   const handleCancelScrape = async () => {
     if (!jobId) {
       toast.error("No active scraping task to cancel");
@@ -372,8 +419,8 @@ function RunQueryContent() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-10">
-            <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+          <div className="flex flex-col gap-6">
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
               <div className="flex justify-center">
                 <RunModeSwitcher mode={runMode} onChange={changeMode} />
               </div>
@@ -398,15 +445,6 @@ function RunQueryContent() {
                 handleAddScheduledTask={handleAddScheduledTask}
                 mode={mode}
               />
-              <label className="mt-2 flex items-center gap-2 text-sm text-text-lo">
-                <input
-                  type="checkbox"
-                  checked={notifyOnCompletion}
-                  onChange={(e) => setNotifyOnCompletion(e.target.checked)}
-                  className="h-4 w-4 rounded border-app-border"
-                />
-                <span>Notify on Slack when complete</span>
-              </label>
             </div>
 
             <div className={runMode === "website" ? undefined : "hidden"}>
@@ -494,9 +532,31 @@ function RunQueryContent() {
                 mode={mode}
               />
             </div>
+
+            <div className={runMode === "tender-source" ? undefined : "hidden"}>
+              <TenderSourceRunForm
+                tenderTypes={tenderTypes}
+                sourceHealth={sourceHealth}
+                selectedSource={selectedTenderSource}
+                onSelectSource={setSelectedTenderSource}
+                isRunning={scrapeStatus === "running"}
+                onRun={handleRunTenderSource}
+              />
             </div>
 
-            <div className="mx-auto w-full max-w-4xl min-h-[500px]">
+            {/* Shared notify toggle — applies to all modes */}
+            <label className="flex items-center gap-2 text-sm text-text-lo">
+              <input
+                type="checkbox"
+                checked={notifyOnCompletion}
+                onChange={(e) => setNotifyOnCompletion(e.target.checked)}
+                className="h-4 w-4 rounded border-app-border"
+              />
+              <span>Notify on Slack when complete</span>
+            </label>
+            </div>
+
+            {scrapeStatus !== "idle" && <div className="mx-auto w-full max-w-4xl">
               <RunConsole
                 scrapeStatus={scrapeStatus}
                 progress={progress}
@@ -509,6 +569,10 @@ function RunQueryContent() {
                 taskId={jobId}
                 mode={mode}
               />
+            </div>}
+
+            <div className="mx-auto w-full max-w-4xl">
+              <RecentRunsPanel jobs={recentJobs} loading={recentJobsLoading} />
             </div>
           </div>
         )}

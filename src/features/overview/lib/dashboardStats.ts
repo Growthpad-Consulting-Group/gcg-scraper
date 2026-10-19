@@ -24,6 +24,27 @@ export interface DashTender {
   status: "open" | "closed" | null;
   country: string | null;
   pursuit_status?: string | null;
+  bid_submitted_at?: string | null;
+  bid_value?: number | null;
+}
+
+// ─── Bid pipeline ─────────────────────────────────────────────────────────────
+export interface BidPipelineStats {
+  submitted: number;
+  won: number;
+  lost: number;
+  winRate: number | null;
+  pipelineValue: number;
+}
+
+export function buildBidPipeline(tenders: DashTender[]): BidPipelineStats {
+  const submitted = tenders.filter((t) => t.pursuit_status === "applied" || t.pursuit_status === "won" || t.pursuit_status === "lost").length;
+  const won = tenders.filter((t) => t.pursuit_status === "won").length;
+  const lost = tenders.filter((t) => t.pursuit_status === "lost").length;
+  const decided = won + lost;
+  const winRate = decided > 0 ? Math.round((won / decided) * 100) : null;
+  const pipelineValue = tenders.reduce((sum, t) => sum + (t.bid_value ?? 0), 0);
+  return { submitted, won, lost, winRate, pipelineValue };
 }
 
 // ─── Source breakdown ─────────────────────────────────────────────────────────

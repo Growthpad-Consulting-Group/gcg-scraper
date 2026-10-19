@@ -21,6 +21,7 @@ import TabletCard from "./table/TabletCard";
 import TablePagination from "./table/TablePagination";
 import GenericEmptyState from '@/shared/ui/EmptyState';
 import { useTheme } from "@/shared/contexts/ThemeContext";
+import UnifiedSearchFilter, { type FilterCategoryDef, type FilterOption, type ActiveFilter } from '@/shared/ui/UnifiedSearchFilter';
 
 
 
@@ -142,6 +143,11 @@ export interface GenericTableProps<T = any> {
   onPageSizeChange?: (pageSize: number) => void;
   searchPlaceholder?: string;
   onSearch?: (term: string) => void;
+  filterCategories?: FilterCategoryDef[];
+  categoryOptions?: Record<string, FilterOption[]>;
+  singleSelectCategories?: string[];
+  onUnifiedFilterChange?: (filters: ActiveFilter[]) => void;
+  initialFilters?: ActiveFilter[];
   showPagination?: boolean;
   showExportButton?: boolean;
   stickyHeader?: boolean;
@@ -228,6 +234,11 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
   onPageSizeChange,
   searchPlaceholder = "Search...",
   onSearch,
+  filterCategories,
+  categoryOptions,
+  singleSelectCategories,
+  onUnifiedFilterChange,
+  initialFilters,
   showPagination = true,
   showExportButton = true,
   stickyHeader,
@@ -278,7 +289,6 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
     label: "All Time",
   });
   const [showExportModal, setShowExportModal] = useState(false);
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [serverSearchValue, setServerSearchValue] = useState(''); // tracks input value in server-side mode
 
   // Use controlled dateRange if provided, otherwise use internal state
@@ -695,87 +705,70 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
         <div
           className="px-0 p-4 sm:p-6 border-b transition-colors duration-500 border-app-border"
         >
-          <div className="flex flex-col lg:flex-row items-start lg:items-center  gap-4">
-            {/* Left Side - Title */}
-            {title && (
-              <div className="flex-shrink-0 mb-2 lg:mb-0">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-200">
-                  {title}
-                </h3>
-              </div>
-            )}
+          {/* Toolbar: search fills remaining space, action buttons sit right */}
+          <div className="flex flex-row flex-wrap items-center gap-2 w-full">
 
-            {/* Toolbar — filters left, actions right */}
-            <div className="flex flex-row flex-wrap items-center gap-3 w-full justify-between">
+            {/* LEFT: date / sort filters */}
+            <div className="flex flex-row flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+              <TableFilters
+                mode={displayMode}
+                table={table}
+                statusOptions={null}
+                onStatusFilter={null}
+                statusFilter={undefined}
+                enableSortFilter={enableSortFilter}
+                extraFilters={extraFilters}
+                enableDateFilter={enableDateFilter}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                allowedDateRanges={allowedDateRanges}
+              />
+            </div>
 
-              {/* LEFT: Filters */}
-              <div className="flex flex-row flex-wrap items-center gap-2 sm:gap-3">
-                <TableFilters
-                  mode={displayMode}
-                  table={table}
-                  statusOptions={statusOptions}
-                  onStatusFilter={onStatusFilter || table.setStatusFilter}
-                  statusFilter={onStatusFilter ? statusFilter : table.statusFilter}
-                  enableSortFilter={enableSortFilter}
-                  extraFilters={extraFilters}
-                  enableDateFilter={enableDateFilter}
-                  dateRange={dateRange}
-                  onDateRangeChange={setDateRange}
-                  allowedDateRanges={allowedDateRanges}
-                />
+            {/* CENTRE: unified search — grows to fill remaining space */}
+            {searchable && (() => {
+              // Auto-build a "Status" filter category from statusOptions if present
+              const autoStatusCategory: FilterCategoryDef[] = statusOptions && statusOptions.length > 0 ? [{ id: '__status__', label: 'Status', icon: 'solar:info-circle-broken' }] : [];
+              const autoStatusOptions: Record<string, FilterOption[]> = statusOptions && statusOptions.length > 0 ? {
+                __status__: (typeof statusOptions[0] === 'string'
+                  ? (statusOptions as string[]).map((s) => ({ id: s, label: s.charAt(0).toUpperCase() + s.slice(1), category: '__status__', value: s }))
+                  : (statusOptions as Array<{ value: string; label: string }>).map((s) => ({ id: s.value, label: s.label, category: '__status__', value: s.value }))
+                ),
+              } : {};
+              const mergedCategories = [...autoStatusCategory, ...(filterCategories ?? [])];
+              const mergedOptions = { ...autoStatusOptions, ...(categoryOptions ?? {}) };
 
-              </div>
-
-              {/* RIGHT: Actions */}
-              <div className="flex flex-row flex-wrap items-center gap-2 justify-end">
-                {searchable && (
-                  <div className={`relative group transition-all duration-300 ease-in-out ${isSearchExpanded || table.searchTerm || serverSearchValue ? 'w-full sm:w-56 md:w-64' : 'w-10'}`}>
-                    <Icon
-                      icon="solar:magnifer-broken"
-                      className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 z-10 pointer-events-none transition-colors duration-300 ${isSearchExpanded || table.searchTerm || serverSearchValue ? "text-gray-400" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600"}`}
-                    />
-                    <input
-                      type="text"
-                      placeholder={isSearchExpanded || table.searchTerm || serverSearchValue ? searchPlaceholder : ""}
-                      value={serverSidePagination && onSearch ? serverSearchValue : table.searchTerm}
-                      onFocus={() => setIsSearchExpanded(true)}
-                      onBlur={() => {
-                        if (!table.searchTerm && !serverSearchValue) {
-                          setIsSearchExpanded(false);
-                        }
-                      }}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (!serverSidePagination || !onSearch) {
-                          table.setSearchTerm(value);
-                        } else {
-                          setServerSearchValue(value);
-                        }
-                        if (onSearch) onSearch(value);
-                      }}
-                      className={`pl-10 py-2 w-full border rounded-lg outline-none transition-all duration-300 ${isSearchExpanded || table.searchTerm
-                          ? "pr-8 cursor-text border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 focus:border-gray-400 dark:focus:border-gray-500"
-                          : "pr-0 cursor-pointer border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-zinc-800/60 text-transparent hover:bg-gray-100 dark:hover:bg-zinc-800 hover:shadow-sm"
-                        }`}
-                    />
-                    {(isSearchExpanded || table.searchTerm || serverSearchValue) && (table.searchTerm || serverSearchValue) && (
-                      <button
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
+              return (
+                    <div className="flex-1 min-w-0">
+                      <UnifiedSearchFilter
+                        mode={displayMode}
+                        filterCategories={mergedCategories}
+                        categoryOptions={mergedOptions}
+                        singleSelectCategories={['__status__', ...(singleSelectCategories ?? [])]}
+                        initialFilters={initialFilters}
+                        searchPlaceholder={searchPlaceholder}
+                        onSearchChange={(term) => {
                           if (!serverSidePagination || !onSearch) {
-                            table.setSearchTerm("");
+                            table.setSearchTerm(term);
                           } else {
-                            setServerSearchValue("");
+                            setServerSearchValue(term);
                           }
-                          if (onSearch) onSearch("");
+                          if (onSearch) onSearch(term);
                         }}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 z-20"
-                      >
-                        <Icon icon="solar:close-circle-broken" className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                )}
+                        onFilterChange={(filters) => {
+                          // Sync built-in __status__ filter back to table
+                          const statusF = filters.find((f) => f.category === '__status__');
+                          if (statusF && statusF.values.length > 0) {
+                            (onStatusFilter || table.setStatusFilter)(statusF.values[0]);
+                          } else if (!statusF) {
+                            (onStatusFilter || table.setStatusFilter)('all');
+                          }
+                          onUnifiedFilterChange?.(filters.filter((f) => f.category !== '__status__'));
+                        }}
+                      />
+                    </div>
+                  );
+                })()}
                 {enableRefresh && (
                   <div className="relative group w-10">
                     <TooltipIconButton
@@ -837,8 +830,6 @@ const GenericTableComponent = function GenericTable<T extends { id?: string } = 
                 {rightContent && (
                   <div className="flex-none">{rightContent}</div>
                 )}
-              </div>
-            </div>
           </div>
         </div>
       )}

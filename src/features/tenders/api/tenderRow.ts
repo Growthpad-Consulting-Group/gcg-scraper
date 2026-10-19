@@ -129,6 +129,7 @@ export interface InsertedTenderSummary {
   organization: string | null;
   location: string | null;
   category: string | null;
+  matched_keywords?: string[] | null;
 }
 
 export interface InsertResult {
@@ -170,7 +171,7 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
   const { data: insertedRows, error } = await supabase
     .from("tenders")
     .upsert(deduped, { onConflict: "source_url", ignoreDuplicates: true })
-    .select("id, title, closing_date, status, organization, location, category");
+    .select("id, title, closing_date, status, organization, location, category, matched_keywords");
   if (error) throw error;
 
   const returned = insertedRows ?? [];
@@ -186,6 +187,7 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
       organization: r.organization,
       location: r.location,
       category: r.category,
+      matched_keywords: r.matched_keywords ?? null,
     })),
   };
 }

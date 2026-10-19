@@ -148,6 +148,52 @@ export async function extractTenders(url: string, prompt: string, options?: Extr
   throw lastError!;
 }
 
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+// llama-3.3-70b-versatile supports response_format JSON schema — needed for structured extraction.
+// The reasoning model used for summaries isn't suitable here (too slow, no guaranteed JSON shape).
+const GROQ_EXTRACT_MODEL = "llama-3.3-70b-versatile";
+
+/**
+ * Re-extracts tenders from already-cached markdown, bypassing the Firecrawl scrape step.
+ * Saves one scrape credit per run for sources where `raw_content` is stored and still fresh.
+ * Falls back to the main `extractTenders` on any GROQ error.
+ */
+export async function extractTendersFromMarkdown(markdown: string, prompt: string): Promise<ExtractResult> {
+  if (!process.env.GROQ_API_KEY) throw new Error("GROQ_API_KEY not configured");
+
+  const res = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: GROQ_EXTRACT_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: `You extract structured tender/procurement data from scraped page markdown. ${prompt} Return valid JSON matching the schema exactly.`,
+        },
+        {
+          role: "user",
+          content: markdown.slice(0, 120_000),
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`GROQ extract failed: ${res.status}`);
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content;
+  let parsed: { tenders?: ExtractedTender[] } = {};
+  try {
+    parsed = JSON.parse(text ?? "{}");
+  } catch {
+    throw new Error("GROQ response was not valid JSON");
+  }
+  return { tenders: Array.isArray(parsed.tenders) ? parsed.tenders : [], markdown };
+}
+
 // Matches an actual downloadable file, not just any URL containing "file"-ish substrings
 // (e.g. a nav link like ".../targetproductprofiles" would false-positive on a bare /file/i test).
 // .zip included alongside the document types — confirmed live that GIZ bundles its tender

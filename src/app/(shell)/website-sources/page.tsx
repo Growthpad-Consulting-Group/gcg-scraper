@@ -3,12 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import Select from "react-select";
 import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import Badge from "@/shared/ui/Badge";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
 import { useTheme } from "@/shared/contexts/ThemeContext";
-import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
+import type { ActiveFilter, FilterCategoryDef, FilterOption } from "@/shared/ui/UnifiedSearchFilter";
 
 interface Website {
   id: number;
@@ -154,6 +153,32 @@ export default function UploadWebsitePage() {
     [websites]
   );
 
+  const WEBSITE_FILTER_CATEGORIES: FilterCategoryDef[] = [
+    { id: 'scope', label: 'Scope', icon: 'solar:global-broken' },
+    { id: 'location', label: 'Location', icon: 'solar:map-point-broken' },
+  ];
+
+  const websiteCategoryOptions = useMemo<Record<string, FilterOption[]>>(() => ({
+    scope: [
+      { id: 'regional', label: 'Regional', category: 'scope', value: 'regional' },
+      { id: 'international', label: 'International', category: 'scope', value: 'international' },
+    ],
+    location: locationOptions.map(l => ({ id: l, label: l, category: 'location', value: l })),
+  }), [locationOptions]);
+
+  const websiteInitialFilters = useMemo<ActiveFilter[]>(() => {
+    const f: ActiveFilter[] = [];
+    if (scopeFilter) f.push({ category: 'scope', values: [scopeFilter], label: `Scope: is ${scopeFilter}`, operator: 'is' });
+    if (locationFilter) f.push({ category: 'location', values: [locationFilter], label: `Location: is ${locationFilter}`, operator: 'is' });
+    return f;
+  }, [scopeFilter, locationFilter]);
+
+  const handleWebsiteFilterChange = useCallback((filters: ActiveFilter[]) => {
+    const get = (cat: string) => filters.find(f => f.category === cat)?.values[0] ?? null;
+    setScopeFilter(get('scope'));
+    setLocationFilter(get('location'));
+  }, []);
+
   const filteredWebsites = useMemo(
     () =>
       websites.filter((w) => {
@@ -225,52 +250,19 @@ export default function UploadWebsitePage() {
         data={filteredWebsites.map((w) => ({ ...w, id: String(w.id) }))}
         columns={columns}
         loading={isLoading}
-        title="Website Sources"
         emptyMessage="No tracked websites yet — add one from Run Query."
         searchable
         searchPlaceholder="Search sources…"
+        filterCategories={WEBSITE_FILTER_CATEGORIES}
+        categoryOptions={websiteCategoryOptions}
+        singleSelectCategories={['scope', 'location']}
+        initialFilters={websiteInitialFilters}
+        onUnifiedFilterChange={handleWebsiteFilterChange}
         selectable
         showBulkBar
         showExportButton
         exportType="website-sources"
         exportTitle="Website Sources"
-        extraFilters={
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="w-40">
-              <Select
-                value={scopeFilter ? { value: scopeFilter, label: scopeFilter === "international" ? "International" : "Regional" } : null}
-                onChange={(opt) => setScopeFilter(getSelectValue(opt) || null)}
-                options={[
-                  { value: "regional", label: "Regional" },
-                  { value: "international", label: "International" },
-                ]}
-                placeholder="All scopes"
-                isClearable
-                className="react-select-container"
-                classNamePrefix="react-select"
-                styles={getSelectStyles<{ value: string; label: string }>(mode)}
-                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                menuPosition="fixed"
-              />
-            </div>
-            <div className="w-48">
-              <Select
-                value={locationFilter ? { value: locationFilter, label: locationFilter } : null}
-                onChange={(opt) => setLocationFilter(getSelectValue(opt) || null)}
-                options={locationOptions.map((l) => ({ value: l, label: l }))}
-                placeholder="All locations"
-                isClearable
-                isSearchable
-                noOptionsMessage={() => "No locations found"}
-                className="react-select-container"
-                classNamePrefix="react-select"
-                styles={getSelectStyles<{ value: string; label: string }>(mode)}
-                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                menuPosition="fixed"
-              />
-            </div>
-          </div>
-        }
         enableDateFilter
         enableRefresh
         onRefresh={fetchWebsites}

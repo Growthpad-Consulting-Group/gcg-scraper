@@ -23,6 +23,7 @@ import {
   buildDailySparkline,
   buildWeekCount,
   buildPendingReview,
+  buildBidPipeline,
   type DashTender,
 } from "@/features/overview/lib/dashboardStats";
 import useUserProfile from "@/features/auth/hooks/useUserProfile";
@@ -219,6 +220,7 @@ export default function OverviewPage() {
   const spark14         = buildDailySparkline(tenders, 14);
   const runningCount    = jobs.filter((j) => j.status === "running" || j.status === "queued").length;
   const pendingReview   = buildPendingReview(tenders);
+  const bidPipeline     = buildBidPipeline(tenders);
   const activeSourceNames = [...new Set(tasks.map((t) => t.tender_type).filter(Boolean) as string[])].sort();
   const nextTask        = [...tasks].sort((a, b) => nextRunAt(a).getTime() - nextRunAt(b).getTime())[0];
 
@@ -346,10 +348,10 @@ export default function OverviewPage() {
           icon="solar:calendar-broken"
           loading={isLoading}
           href={(() => {
-            const today = new Date();
-            const monday = new Date(today);
-            monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-            return `/tenders?dateFrom=${monday.toISOString().slice(0, 10)}&dateTo=${today.toISOString().slice(0, 10)}`;
+            const to = new Date();
+            const from = new Date(to);
+            from.setDate(from.getDate() - 7);
+            return `/tenders?dateFrom=${from.toISOString().slice(0, 10)}&dateTo=${to.toISOString().slice(0, 10)}`;
           })()}
           delay={0.1}
         />
@@ -420,7 +422,7 @@ export default function OverviewPage() {
       </div>
 
       {/* ── Analytics row ── */}
-      <div className="relative z-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="relative z-10 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card title="Tenders by source" icon="solar:layers-broken" delay={0.1}>
           <SourceBreakdown sources={sourceBreakdown} loading={isLoading} />
         </Card>
@@ -445,6 +447,60 @@ export default function OverviewPage() {
           }
         >
           <RejectedSummary />
+        </Card>
+
+        <Card
+          title="Bid pipeline"
+          icon="solar:cup-star-broken"
+          delay={0.25}
+          action={
+            <Link href="/tenders?pursuit=applied" className="font-mono text-[10px] text-text-lo transition-colors hover:text-brand-500">
+              View bids →
+            </Link>
+          }
+        >
+          {isLoading ? (
+            <div className="flex flex-col gap-2">
+              {[1, 2, 3].map((i) => <div key={i} className="h-4 animate-pulse rounded bg-surface-2" />)}
+            </div>
+          ) : bidPipeline.submitted === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-4 text-center">
+              <Icon icon="solar:cup-star-broken" width={22} className="text-text-lo/30" />
+              <p className="text-xs text-text-lo">No bids tracked yet.</p>
+              <p className="text-xs text-text-lo/60">Set status to Applied, Won or Lost on a tender.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-lo">Submitted</span>
+                <span className="font-mono text-xs font-medium text-text-hi">{bidPipeline.submitted}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-lo">Won</span>
+                <span className="font-mono text-xs font-medium text-status-success">{bidPipeline.won}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-lo">Lost</span>
+                <span className="font-mono text-xs font-medium text-status-danger">{bidPipeline.lost}</span>
+              </div>
+              {bidPipeline.winRate !== null && (
+                <div className="mt-1 flex items-center justify-between border-t border-app-border pt-2">
+                  <span className="text-xs text-text-lo">Win rate</span>
+                  <span className={`font-mono text-xs font-semibold ${bidPipeline.winRate >= 50 ? "text-status-success" : "text-status-warning"}`}>
+                    {bidPipeline.winRate}%
+                  </span>
+                </div>
+              )}
+              {bidPipeline.pipelineValue > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-text-lo">Pipeline value</span>
+                  <span className="font-mono text-xs font-medium text-text-hi">
+                    ${bidPipeline.pipelineValue.toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
       </div>
 

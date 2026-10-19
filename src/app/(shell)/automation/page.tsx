@@ -3,18 +3,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import Select from "react-select";
 import { usePageHeader } from "@/shared/contexts/PageHeaderContext";
 import Badge from "@/shared/ui/Badge";
 import { Icon } from "@iconify/react";
 import GenericTable, { type Column, type Action } from "@/shared/ui/GenericTable";
+import type { ActiveFilter, FilterCategoryDef, FilterOption } from "@/shared/ui/UnifiedSearchFilter";
 import AddSchedulerModal from "@/features/scheduler/components/AddSchedulerModal";
 import EditSchedulerModal from "@/features/scheduler/components/EditSchedulerModal";
 import ConfirmDeleteModal from "@/shared/ui/ConfirmDeleteModal";
 import LogsModal, { type TaskLogEntry } from "@/features/scheduler/components/LogsModal";
 import { useTheme } from "@/shared/contexts/ThemeContext";
 import { getSourceConfig } from "@/features/tenders/api/sourceConfigs";
-import { getSelectStyles, getSelectValue } from "@/utils/selectStyles";
 
 interface ScheduledTask {
   task_id: number;
@@ -266,6 +265,33 @@ export default function AutomationPage() {
   );
   const filteredTasks = typeFilter ? tasks.filter((t) => t.tender_type === typeFilter) : tasks;
 
+  const AUTOMATION_FILTER_CATEGORIES: FilterCategoryDef[] = [
+    { id: 'status', label: 'Status', icon: 'solar:info-circle-broken' },
+    { id: 'tender_type', label: 'Type', icon: 'solar:folder-2-broken' },
+  ];
+
+  const automationCategoryOptions = useMemo<Record<string, FilterOption[]>>(() => ({
+    status: [
+      { id: 'enabled', label: 'Enabled', category: 'status', value: 'enabled' },
+      { id: 'disabled', label: 'Disabled', category: 'status', value: 'disabled' },
+    ],
+    tender_type: typeOptions.map(t => ({ id: t, label: t, category: 'tender_type', value: t })),
+  }), [typeOptions]);
+
+  const [automationStatusFilter, setAutomationStatusFilter] = useState<string>('all');
+  const automationInitialFilters = useMemo<ActiveFilter[]>(() => {
+    const f: ActiveFilter[] = [];
+    if (typeFilter) f.push({ category: 'tender_type', values: [typeFilter], label: `Type: is ${typeFilter}`, operator: 'is' });
+    return f;
+  }, [typeFilter]);
+
+  const handleAutomationFilterChange = useCallback((filters: ActiveFilter[]) => {
+    const get = (cat: string) => filters.find(f => f.category === cat)?.values[0] ?? null;
+    setTypeFilter(get('tender_type'));
+    const statusVal = get('status');
+    setAutomationStatusFilter(statusVal ?? 'all');
+  }, []);
+
   const handleDeleteTaskItem = async (task: ScheduledTaskRow) => {
     const res = await fetch(`/api/scheduled-tasks/${task.id}`, { method: "DELETE" });
     const data = await res.json();
@@ -294,7 +320,6 @@ export default function AutomationPage() {
           }))}
           columns={columns}
           loading={isLoading}
-          title="Scheduled Tasks"
           emptyMessage="No scheduled tasks yet."
           searchable
           searchPlaceholder="Search tasks…"
@@ -304,23 +329,13 @@ export default function AutomationPage() {
           exportType="scheduled-tasks"
           exportTitle="Scheduled Tasks"
           enableDateFilter
+          filterCategories={AUTOMATION_FILTER_CATEGORIES}
+          categoryOptions={automationCategoryOptions}
+          singleSelectCategories={['status', 'tender_type']}
+          initialFilters={automationInitialFilters}
+          onUnifiedFilterChange={handleAutomationFilterChange}
+          statusFilter={automationStatusFilter}
           statusOptions={statusOptions}
-          extraFilters={
-            <Select
-              value={typeFilter ? { value: typeFilter, label: typeFilter } : null}
-              onChange={(opt) => setTypeFilter(getSelectValue(opt) || null)}
-              options={typeOptions.map((t) => ({ value: t, label: t }))}
-              placeholder="Filter by type…"
-              isClearable
-              isSearchable
-              noOptionsMessage={() => "No types found"}
-              className="react-select-container"
-              classNamePrefix="react-select"
-              styles={getSelectStyles<{ value: string; label: string }>(mode)}
-              menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-              menuPosition="fixed"
-            />
-          }
           enableRefresh
           onRefresh={fetchTasks}
           onDelete={handleDeleteTaskItem}

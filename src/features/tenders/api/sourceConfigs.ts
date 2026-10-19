@@ -24,6 +24,14 @@ export type SourceConfig = {
    * outright (e.g. AfDB's Cloudflare managed challenge) — costs more per request, so only set
    * this where the plain default proxy has been confirmed not to work. */
   proxy?: "basic" | "stealth";
+  /** Minimum hours between scrape runs for this source. Defaults to 24 (daily). Sources that
+   * post less frequently (weekly/biweekly government portals) can be set higher to avoid wasting
+   * scrape credits on runs that will nearly always return zero new tenders. */
+  scrapeFrequencyHours?: number;
+  /** How many days back to look when deduplicating individual tender URLs before extraction.
+   * Defaults to 7. Weekly/biweekly sources can use 14–21 days since the same listing stays live
+   * across multiple scrape windows. */
+  dedupWindowDays?: number;
   /** Disambiguates this source's slash-separated dates when both day and month are ≤12 (e.g.
    * GHANEPS's "08/09/2026") — see DateFormatHint in tenderRow.ts. Omit when the source's dates
    * are unambiguous (dashes, month names) or when it's known/assumed MM/DD (the default). */
@@ -75,6 +83,10 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     // same render-settle allowance as UNGM.
     waitFor: 6000,
     timeout: 40000,
+    // Government portal — posts new tenders weekly, not daily; running daily burns credits for
+    // near-certain zero results 6 out of 7 days.
+    scrapeFrequencyHours: 72,
+    dedupWindowDays: 21,
   },
   {
     tenderType: "ReliefWeb Jobs",
@@ -103,6 +115,8 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     // rather than leaving it to an implicit fallback (see GHANEPS below for the DMY case this
     // guards against).
     dateFormat: "MDY",
+    scrapeFrequencyHours: 72,
+    dedupWindowDays: 21,
   },
   {
     tenderType: "UNDP",
@@ -132,6 +146,8 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     // Confirmed live: dates are DD/MM/YYYY ("28/08/2026"), not Treasury's MM/DD/YYYY — matters
     // for the rare case where both day and month are ≤12 and the text alone is ambiguous.
     dateFormat: "DMY",
+    scrapeFrequencyHours: 72,
+    dedupWindowDays: 21,
   },
   {
     tenderType: "AfDB",
@@ -144,6 +160,8 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     waitFor: 8000,
     timeout: 45000,
     proxy: "stealth",
+    scrapeFrequencyHours: 48,
+    dedupWindowDays: 14,
   },
   {
     tenderType: "World Bank",
@@ -157,6 +175,8 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
       FIELD_SUFFIX,
     waitFor: 8000,
     timeout: 40000,
+    scrapeFrequencyHours: 48,
+    dedupWindowDays: 14,
   },
   {
     tenderType: "DevelopmentAid",
@@ -180,6 +200,8 @@ export const SOURCE_CONFIGS: SourceConfig[] = [
     prompt:
       "Extract all open tender/prequalification listings on this Kenyan e-procurement platform page, including title, closing/deadline date, tender number, and the full URL linking to each individual tender ('View' link)." +
       FIELD_SUFFIX,
+    scrapeFrequencyHours: 72,
+    dedupWindowDays: 21,
   },
   {
     tenderType: "IUCN Procurement",

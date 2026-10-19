@@ -148,8 +148,21 @@ export const runScrapeJob = inngest.createFunction(
         return fresh;
       });
 
+      // Skip URLs whose tender is already closed — closed tenders don't change, re-extracting
+      // them burns credits for nothing.
+      const closedUrlsArr = await step.run("filter-closed-tenders", async () => {
+        const urls = dedupedResults.map((r) => r.url);
+        const { data } = await supabase.from("tenders").select("source_url").in("source_url", urls).eq("status", "closed");
+        return (data ?? []).map((r: { source_url: string }) => r.source_url);
+      });
+      const closedUrls = new Set<string>(closedUrlsArr);
+      const freshResults = dedupedResults.filter((r) => !closedUrls.has(r.url));
+      if (closedUrls.size > 0) {
+        console.log(`[run-scrape] skipping ${closedUrls.size} URL(s) already closed`);
+      }
+
       await step.run("progress-searched", async () => {
-        await supabase.from("scrape_jobs").update({ progress: { visited: 0, total: dedupedResults.length, stage: "extracting" } }).eq("id", jobId);
+        await supabase.from("scrape_jobs").update({ progress: { visited: 0, total: freshResults.length, stage: "extracting" } }).eq("id", jobId);
       });
 
       if (await step.run("check-canceled-before-extract", () => isJobCanceled(supabase, jobId))) {
@@ -165,21 +178,20 @@ export const runScrapeJob = inngest.createFunction(
       });
       const allowlistedUrls = new Set<string>(allowlistArr);
 
-      // If dedup removed everything, skip straight to done with zero results rather than logging
-      // an error or leaving the job running forever.
-      if (dedupedResults.length === 0) {
+      // If dedup + closed-filter removed everything, skip straight to done.
+      if (freshResults.length === 0) {
         await step.run("mark-done-all-cached", async () => {
           await supabase
             .from("scrape_jobs")
             .update({
               status: "done",
               finished_at: new Date().toISOString(),
-              result_summary: { urls_visited: 0, tendersFound: 0, totalTenders: 0, totalExtracted: 0, openTenders: 0, closedTenders: 0, urlsSkippedAsCached: filteredResults.length, urlsSkipped: results.length - filteredResults.length },
+              result_summary: { urls_visited: 0, tendersFound: 0, totalTenders: 0, totalExtracted: 0, openTenders: 0, closedTenders: 0, urlsSkippedAsCached: filteredResults.length - closedUrls.size, urlsSkippedAsClosed: closedUrls.size, urlsSkipped: results.length - filteredResults.length },
             })
             .eq("id", jobId)
             .neq("status", "canceled");
         });
-        await step.run("log-done-all-cached", () => logJobOutcome(supabase, jobId, `All ${filteredResults.length} URL(s) recently scraped — skipped to save credits.`));
+        await step.run("log-done-all-cached", () => logJobOutcome(supabase, jobId, `All URLs recently scraped or already closed — skipped to save credits.`));
         return { jobId, visited: 0, tendersFound: 0, allCached: true };
       }
 
@@ -203,7 +215,7 @@ export const runScrapeJob = inngest.createFunction(
       // Extracted concurrently instead of one-at-a-time — this was the single biggest latency
       // cost in the whole pipeline (up to ~60s × 10 results run sequentially before) — but
       // bounded, not a full-width Promise.all, to stay under Firecrawl's per-minute rate limit.
-      await mapWithConcurrency(dedupedResults, MAX_CONCURRENT_EXTRACTS, async (result) => {
+      await mapWithConcurrency(freshResults, MAX_CONCURRENT_EXTRACTS, async (result) => {
           const { tenders: extracted, markdown } = await step.run(`extract-${result.url}`, async () => {
             try {
               return await extractTenders(result.url, prompt);
@@ -276,7 +288,7 @@ export const runScrapeJob = inngest.createFunction(
           await step.run(`progress-${result.url}`, async () => {
             await supabase
               .from("scrape_jobs")
-              .update({ progress: { visited, total: dedupedResults.length, current_url: result.url, stage: "extracting" } })
+              .update({ progress: { visited, total: freshResults.length, current_url: result.url, stage: "extracting" } })
               .eq("id", jobId);
           });
       });
@@ -308,6 +320,7 @@ export const runScrapeJob = inngest.createFunction(
               closedTenders: closedCount,
               urlsSkipped: (results.length - filteredResults.length),
               urlsSkippedAsCached: filteredResults.length - dedupedResults.length,
+              urlsSkippedAsClosed: closedUrls.size,
               passedFilters: totalExtracted - Object.values(rejectionCounts).reduce((a, b) => a + b, 0),
               droppedAsDuplicate: totalExtracted - Object.values(rejectionCounts).reduce((a, b) => a + b, 0) - totalInserted,
               ...(rejectionSummary(rejectionCounts) ? { rejectedBy: rejectionSummary(rejectionCounts) } : {}),
@@ -317,7 +330,38 @@ export const runScrapeJob = inngest.createFunction(
           .neq("status", "canceled");
       });
 
-      await step.run("notify", () => notifyTaskOwner(supabase, jobId, totalInserted, insertedTenders));
+      // Track per-term acceptance rate — for multi-query runs, attribute each inserted tender to
+      // the terms it matched (matched_keywords). Single-query runs attribute all inserted tenders
+      // to the one query. Rejection counts split evenly across terms as a best approximation.
+      if (queryList.length > 0) {
+        await step.run("update-term-performance", async () => {
+          const now = new Date().toISOString();
+          const totalRejections = Object.values(rejectionCounts).reduce((a, b) => a + b, 0);
+          for (const term of queryList) {
+            const termInserted = isMultiQuery
+              ? insertedTenders.filter((t) => t.matched_keywords?.includes(term)).length
+              : totalInserted;
+            const termRejections = isMultiQuery
+              ? Math.round(totalRejections / queryList.length)
+              : totalRejections;
+            const { data: existing } = await supabase
+              .from("search_term_performance")
+              .select("runs, total_found, total_rejected")
+              .eq("term", term)
+              .maybeSingle();
+            await supabase.from("search_term_performance").upsert({
+              term,
+              runs: (existing?.runs ?? 0) + 1,
+              total_found: (existing?.total_found ?? 0) + termInserted,
+              total_rejected: (existing?.total_rejected ?? 0) + termRejections,
+              last_run_at: now,
+              updated_at: now,
+            }, { onConflict: "term" });
+          }
+        });
+      }
+
+      await step.run("notify", () => notifyTaskOwner(supabase, jobId, totalInserted, insertedTenders, "Web Search"));
       await step.run("log-done", () => logJobOutcome(supabase, jobId, `Run finished: ${totalInserted} tender(s) found.`));
 
       return { jobId, visited, tendersFound: totalInserted };

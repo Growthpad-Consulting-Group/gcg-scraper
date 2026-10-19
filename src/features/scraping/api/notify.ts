@@ -104,6 +104,71 @@ export function buildTenderSlackCard(t: TenderCardFields & { id: number | string
     .join("\n");
 }
 
+async function fanOutNotifications(
+  supabase: SupabaseClient,
+  tenderType: string,
+  tenders: InsertedTenderSummary[],
+  taskOwnerUserId: string | null
+): Promise<void> {
+  // Fetch preferences with user emails in one join
+  const { data: prefs } = await supabase
+    .from("notification_preferences")
+    .select("user_id, tender_types, keywords, slack_enabled, email_enabled, users!inner(email)")
+    .or("slack_enabled.eq.true,email_enabled.eq.true");
+
+  if (!prefs?.length) return;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+  for (const pref of prefs) {
+    // Skip the task owner — they're already notified by notifyTaskOwner's main path
+    if (String(pref.user_id) === String(taskOwnerUserId)) continue;
+
+    // Source filter: null means "all sources"
+    if (pref.tender_types?.length && !pref.tender_types.includes(tenderType)) continue;
+
+    // Keyword filter: narrow to tenders matching at least one keyword
+    let matchedTenders = tenders;
+    if (pref.keywords?.length) {
+      const kwLower = (pref.keywords as string[]).map((k: string) => k.toLowerCase());
+      matchedTenders = tenders.filter((t) =>
+        kwLower.some((kw) => t.title.toLowerCase().includes(kw))
+      );
+    }
+    if (matchedTenders.length === 0) continue;
+
+    const message = `${matchedTenders.length} new tender${matchedTenders.length === 1 ? "" : "s"} found from ${tenderType}.`;
+    const listed = matchedTenders.slice(0, LIST_LIMIT);
+    const remaining = matchedTenders.length - listed.length;
+    const userEmail: string | null = (pref as any).users?.email ?? null;
+
+    if (pref.slack_enabled) {
+      try {
+        const cardsText = listed.map((t) => buildTenderSlackCard(t, appUrl)).join("\n\n");
+        await sendSlackMessage(
+          `${message}\n\n${cardsText}` +
+          (remaining > 0 ? `\n\n...and ${remaining} more` : "") +
+          `\n\n<${appUrl}/tenders|View tenders>`
+        );
+      } catch (err) {
+        console.error("Fan-out Slack notification failed:", err);
+      }
+    }
+    if (pref.email_enabled && userEmail) {
+      try {
+        const listHtml = listed.map((t) => `<li><a href="${appUrl}${tenderHref(t)}">${t.title}</a></li>`).join("");
+        await sendEmail({
+          to: [userEmail],
+          subject: `${matchedTenders.length} new tender${matchedTenders.length === 1 ? "" : "s"} — ${tenderType}`,
+          html: `<p>${message}</p><ul>${listHtml}${remaining > 0 ? `<li>...and ${remaining} more</li>` : ""}</ul><p><a href="${appUrl}/tenders">View tenders</a></p>`,
+        });
+      } catch (err) {
+        console.error("Fan-out email notification failed:", err);
+      }
+    }
+  }
+}
+
 /**
  * Notifications were previously pure UI — nothing ever inserted a row, and the
  * email/Slack toggles on a task did nothing (an SMS toggle also existed here but was removed —
@@ -117,7 +182,8 @@ export async function notifyTaskOwner(
   supabase: SupabaseClient,
   jobId: string,
   tendersFound: number,
-  tenders: InsertedTenderSummary[] = []
+  tenders: InsertedTenderSummary[] = [],
+  tenderType?: string
 ): Promise<void> {
   if (tendersFound <= 0) return;
 
@@ -212,5 +278,12 @@ export async function notifyTaskOwner(
     } catch (err) {
       console.error("Failed to send tender-found Slack message:", err);
     }
+  }
+
+  // Fan out to other users who have matching notification preferences
+  if (tenderType && tenders.length > 0) {
+    await fanOutNotifications(supabase, tenderType, tenders, userId).catch((err) =>
+      console.error("Fan-out notifications failed:", err)
+    );
   }
 }
