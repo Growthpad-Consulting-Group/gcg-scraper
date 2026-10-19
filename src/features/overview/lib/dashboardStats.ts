@@ -2,15 +2,15 @@ import type { RunJob } from "./runFeed";
 
 // ─── Source color palette (stable assignment by index) ────────────────────────
 export const SOURCE_PALETTE = [
-  "#f05d23", // brand orange
-  "#0d9488", // teal
-  "#7c3aed", // purple
-  "#2563eb", // blue
-  "#db2777", // pink
-  "#d97706", // amber
-  "#0891b2", // cyan
-  "#16a34a", // green
-  "#64748b", // slate
+  "#f05d23", // brand orange — anchor, full strength
+  "#5eead4", // teal-300
+  "#a78bfa", // violet-400
+  "#60a5fa", // blue-400
+  "#f472b6", // pink-400
+  "#fbbf24", // amber-400
+  "#67e8f9", // cyan-300
+  "#4ade80", // green-400
+  "#94a3b8", // slate-400
 ];
 
 export function sourceColor(index: number): string {

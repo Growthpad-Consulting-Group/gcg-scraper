@@ -363,6 +363,8 @@ function TendersContent() {
   const jobFilter = searchParams?.get("job") || null;
   const dateFilter = searchParams?.get("date") || null;
   const typeFilter = searchParams?.get("type") || null;
+  const dateFromParam = searchParams?.get("dateFrom") || null;
+  const dateToParam   = searchParams?.get("dateTo")   || null;
   const sourceFilter = searchParams?.get("source") || null;
   const sourceLabel = searchParams?.get("sourceLabel") || sourceFilter;
 
@@ -375,8 +377,9 @@ function TendersContent() {
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"open" | "closed" | null>(null);
-  const [pursuitFilter, setPursuitFilter] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pursuitParam = searchParams?.get("pursuit") || null;
+  const [pursuitFilter, setPursuitFilter] = useState<string | null>(pursuitParam);
+  const [sidebarOpen, setSidebarOpen] = useState(!!pursuitParam);
   const [typeFilterValue, setTypeFilterValue] = useState<string | null>(typeFilter);
 
   // Keep the dropdown in sync if arriving fresh via a ?type= link (e.g. from Overview's Sources
@@ -772,6 +775,13 @@ function TendersContent() {
             searchable
             searchPlaceholder="Search tenders…"
             enableDateFilter
+            {...(dateFromParam && dateToParam ? {
+              dateRange: {
+                startDate: new Date(dateFromParam),
+                endDate:   new Date(dateToParam),
+                label:     "This week",
+              },
+            } : {})}
             enableStatusPills={false}
             showExportButton
             exportType="tenders"

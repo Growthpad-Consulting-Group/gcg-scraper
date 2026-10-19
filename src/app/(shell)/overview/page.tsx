@@ -334,7 +334,7 @@ export default function OverviewPage() {
           gradient="from-emerald-500 to-emerald-400"
           icon="solar:document-add-broken"
           loading={isLoading}
-          href="/tenders"
+          href={`/tenders?date=${new Date().toISOString().slice(0, 10)}`}
           delay={0.05}
         />
         {/* 2. This week — trend */}
@@ -345,7 +345,12 @@ export default function OverviewPage() {
           gradient="from-blue-500 to-blue-400"
           icon="solar:calendar-broken"
           loading={isLoading}
-          href="/tenders"
+          href={(() => {
+            const today = new Date();
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+            return `/tenders?dateFrom=${monday.toISOString().slice(0, 10)}&dateTo=${today.toISOString().slice(0, 10)}`;
+          })()}
           delay={0.1}
         />
         {/* 3. Acceptance rate — quality signal */}
@@ -369,7 +374,7 @@ export default function OverviewPage() {
           gradient="from-violet-500 to-violet-400"
           icon="solar:eye-broken"
           loading={isLoading}
-          href="/tenders"
+          href="/tenders?pursuit=none"
           delay={0.2}
         />
         {/* 5. Active runs — pipeline health */}
