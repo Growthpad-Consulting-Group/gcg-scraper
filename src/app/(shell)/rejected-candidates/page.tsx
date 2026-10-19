@@ -188,6 +188,13 @@ function RejectedCandidatesContent() {
     title: "Rejected Candidates",
     description: "Tenders filtered out by rejection rules",
     icon: "solar:close-circle-broken",
+    actions: [
+      {
+        label: "View tenders",
+        icon: "solar:case-minimalistic-broken",
+        onClick: () => router.push(jobId ? `/tenders?job=${jobId}` : "/tenders"),
+      },
+    ],
   });
 
   const activeFilterCount = [reasonFilter, typeFilter].filter(Boolean).length;

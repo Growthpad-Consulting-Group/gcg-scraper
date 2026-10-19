@@ -528,6 +528,11 @@ function TendersContent() {
     description: "All collected tenders",
     icon: "solar:case-minimalistic-broken",
     actions: [
+      {
+        label: "Rejected candidates",
+        icon: "solar:danger-triangle-broken",
+        onClick: () => router.push(jobFilter ? `/rejected-candidates?job_id=${jobFilter}` : "/rejected-candidates"),
+      },
       { label: "Add Source", icon: "solar:upload-broken", onClick: () => router.push("/website-sources") },
     ],
   });
