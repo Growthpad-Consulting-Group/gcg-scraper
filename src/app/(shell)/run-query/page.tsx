@@ -407,7 +407,7 @@ function RunQueryContent() {
 
   return (
     <>
-      <div className="mx-auto flex max-w-7xl flex-col gap-4">
+      <div className="mx-auto w-full max-w-6xl flex-col gap-4">
 
         {error && <div className="rounded-md bg-status-danger/10 p-4 text-sm text-status-danger">{error}</div>}
 
@@ -419,8 +419,9 @@ function RunQueryContent() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
-            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+          <div className="flex gap-6 items-start">
+            {/* ── Left: form + console ── */}
+            <div className="flex min-w-0 flex-1 flex-col gap-4">
               <div className="flex justify-center">
                 <RunModeSwitcher mode={runMode} onChange={changeMode} />
               </div>
@@ -554,9 +555,8 @@ function RunQueryContent() {
               />
               <span>Notify on Slack when complete</span>
             </label>
-            </div>
 
-            {scrapeStatus !== "idle" && <div className="mx-auto w-full max-w-4xl">
+            {scrapeStatus !== "idle" && (
               <RunConsole
                 scrapeStatus={scrapeStatus}
                 progress={progress}
@@ -569,10 +569,14 @@ function RunQueryContent() {
                 taskId={jobId}
                 mode={mode}
               />
-            </div>}
+            )}
+            </div>
 
-            <div className="mx-auto w-full max-w-4xl">
-              <RecentRunsPanel jobs={recentJobs} loading={recentJobsLoading} />
+            {/* ── Right: recent runs sidebar ── */}
+            <div className="hidden w-72 shrink-0 xl:block">
+              <div className="sticky top-6">
+                <RecentRunsPanel jobs={recentJobs} loading={recentJobsLoading} />
+              </div>
             </div>
           </div>
         )}

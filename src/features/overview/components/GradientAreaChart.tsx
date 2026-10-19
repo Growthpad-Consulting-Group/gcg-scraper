@@ -29,7 +29,7 @@ function makeGradient(ctx: CanvasRenderingContext2D, area: ChartArea, color: str
 
 interface Props {
   data: StackedChartData;
-  onNavigate?: () => void;
+  onNavigate?: (source?: string) => void;
 }
 
 export default function GradientAreaChart({ data, onNavigate }: Props) {
@@ -72,7 +72,9 @@ export default function GradientAreaChart({ data, onNavigate }: Props) {
     maintainAspectRatio: false,
     interaction: { mode: "index" as const, intersect: false },
     onClick: (_e: ChartEvent, elements: ActiveElement[]) => {
-      if (elements.length > 0 && onNavigate) onNavigate();
+      if (!onNavigate) return;
+      const source = elements.length > 0 ? data.datasets[elements[0].datasetIndex]?.label : undefined;
+      onNavigate(source);
     },
     onHover: (event: ChartEvent, elements: ActiveElement[]) => {
       const el = event.native?.target as HTMLElement | undefined;
@@ -119,13 +121,17 @@ export default function GradientAreaChart({ data, onNavigate }: Props) {
 
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Legend */}
+      {/* Legend — each item navigates to that source */}
       <div className="flex flex-wrap gap-x-5 gap-y-2">
         {data.datasets.map((ds) => (
-          <div key={ds.label} className="flex items-center gap-2">
+          <button
+            key={ds.label}
+            onClick={() => onNavigate?.(ds.label)}
+            className="flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:opacity-70"
+          >
             <div className="h-[3px] w-5 rounded-full" style={{ backgroundColor: ds.color }} />
             <span className="font-mono text-[11px] text-text-lo">{ds.label}</span>
-          </div>
+          </button>
         ))}
       </div>
 

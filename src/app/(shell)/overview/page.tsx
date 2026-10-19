@@ -417,7 +417,7 @@ export default function OverviewPage() {
             </div>
           }
         >
-          <GradientAreaChart data={stackedData} onNavigate={() => router.push("/tenders")} />
+          <GradientAreaChart data={stackedData} onNavigate={(source) => router.push(source ? `/tenders?type=${encodeURIComponent(source)}` : "/tenders")} />
         </Card>
       </div>
 

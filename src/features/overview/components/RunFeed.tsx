@@ -387,10 +387,10 @@ function JobCard({
               />
             )}
             <div className={cn(
-              "relative flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg",
+              "relative flex h-7 w-7 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg",
               cfg.gradient
             )}>
-              <Icon icon={cfg.icon} width={18} className="text-white" />
+              <Icon icon={cfg.icon} width={16} className="text-white" />
             </div>
           </div>
 
