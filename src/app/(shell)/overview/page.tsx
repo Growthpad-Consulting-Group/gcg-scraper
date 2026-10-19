@@ -288,7 +288,7 @@ export default function OverviewPage() {
                 {!isLoading && nextTask && (
                   <div className="mt-1 inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1">
                     <div className="h-1.5 w-1.5 rounded-full bg-status-success" />
-                    <p className="font-mono text-[10px] text-white/60">
+                    <p className="font-mono text-xs text-white/60">
                       Next: <span className="text-brand-500">{nextRunLabel(nextTask)}</span>
                       {" · "}{nextTask.name}
                     </p>

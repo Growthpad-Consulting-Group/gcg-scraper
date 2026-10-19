@@ -20,6 +20,7 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/api/mcp") ||
     pathname.startsWith("/.well-known") ||
     pathname.startsWith("/_next") ||
+    pathname.startsWith("/assets") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/icons") ||
     pathname === "/manifest.webmanifest" ||
