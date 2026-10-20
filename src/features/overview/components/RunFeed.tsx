@@ -507,6 +507,16 @@ function JobCard({
                 </div>
               )}
 
+              {/* Skipped reason */}
+              {skipped && skippedReason(job) && (
+                <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-text-lo/20 bg-surface-2/60 px-3 py-2.5">
+                  <Icon icon="solar:skip-next-broken" width={14} className="mt-0.5 shrink-0 text-text-lo" />
+                  <p className="font-mono text-xs text-text-lo">
+                    {skippedReason(job)}
+                  </p>
+                </div>
+              )}
+
               {/* Error message */}
               {isError && (
                 <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-status-danger/20 bg-status-danger/8 px-3 py-2.5">
@@ -632,6 +642,7 @@ export default function RunFeed({
   onRefresh: () => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showSkipped, setShowSkipped] = useState(false);
   const hasRunningJob = jobs.some((j) => j.status === "running");
   const [now, setNow] = useState(() => Date.now());
 
@@ -663,11 +674,22 @@ export default function RunFeed({
     );
   }
 
-  const groups = groupJobs(jobs);
+  const skippedCount = jobs.filter(isSkippedJob).length;
+  const visibleJobs = showSkipped ? jobs : jobs.filter((j) => !isSkippedJob(j));
+  const groups = groupJobs(visibleJobs);
   let globalIndex = 0;
 
   return (
     <div className="flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "440px" }}>
+      {skippedCount > 0 && (
+        <button
+          onClick={() => setShowSkipped((v) => !v)}
+          className="flex items-center gap-1.5 self-end rounded-xl border border-app-border/30 bg-surface-2/60 px-2.5 py-1 text-[11px] text-text-lo transition-colors hover:text-text-hi"
+        >
+          <Icon icon={showSkipped ? "solar:eye-broken" : "solar:eye-closed-broken"} width={12} />
+          {showSkipped ? `Hide skipped (${skippedCount})` : `Show skipped (${skippedCount})`}
+        </button>
+      )}
       {groups.map((group) => (
         <div key={group.label} className="flex flex-col gap-1.5">
           <FeedSection label={group.label} isLive={group.label === "Live"} />
