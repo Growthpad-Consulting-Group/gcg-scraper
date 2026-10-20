@@ -18,6 +18,8 @@ import {
   resultsHref,
   hasRejectedCandidates,
   hasResults,
+  isSkippedJob,
+  skippedReason,
   type RunJob,
 } from "@/features/overview/lib/runFeed";
 
@@ -93,6 +95,16 @@ const STATUS_CONFIG: Record<RunJob["status"], {
   },
 };
 
+const SKIPPED_CONFIG = {
+  label: "Skipped",
+  icon: "solar:skip-next-broken",
+  gradient: "from-slate-400 to-slate-300",
+  badgeBg: "bg-surface-2 border-app-border/40",
+  badgeText: "text-text-lo",
+  ringColor: "transparent",
+  pulse: false,
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function resultCount(job: RunJob): string | null {
@@ -104,7 +116,10 @@ function resultCount(job: RunJob): string | null {
 
 function progressLine(job: RunJob): string {
   if (job.status === "queued") return "Waiting to start…";
-  if (job.status === "canceled") return "Canceled";
+  if (job.status === "canceled") {
+    const reason = skippedReason(job);
+    return reason ? `Skipped — ${reason}` : "Canceled";
+  }
   if (job.status === "running") {
     const { stage, visited, total } = job.progress ?? {};
     if (visited != null && total) return `${stage ? stage + " · " : ""}${visited} / ${total} pages`;
@@ -339,9 +354,10 @@ function JobCard({
   onRefresh: () => void;
   index: number;
 }) {
-  const cfg = STATUS_CONFIG[job.status];
+  const skipped = isSkippedJob(job);
+  const cfg = skipped ? SKIPPED_CONFIG : STATUS_CONFIG[job.status];
   const duration = runDuration(job, now);
-  const canRetry = (job.status === "error" || job.status === "canceled") && job.task_id != null;
+  const canRetry = !skipped && (job.status === "error" || job.status === "canceled") && job.task_id != null;
   const rejected = useRejectedCandidates(job.id);
   const showRej = hasRejectedCandidates(job);
   const isActive = job.status === "running" || job.status === "queued";

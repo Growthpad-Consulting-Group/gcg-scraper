@@ -37,6 +37,15 @@ export function runItemCount(job: RunJob): number | null {
   return typeof value === "number" ? value : null;
 }
 
+export function isSkippedJob(job: RunJob): boolean {
+  return job.status === "canceled" && typeof job.result_summary?.skippedReason === "string";
+}
+
+export function skippedReason(job: RunJob): string | null {
+  const r = job.result_summary?.skippedReason;
+  return typeof r === "string" ? r : null;
+}
+
 export function runErrorMessage(job: RunJob): string | null {
   const error = job.result_summary?.error;
   return typeof error === "string" ? error : null;
