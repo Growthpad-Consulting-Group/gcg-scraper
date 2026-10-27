@@ -12,12 +12,12 @@ module.exports = {
         background: "var(--background)",
         foreground: "var(--foreground)",
 
-        canvas: "var(--canvas)",
-        surface: "var(--surface)",
-        "surface-2": "var(--surface-2)",
-        "app-border": "var(--border)",
-        "text-hi": "var(--text-hi)",
-        "text-lo": "var(--text-lo)",
+        canvas: "rgb(var(--canvas) / <alpha-value>)",
+        surface: "rgb(var(--surface) / <alpha-value>)",
+        "surface-2": "rgb(var(--surface-2) / <alpha-value>)",
+        "app-border": "rgb(var(--border) / <alpha-value>)",
+        "text-hi": "rgb(var(--text-hi) / <alpha-value>)",
+        "text-lo": "rgb(var(--text-lo) / <alpha-value>)",
 
         brand: {
           500: "#f05d23",

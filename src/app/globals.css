@@ -8,24 +8,26 @@
  * opt in until migrated — these vars only back the new bg-canvas/bg-surface/etc
  * utilities used by new components.
  */
+/* RGB channels, not hex: tailwind.config.js wraps them in rgb(... / <alpha-value>)
+ * so opacity modifiers like border-app-border/40 work. */
 :root {
-  --canvas: #f7f7f8;
-  --surface: #ffffff;
-  --surface-2: #f1f1f3;
-  --border: #e4e4e7;
-  --text-hi: #18181b;
-  --text-lo: #71717a;
+  --canvas: 247 247 248;
+  --surface: 255 255 255;
+  --surface-2: 241 241 243;
+  --border: 228 228 231;
+  --text-hi: 24 24 27;
+  --text-lo: 113 113 122;
   /* Used by GenericTable to compute internal scroll height */
   --header-height: 72px;
 }
 
 :root.dark {
-  --canvas: #0b0c0e;
-  --surface: #131417;
-  --surface-2: #1a1c1f;
-  --border: #26282c;
-  --text-hi: #f4f4f5;
-  --text-lo: #8b8d93;
+  --canvas: 11 12 14;
+  --surface: 19 20 23;
+  --surface-2: 26 28 31;
+  --border: 38 40 44;
+  --text-hi: 244 244 245;
+  --text-lo: 139 141 147;
 }
 
 @keyframes headerSlideIn {
@@ -67,7 +69,7 @@
 body {
   transition: background-color 0.3s ease, color 0.3s ease;
   font-family: var(--font-figtree), sans-serif;
-  background-color: var(--canvas);
+  background-color: rgb(var(--canvas));
   font-size: 15px;
 }
 

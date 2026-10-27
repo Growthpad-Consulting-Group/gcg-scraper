@@ -43,7 +43,7 @@ export default function StatCard({ title, value, icon, color = 'orange', subtitl
   const gradient = gradients[color];
   const shadow = shadows[color];
 
-  const className = `relative block overflow-hidden rounded-2xl p-4 border group transition-all duration-500 h-full bg-white/80 backdrop-blur-xl border-slate-100 shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-sm${
+  const className = `relative block overflow-hidden rounded-2xl p-4 border group transition-all duration-500 h-full bg-surface/80 backdrop-blur-xl border-app-border shadow-xl shadow-slate-200/40 dark:shadow-black/20 hover:shadow-sm${
     href || onClick ? ' cursor-pointer active:scale-[0.98] hover:scale-[1.01]' : ''
   }`;
 
