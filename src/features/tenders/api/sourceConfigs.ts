@@ -262,6 +262,43 @@ export function matchesKeywords(tender: { title: string; description?: string | 
   return matchedKeywords(tender, kw).length > 0;
 }
 
+const QUERY_PLACE_WORDS = /\b(kenya|ghana|zambia|nigeria|rwanda|uganda|tanzania|nairobi|east africa|west africa)\b/gi;
+
+/** Topic phrases for a search-query task, e.g.
+ * `"request for proposal" BPO contact centre and customer experience outsourcing Kenya` →
+ * ["BPO contact centre", "customer experience outsourcing"]. The quoted intent words and the
+ * country/place words are dropped, and the rest is split on "and", so each phrase is a topic a
+ * tender can plausibly carry in its title. Used as the keyword backstop for multi-query tasks,
+ * where the full query string can never match a tender verbatim. */
+export function topicKeywordsFromQuery(query: string): string[] {
+  const topic = query
+    .replace(/"[^"]*"/g, " ")
+    .replace(QUERY_PLACE_WORDS, " ")
+    .replace(/\bservices?\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return topic
+    .split(/\s+and\s+|\s*&\s*|,\s*/i)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 3);
+}
+
+/** Multi-query backstop: a tender passes when, for at least one topic phrase, about half of that
+ * phrase's words (at least one) appear as word starts in its title, description or category.
+ * Looser than matchesKeywords on purpose — a topic phrase like "sales outsourcing lead generation"
+ * should still match a tender that only says "sales outsourcing". */
+export function matchesTopicPhrases(tender: { title: string; description?: string | null; category?: string | null }, phrases: string[]): boolean {
+  if (!phrases.length) return true;
+  const haystack = `${tender.title} ${tender.description || ""} ${tender.category || ""}`.toLowerCase();
+  return phrases.some((phrase) => {
+    const words = phrase.toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
+    if (!words.length) return false;
+    const needed = Math.max(1, Math.floor(words.length / 2));
+    const found = words.filter((w) => new RegExp(`\\b${escapeRegExp(w)}`).test(haystack)).length;
+    return found >= needed;
+  });
+}
+
 /** The subset of `keywords` a tender actually matched on — same matching rules as
  * `matchesKeywords` (word-boundary, spelling + acronym variants), but returns *which* terms hit
  * rather than a bare boolean, so it can be stored on the tender row for triage and keyword-list
@@ -346,7 +383,7 @@ export type RejectionReason = "no_url" | "country" | "keywords" | "source_conten
 
 export function classifyRejection(
   tender: { title: string; source_url?: string | null; description?: string | null; category?: string | null; organization?: string | null; location?: string | null },
-  opts: { keywords?: string[] | null; countries?: string[] | null; markdown: string | null; fallbackUrl?: string; skipKeywords?: boolean; allowlistedUrls?: Set<string> }
+  opts: { keywords?: string[] | null; topicPhrases?: string[] | null; countries?: string[] | null; markdown: string | null; fallbackUrl?: string; skipKeywords?: boolean; allowlistedUrls?: Set<string> }
 ): RejectionReason | null {
   const url = tender.source_url || opts.fallbackUrl;
   if (!url) return "no_url";
@@ -355,6 +392,7 @@ export function classifyRejection(
   if (opts.allowlistedUrls?.has(url)) return null;
   if (!matchesCountries(tender, opts.countries)) return "country";
   if (!opts.skipKeywords && !matchesKeywords(tender, opts.keywords)) return "keywords";
+  if (opts.topicPhrases && !matchesTopicPhrases(tender, opts.topicPhrases)) return "keywords";
   if (!matchesSourceContent(tender, opts.markdown)) return "source_content";
   return null;
 }

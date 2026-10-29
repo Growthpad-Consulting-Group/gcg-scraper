@@ -2,7 +2,7 @@ import { inngest } from "./inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { searchWeb } from "./firecrawlSearch";
 import { extractTenders, type ExtractedTender } from "@/features/tenders/api/firecrawlExtract";
-import { classifyRejection, matchedKeywords, rejectionSummary, type RejectionReason } from "@/features/tenders/api/sourceConfigs";
+import { classifyRejection, matchedKeywords, rejectionSummary, topicKeywordsFromQuery, type RejectionReason } from "@/features/tenders/api/sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
 import { logRejectedTenders } from "@/features/tenders/api/rejectedTenders";
 import { isJobCanceled } from "./jobStatus";
@@ -86,6 +86,9 @@ export const runScrapeJob = inngest.createFunction(
     const isMultiQuery = queryList.length > 1;
     // The label used in prompts/logging below — every term for multi-query, the single query otherwise.
     const queryLabel = queryList.join(", ");
+    // Keyword backstop for the multi-query path: the topic phrases inside each search query
+    // (see topicKeywordsFromQuery), not the full query strings.
+    const topicTerms = [...new Set(queryList.flatMap(topicKeywordsFromQuery))];
 
     const supabase = createServerSupabaseClient();
 
@@ -241,18 +244,19 @@ export const runScrapeJob = inngest.createFunction(
               // Search-time relevance (the query itself) is enough for the ad-hoc single-query
               // Run Query path, where queryList is one free-text phrase rather than a curated
               // term list — word-boundary matching that phrase against the tender would
-              // over-reject. For the scheduled multi-query path, the keyword backstop can't use the
-              // full query strings: each one is a long quoted-intent + topic + country phrase that
-              // has to appear verbatim in a tender's title, so almost nothing passed (confirmed live:
-              // 137 keyword rejects on Oct 27 alone, incl. "REQUEST FOR PROPOSALS ... CONSULTANCY
-              // SERVICES"). The country and source-content checks still run for these tasks.
-              const reason = classifyRejection(t, { countries, markdown, fallbackUrl: result.url, skipKeywords: true, allowlistedUrls });
+              // over-reject. For the scheduled multi-query path, a search hit is often a general
+              // aggregator page, so the topic phrases from each query (topicTerms) are the backstop.
+              // They are not the full query strings, which would have to match a title verbatim
+              // and rejected almost everything (137 keyword rejects on Oct 27 alone). Without this
+              // backstop, unrelated tenders from an allowed country got saved (Oct 28: five Rwanda
+              // procurement tenders under "Contact Centre, Sales & Workforce Outsourcing").
+              const reason = classifyRejection(t, { countries, markdown, fallbackUrl: result.url, topicPhrases: isMultiQuery ? topicTerms : undefined, skipKeywords: true, allowlistedUrls });
               if (reason) {
                 pageRejections[reason] += 1;
                 pageRejected.push({ tender: t, reason });
                 return [];
               }
-              const matched = matchedKeywords(t, queryList);
+              const matched = matchedKeywords(t, isMultiQuery ? topicTerms : queryList);
               return [
                 {
                   title: t.title,
