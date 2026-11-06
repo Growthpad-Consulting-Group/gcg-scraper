@@ -14,11 +14,17 @@ const MAX_LIMIT = 2000;
 // expanded/opened, fetched lazily from /api/tenders/[id] rather than for all 500 rows up front.
 const LIST_COLUMNS =
   "id,title,description,closing_date,source_url,status,scraped_at,format,tender_type,budget,currency,location,country,organization,category,document_url,job_id,document_checked_at,reminder_sent_at,created_at,updated_at,pursuit_status,assigned_to,matched_keywords,sectors,languages,eligibility,attachments,bid_submitted_at,bid_value";
+// The overview charts only use these seven fields. Returning the full list projection for up to
+// 2,000 rows made every dashboard refresh serialize and transfer descriptions, attachments and
+// other fields that were immediately discarded by the client.
+const DASHBOARD_COLUMNS =
+  "scraped_at,tender_type,status,country,pursuit_status,bid_submitted_at,bid_value";
 
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("query")?.trim();
   const jobId = req.nextUrl.searchParams.get("job")?.trim();
   const source = req.nextUrl.searchParams.get("source")?.trim();
+  const view = req.nextUrl.searchParams.get("view")?.trim();
   const limitParam = Number(req.nextUrl.searchParams.get("limit"));
   const offsetParam = Number(req.nextUrl.searchParams.get("offset"));
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, MAX_LIMIT) : DEFAULT_LIMIT;
@@ -28,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   let request = supabase
     .from("tenders")
-    .select(LIST_COLUMNS, { count: "exact" })
+    .select(view === "dashboard" ? DASHBOARD_COLUMNS : LIST_COLUMNS, { count: "exact" })
     .order("scraped_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (query) {

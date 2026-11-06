@@ -170,6 +170,10 @@ function Card({
 
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+/** Refresh interval while the tab is visible. Scheduled runs finish in minutes, so 15s was needlessly frequent. */
+const OVERVIEW_POLL_MS = 60 * 1000;
+const OVERVIEW_FULL_REFRESH_MS = 5 * 60 * 1000;
+
 export default function OverviewPage() {
   const router = useRouter();
   const { fullName, loading: userLoading } = useUserProfile();
@@ -181,6 +185,8 @@ export default function OverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [trendWindow, setTrendWindow] = useState<TrendWindow>(14);
   const hasLoadedOnce = useRef(false);
+  const jobsRef = useRef<RunJob[]>([]);
+  const lastFullRefreshRef = useRef(0);
 
   const fetchData = useCallback(async () => {
     if (!hasLoadedOnce.current) setIsLoading(true);
@@ -188,15 +194,18 @@ export default function OverviewPage() {
       const [jobsRes, tasksRes, tendersRes] = await Promise.all([
         fetch("/api/jobs?limit=50"),
         fetch("/api/scheduled-tasks"),
-        fetch("/api/tenders?limit=2000"),
+        fetch("/api/tenders?limit=2000&view=dashboard"),
       ]);
       const [jobsData, tasksData, tendersData] = await Promise.all([
         jobsRes.json(), tasksRes.json(), tendersRes.json(),
       ]);
-      setJobs(jobsData.jobs || []);
+      const nextJobs = jobsData.jobs || [];
+      jobsRef.current = nextJobs;
+      setJobs(nextJobs);
       setTasks((tasksData.tasks || []).filter((t: ScheduledTask) => t.is_enabled));
       setTenders(tendersData.tenders || []);
       setTotalTenders(tendersData.total ?? tendersData.tenders?.length ?? 0);
+      lastFullRefreshRef.current = Date.now();
     } catch (err: any) {
       toast.error("Error loading dashboard: " + err.message);
     } finally {
@@ -205,11 +214,62 @@ export default function OverviewPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 15000);
-    return () => clearInterval(interval);
+  // Keep the run feed responsive without re-fetching tasks and 2,000 tender rows every minute.
+  // When a running job reaches a terminal state, refresh the complete dashboard once so its new
+  // tenders and chart totals appear immediately.
+  const fetchJobUpdates = useCallback(async () => {
+    try {
+      const res = await fetch("/api/jobs?limit=50");
+      if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+      const data = await res.json();
+      const nextJobs: RunJob[] = data.jobs || [];
+      const previousStatuses = new Map(jobsRef.current.map((job) => [job.id, job.status]));
+      const completed = nextJobs.some((job) => {
+        const previous = previousStatuses.get(job.id);
+        return (previous === "running" || previous === "queued") && job.status !== "running" && job.status !== "queued";
+      });
+      jobsRef.current = nextJobs;
+      setJobs(nextJobs);
+      if (completed) await fetchData();
+    } catch (err) {
+      console.warn("Overview job refresh failed:", err);
+    }
   }, [fetchData]);
+
+  // Poll only while this tab is visible. The page loads 2,000 tenders per refresh,
+  // so hidden tabs must not keep fetching.
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (timer === null) timer = setInterval(fetchJobUpdates, OVERVIEW_POLL_MS);
+    };
+    const stop = () => {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (Date.now() - lastFullRefreshRef.current >= OVERVIEW_FULL_REFRESH_MS) {
+          fetchData();
+        } else {
+          fetchJobUpdates();
+        }
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    fetchData();
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [fetchData, fetchJobUpdates]);
 
   // Derived stats
   const sourceBreakdown = buildSourceBreakdown(tenders);

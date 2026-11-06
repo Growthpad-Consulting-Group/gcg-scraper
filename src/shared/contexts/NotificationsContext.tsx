@@ -24,6 +24,7 @@ const NotificationsContext = createContext<NotificationsContextValue | undefined
 
 const CACHE_KEY = "notifications_cache";
 const CACHE_DURATION = 5 * 60 * 1000;
+const POLL_INTERVAL_MS = 60 * 1000;
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -66,10 +67,35 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Poll only while this tab is visible. A hidden or idle tab makes no requests,
+  // and becoming visible again refreshes straight away.
   useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (timer === null) timer = setInterval(fetchNotifications, POLL_INTERVAL_MS);
+    };
+    const stop = () => {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchNotifications();
+        start();
+      } else {
+        stop();
+      }
+    };
+
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [fetchNotifications]);
 
   const markNotificationAsRead = async (id: string) => {
