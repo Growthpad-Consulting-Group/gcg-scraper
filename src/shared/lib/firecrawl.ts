@@ -21,6 +21,8 @@ export const KEYS = [
   process.env.FIRECRAWL_API_KEY_FALLBACK_9,
   process.env.FIRECRAWL_API_KEY_FALLBACK_10,
   process.env.FIRECRAWL_API_KEY_FALLBACK_11,
+  process.env.FIRECRAWL_API_KEY_FALLBACK_12,
+  process.env.FIRECRAWL_API_KEY_FALLBACK_13,
 ].filter((key): key is string => !!key);
 
 // 402 is Firecrawl's documented status for an exhausted/insufficient-credit account. 429 is rate
@@ -43,7 +45,7 @@ function shouldRotate(status: number, bodyText: string): boolean {
  * isn't a consumed stream.
  */
 export async function firecrawlFetch(path: string, body: object | FormData): Promise<Response> {
-  if (KEYS.length === 0) throw new Error("No Firecrawl API key configured (FIRECRAWL_API_KEY / FIRECRAWL_API_KEY_FALLBACK_1/2/3)");
+  if (KEYS.length === 0) throw new Error("No Firecrawl API key configured (FIRECRAWL_API_KEY or FIRECRAWL_API_KEY_FALLBACK_1..13)");
   const isFormData = body instanceof FormData;
 
   const doFetch = (key: string) =>
