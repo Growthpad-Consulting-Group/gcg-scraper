@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesTopicPhrases, topicKeywordsFromQuery } from "./sourceConfigs";
+import { matchesSearchQuery, matchesTopicPhrases, topicKeywordsFromQuery } from "./sourceConfigs";
 
 const contactCentreQueries = [
   '"request for proposal" BPO contact centre and customer experience outsourcing Kenya',
@@ -46,5 +46,17 @@ describe("topicKeywordsFromQuery", () => {
 
   it("keeps tenders that match the query topic", () => {
     for (const title of relevant) expect(hits(title, contactCentreQueries)).toBe(true);
+  });
+});
+
+describe("matchesSearchQuery", () => {
+  it("attributes an accepted tender to its full configured query", () => {
+    const query = '"request for proposal" public relations and media relations services Kenya';
+    expect(matchesSearchQuery({ title: "Request for proposals - Provision of Public Relations Services" }, query)).toBe(true);
+  });
+
+  it("does not attribute an unrelated tender to the query", () => {
+    const query = '"request for proposal" tourism destination branding and export promotion services Kenya';
+    expect(matchesSearchQuery({ title: "Request for Proposal for Event Management Services" }, query)).toBe(false);
   });
 });

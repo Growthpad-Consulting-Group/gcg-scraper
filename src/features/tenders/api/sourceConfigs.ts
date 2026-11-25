@@ -299,6 +299,16 @@ export function matchesTopicPhrases(tender: { title: string; description?: strin
   });
 }
 
+/** Whether a saved tender should be attributed to one configured search query for performance
+ * reporting. Kept beside the query parser/matcher so attribution cannot drift from the relevance
+ * filter used by the scraper. */
+export function matchesSearchQuery(
+  tender: { title: string; description?: string | null; category?: string | null },
+  query: string
+): boolean {
+  return matchesTopicPhrases(tender, topicKeywordsFromQuery(query));
+}
+
 /** The subset of `keywords` a tender actually matched on — same matching rules as
  * `matchesKeywords` (word-boundary, spelling + acronym variants), but returns *which* terms hit
  * rather than a bare boolean, so it can be stored on the tender row for triage and keyword-list

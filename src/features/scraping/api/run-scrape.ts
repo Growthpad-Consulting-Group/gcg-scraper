@@ -2,7 +2,7 @@ import { inngest } from "./inngest-client";
 import { createServerSupabaseClient } from "@/shared/lib/supabase/server";
 import { searchWeb } from "./firecrawlSearch";
 import { extractTenders, type ExtractedTender } from "@/features/tenders/api/firecrawlExtract";
-import { classifyRejection, matchedKeywords, rejectionSummary, topicKeywordsFromQuery, type RejectionReason } from "@/features/tenders/api/sourceConfigs";
+import { classifyRejection, matchedKeywords, matchesSearchQuery, rejectionSummary, topicKeywordsFromQuery, type RejectionReason } from "@/features/tenders/api/sourceConfigs";
 import { computeStatus, resolveClosingDate, insertTenderRows, resolveOptionalFields, type InsertedTenderSummary } from "@/features/tenders/api/tenderRow";
 import { logRejectedTenders } from "@/features/tenders/api/rejectedTenders";
 import { isJobCanceled } from "./jobStatus";
@@ -333,16 +333,20 @@ export const runScrapeJob = inngest.createFunction(
           .neq("status", "canceled");
       });
 
-      // Track per-term acceptance rate — for multi-query runs, attribute each inserted tender to
-      // the terms it matched (matched_keywords). Single-query runs attribute all inserted tenders
-      // to the one query. Rejection counts split evenly across terms as a best approximation.
+      // Track per-term acceptance rate. `matched_keywords` contains the short topic phrases
+      // extracted from a query, not the original full query string, so comparing it directly to
+      // `term` always returned zero for multi-query runs. Re-run the same topic-phrase matcher
+      // against each inserted row instead; the returned summary includes description/category so
+      // attribution uses the same searchable fields as the relevance backstop above.
+      // Rejection counts remain split evenly because search results are merged and deduped before
+      // extraction, so a rejected page no longer has a single reliable originating query.
       if (queryList.length > 0) {
         await step.run("update-term-performance", async () => {
           const now = new Date().toISOString();
           const totalRejections = Object.values(rejectionCounts).reduce((a, b) => a + b, 0);
           for (const term of queryList) {
             const termInserted = isMultiQuery
-              ? insertedTenders.filter((t) => t.matched_keywords?.includes(term)).length
+              ? insertedTenders.filter((t) => matchesSearchQuery(t, term)).length
               : totalInserted;
             const termRejections = isMultiQuery
               ? Math.round(totalRejections / queryList.length)

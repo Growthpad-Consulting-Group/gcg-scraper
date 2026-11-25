@@ -144,6 +144,8 @@ describe("insertTenderRows", () => {
               .map((r, i) => ({
                 id: i + 1,
                 title: r.title,
+                description: r.description,
+                source_url: r.source_url,
                 closing_date: r.closing_date,
                 status: r.status,
                 organization: r.organization,

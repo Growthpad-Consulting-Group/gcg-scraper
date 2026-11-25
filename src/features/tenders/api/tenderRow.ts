@@ -124,6 +124,8 @@ function normalizeTitle(title: string): string {
 export interface InsertedTenderSummary {
   id: number;
   title: string;
+  description: string | null;
+  source_url: string;
   closing_date: string;
   status: "open" | "closed";
   organization: string | null;
@@ -171,7 +173,7 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
   const { data: insertedRows, error } = await supabase
     .from("tenders")
     .upsert(deduped, { onConflict: "source_url", ignoreDuplicates: true })
-    .select("id, title, closing_date, status, organization, location, category, matched_keywords");
+    .select("id, title, description, source_url, closing_date, status, organization, location, category, matched_keywords");
   if (error) throw error;
 
   const returned = insertedRows ?? [];
@@ -182,6 +184,8 @@ export async function insertTenderRows(supabase: SupabaseClient, rows: TenderRow
     rows: returned.map((r) => ({
       id: r.id,
       title: r.title,
+      description: r.description ?? null,
+      source_url: r.source_url,
       closing_date: r.closing_date,
       status: r.status,
       organization: r.organization,
